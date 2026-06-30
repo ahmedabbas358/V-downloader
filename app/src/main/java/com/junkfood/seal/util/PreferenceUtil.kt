@@ -283,6 +283,10 @@ object PreferenceUtil {
 
     fun containsKey(key: String) = kv.containsKey(key)
 
+    fun getMaxConcurrentDownloads(): Int = MAX_CONCURRENT_DOWNLOADS.getInt(3)
+
+    fun setMaxConcurrentDownloads(value: Int) = encodeInt(MAX_CONCURRENT_DOWNLOADS, value)
+
     fun getAudioConvertFormat(): Int = AUDIO_CONVERSION_FORMAT.getInt()
 
     fun getVideoResolution(): Int = VIDEO_QUALITY.getInt()
