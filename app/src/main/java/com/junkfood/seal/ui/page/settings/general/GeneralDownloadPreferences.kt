@@ -23,6 +23,7 @@ import androidx.compose.material.icons.outlined.HistoryToggleOff
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.MoneyOff
 import androidx.compose.material.icons.outlined.Layers
+import com.junkfood.seal.util.MAX_CONCURRENT_DOWNLOADS
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.NotificationsOff
@@ -355,14 +356,14 @@ fun GeneralDownloadPreferences(onNavigateBack: () -> Unit, navigateToTemplate: (
                 }
 
                 item {
-                    var concurrentDownloads by remember { mutableStateOf(PreferenceUtil.getInt(MAX_CONCURRENT_DOWNLOADS)) }
+                    var concurrentDownloads by remember { mutableStateOf(PreferenceUtil.run { MAX_CONCURRENT_DOWNLOADS.getInt() }) }
                     com.junkfood.seal.ui.component.PreferenceSlider(
                         title = stringResource(id = R.string.concurrent_downloads),
                         description = stringResource(id = R.string.concurrent_downloads_desc),
                         icon = Icons.Outlined.Layers,
                         value = concurrentDownloads.toFloat(),
                         onValueChange = { concurrentDownloads = it.toInt() },
-                        onValueChangeFinished = { PreferenceUtil.updateValue(MAX_CONCURRENT_DOWNLOADS, concurrentDownloads) },
+                        onValueChangeFinished = { PreferenceUtil.encodeInt(MAX_CONCURRENT_DOWNLOADS, concurrentDownloads) },
                         valueRange = 1f..10f,
                         steps = 8
                     )
