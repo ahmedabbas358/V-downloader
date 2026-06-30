@@ -218,7 +218,7 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
 
     /** Processes pending tasks, prioritizing downloads. */
     private fun doYourWork() {
-        if (taskStateMap.countRunning() >= MAX_CONCURRENT_DOWNLOADS.getInt()) return
+        if (taskStateMap.countRunning() >= com.junkfood.seal.util.PreferenceUtil.getInt(MAX_CONCURRENT_DOWNLOADS)) return
 
         taskStateMap.entries
             .sortedBy { (_, state) -> state.downloadState }

@@ -138,7 +138,7 @@ fun AboutPage(
                 item {
                     PreferenceItem(
                         title = stringResource(id = R.string.sponsor),
-                        description = stringResource(id = R.string.sponsor_desc),
+                        description = stringResource(id = R.string.sponsors_desc),
                         icon = Icons.Outlined.VolunteerActivism,
                     ) {
                         //                    openUrl(githubSponsor)

@@ -10,8 +10,7 @@ import android.util.Log
 import com.junkfood.seal.util.NotificationUtil
 import android.net.wifi.WifiManager
 import android.os.PowerManager
-import android.util.Log
-import com.junkfood.seal.util.NotificationUtil
+
 import com.junkfood.seal.util.NotificationUtil.SERVICE_NOTIFICATION_ID
 
 private const val TAG = "DownloadService"

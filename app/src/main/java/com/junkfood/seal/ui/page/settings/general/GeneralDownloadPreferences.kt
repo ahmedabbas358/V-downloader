@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.HistoryToggleOff
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.MoneyOff
+import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.NotificationsOff
@@ -354,7 +355,7 @@ fun GeneralDownloadPreferences(onNavigateBack: () -> Unit, navigateToTemplate: (
                 }
 
                 item {
-                    var concurrentDownloads by remember { mutableStateOf(MAX_CONCURRENT_DOWNLOADS.getInt()) }
+                    var concurrentDownloads by remember { mutableStateOf(PreferenceUtil.getInt(MAX_CONCURRENT_DOWNLOADS)) }
                     com.junkfood.seal.ui.component.PreferenceSlider(
                         title = stringResource(id = R.string.concurrent_downloads),
                         description = stringResource(id = R.string.concurrent_downloads_desc),

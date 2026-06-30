@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.TipsAndUpdates
+import com.junkfood.seal.ui.theme.Shapes
 import androidx.compose.material.icons.outlined.ToggleOn
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.Update
@@ -896,9 +897,9 @@ fun PreferenceSlider(
                             .padding(horizontal = if (icon == null) 12.dp else 0.dp)
                             .padding(end = 8.dp)
                 ) {
-                    PreferenceItemTitle(text = title)
+                    PreferenceItemTitle(text = title, enabled = true)
                     if (description != null) {
-                        PreferenceItemDescription(text = description)
+                        PreferenceItemDescription(text = description, enabled = true)
                     }
                 }
                 Text(

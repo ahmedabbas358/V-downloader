@@ -149,7 +149,7 @@ fun SettingsPage(onNavigateBack: () -> Unit, onNavigateTo: (String) -> Unit) {
                     PreferencesHintCard(
                         title = stringResource(id = R.string.sponsor),
                         icon = Icons.Rounded.VolunteerActivism,
-                        description = stringResource(id = R.string.sponsor_desc),
+                        description = stringResource(id = R.string.sponsors_desc),
                     ) {
                         onNavigateTo(Route.DONATE)
                     }
