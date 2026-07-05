@@ -378,6 +378,7 @@ object Downloader {
         Log.d(TAG, "notificationId: $notificationId")
 
         NotificationUtil.notifyProgress(notificationId = notificationId, title = videoInfo.title)
+        var lastUpdateTime = 0L
         return DownloadUtil.downloadVideo(
                 videoInfo = videoInfo,
                 playlistUrl = playlistUrl,
@@ -386,14 +387,18 @@ object Downloader {
                 taskId = videoInfo.id + preferences.hashCode(),
             ) { progress, _, line ->
                 Log.d(TAG, line)
-                mutableTaskState.update { it.copy(progress = progress, progressText = line) }
-                NotificationUtil.notifyProgress(
-                    notificationId = notificationId,
-                    progress = progress.toInt(),
-                    text = line,
-                    title = videoInfo.title,
-                    taskId = taskId,
-                )
+                val currentTime = System.currentTimeMillis()
+                if (currentTime - lastUpdateTime > 250 || progress == 100f || progress == 0f) {
+                    lastUpdateTime = currentTime
+                    mutableTaskState.update { it.copy(progress = progress, progressText = line) }
+                    NotificationUtil.notifyProgress(
+                        notificationId = notificationId,
+                        progress = progress.toInt(),
+                        text = line,
+                        title = videoInfo.title,
+                        taskId = taskId,
+                    )
+                }
             }
             .onFailure {
                 manageDownloadError(
