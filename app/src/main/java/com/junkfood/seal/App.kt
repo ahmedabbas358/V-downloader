@@ -63,6 +63,7 @@ class App : Application() {
             androidLogger()
             androidContext(this@App)
             modules(
+                com.junkfood.seal.core.di.engineModule,
                 module {
                     single<DownloaderV2> { DownloaderV2Impl(androidContext()) }
                     viewModel { DownloadDialogViewModel(downloader = get()) }
