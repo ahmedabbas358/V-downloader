@@ -16,6 +16,6 @@ dependencyResolutionManagement {
         mavenLocal()
     }
 }
-rootProject.name = "Seal"
+rootProject.name = "V-Downloader"
 include (":app")
 include(":color")

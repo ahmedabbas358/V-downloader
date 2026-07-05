@@ -112,6 +112,27 @@ fun AboutPage(
             LazyColumn(modifier = Modifier.padding(it)) {
                 item {
                     PreferenceItem(
+                        title = "Lead Developer / Architect",
+                        description = "Ahmed Abbas",
+                        icon = androidx.compose.material.icons.Icons.Outlined.Person,
+                    ) {
+                        openUrl("https://github.com/ahmedabbas358")
+                    }
+                }
+                item {
+                    PreferenceItem(
+                        title = "LinkedIn Profile",
+                        description = "Ahmed Abbas",
+                        icon = androidx.compose.material.icons.Icons.Outlined.Work,
+                    ) {
+                        openUrl("https://www.linkedin.com/in/ahmed-abbas-049141248?utm_source=share_via&utm_content=profile&utm_medium=member_android")
+                    }
+                }
+                item {
+                    androidx.compose.material3.HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                }
+                item {
+                    PreferenceItem(
                         title = stringResource(R.string.readme),
                         description = stringResource(R.string.readme_desc),
                         icon = Icons.Outlined.Description,
