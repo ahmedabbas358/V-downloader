@@ -3,6 +3,7 @@ package com.junkfood.seal.ui.common
 object Route {
 
     const val HOME = "home"
+    const val SOCIAL_HUB = "social_hub"
     const val DOWNLOADS = "download_history"
     const val PLAYLIST = "playlist"
     const val SETTINGS = "settings"

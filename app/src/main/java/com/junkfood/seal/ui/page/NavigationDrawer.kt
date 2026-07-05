@@ -22,6 +22,8 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Subscriptions
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Subscriptions
@@ -184,6 +186,16 @@ fun NavigationDrawerSheetContent(
                         .invokeOnCompletion { onNavigateToRoute(Route.HOME) }
                 },
                 selected = currentRoute == Route.HOME,
+            )
+            NavigationDrawerItem(
+                label = { Text("Social Hub") },
+                icon = { Icon(Icons.Outlined.Explore, null) },
+                onClick = {
+                    scope
+                        .launch { onDismissRequest() }
+                        .invokeOnCompletion { onNavigateToRoute(Route.SOCIAL_HUB) }
+                },
+                selected = currentRoute == Route.SOCIAL_HUB,
             )
             NavigationDrawerItem(
                 label = { Text(stringResource(R.string.downloads_history)) },
@@ -357,6 +369,19 @@ fun NavigationRailContent(
             modifier = Modifier,
             selected = currentTopDestination == Route.HOME,
             onClick = { onNavigateToRoute(Route.HOME) },
+        )
+
+        NavigationRailItemVariant(
+            icon = {
+                Icon(
+                    if (currentTopDestination == Route.SOCIAL_HUB) Icons.Filled.Explore
+                    else Icons.Outlined.Explore,
+                    "Social Hub",
+                )
+            },
+            modifier = Modifier,
+            selected = currentTopDestination == Route.SOCIAL_HUB,
+            onClick = { onNavigateToRoute(Route.SOCIAL_HUB) },
         )
 
         NavigationRailItemVariant(

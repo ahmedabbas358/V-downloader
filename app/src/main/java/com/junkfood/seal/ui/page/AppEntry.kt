@@ -72,7 +72,7 @@ import org.koin.androidx.compose.koinViewModel
 private const val TAG = "HomeEntry"
 
 private val TopDestinations =
-    listOf(Route.HOME, Route.TASK_LIST, Route.SETTINGS_PAGE, Route.DOWNLOADS)
+    listOf(Route.HOME, Route.SOCIAL_HUB, Route.TASK_LIST, Route.SETTINGS_PAGE, Route.DOWNLOADS)
 
 @Composable
 fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
@@ -145,6 +145,15 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
             ) {
                 animatedComposable(Route.HOME) {
                     DownloadPageV2(
+                        dialogViewModel = dialogViewModel,
+                        onMenuOpen = {
+                            view.slightHapticFeedback()
+                            scope.launch { drawerState.open() }
+                        },
+                    )
+                }
+                animatedComposable(Route.SOCIAL_HUB) {
+                    com.junkfood.seal.ui.page.download.SocialHubPage(
                         dialogViewModel = dialogViewModel,
                         onMenuOpen = {
                             view.slightHapticFeedback()
