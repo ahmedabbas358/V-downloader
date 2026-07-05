@@ -9,9 +9,11 @@ import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.NewReleases
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Update
 import androidx.compose.material.icons.outlined.UpdateDisabled
 import androidx.compose.material.icons.outlined.VolunteerActivism
+import androidx.compose.material.icons.outlined.Work
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -42,7 +44,9 @@ import androidx.compose.ui.text.UrlAnnotation
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.junkfood.seal.App
 import com.junkfood.seal.App.Companion.packageInfo
 import com.junkfood.seal.R
@@ -114,7 +118,7 @@ fun AboutPage(
                     PreferenceItem(
                         title = "Lead Developer / Architect",
                         description = "Ahmed Abbas",
-                        icon = androidx.compose.material.icons.Icons.Outlined.Person,
+                        icon = Icons.Outlined.Person,
                     ) {
                         openUrl("https://github.com/ahmedabbas358")
                     }
@@ -123,13 +127,13 @@ fun AboutPage(
                     PreferenceItem(
                         title = "LinkedIn Profile",
                         description = "Ahmed Abbas",
-                        icon = androidx.compose.material.icons.Icons.Outlined.Work,
+                        icon = Icons.Outlined.Work,
                     ) {
                         openUrl("https://www.linkedin.com/in/ahmed-abbas-049141248?utm_source=share_via&utm_content=profile&utm_medium=member_android")
                     }
                 }
                 item {
-                    androidx.compose.material3.HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    androidx.compose.material3.Divider(modifier = Modifier.padding(vertical = 8.dp))
                 }
                 item {
                     PreferenceItem(

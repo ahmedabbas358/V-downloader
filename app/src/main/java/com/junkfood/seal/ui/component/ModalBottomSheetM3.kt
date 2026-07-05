@@ -21,6 +21,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 
+import com.junkfood.seal.ui.common.glassmorphism
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SealModalBottomSheet(
@@ -40,7 +42,7 @@ fun SealModalBottomSheet(
     content: @Composable ColumnScope.() -> Unit = {},
 ) {
     ModalBottomSheet(
-        modifier = modifier.com.junkfood.seal.ui.common.glassmorphism(),
+        modifier = modifier.glassmorphism(),
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
         properties = properties,
