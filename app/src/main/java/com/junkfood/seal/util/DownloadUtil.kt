@@ -198,7 +198,26 @@ object DownloadUtil {
                     addOption("--no-playlist")
                     addOption("--socket-timeout", "15")
                 }
-            return getVideoInfo(request, taskKey)
+            val result = getVideoInfo(request, taskKey)
+            
+            if (result.isFailure) {
+                if (url.contains("instagram.com", ignoreCase = true) || url.contains("tiktok.com", ignoreCase = true)) {
+                    val cobaltUrl = kotlinx.coroutines.runBlocking { com.junkfood.seal.util.CobaltEngine.fetchVideoUrl(url) }
+                    if (cobaltUrl != null) {
+                        val fakeVideoInfo = VideoInfo(
+                            id = url.hashCode().toString(),
+                            title = "Video_${System.currentTimeMillis()}",
+                            webpageUrl = cobaltUrl,
+                            originalUrl = cobaltUrl,
+                            uploader = "Cobalt API",
+                            extractor = "Cobalt",
+                            extractorKey = "Cobalt"
+                        )
+                        return Result.success(fakeVideoInfo)
+                    }
+                }
+            }
+            return result
         }
     }
 
