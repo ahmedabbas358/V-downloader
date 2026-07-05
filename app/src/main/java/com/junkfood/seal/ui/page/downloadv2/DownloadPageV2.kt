@@ -3,8 +3,11 @@ package com.junkfood.seal.ui.page.downloadv2
 import android.content.Intent
 import android.content.res.Configuration
 import androidx.compose.animation.core.AnimationState
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateTo
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.rememberSplineBasedDecay
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.foundation.horizontalScroll

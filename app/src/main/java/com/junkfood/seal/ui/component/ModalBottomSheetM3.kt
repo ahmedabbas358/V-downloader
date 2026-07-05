@@ -40,11 +40,13 @@ fun SealModalBottomSheet(
     content: @Composable ColumnScope.() -> Unit = {},
 ) {
     ModalBottomSheet(
-        modifier = modifier,
+        modifier = modifier.com.junkfood.seal.ui.common.glassmorphism(),
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
         properties = properties,
         shape = MaterialTheme.shapes.extraLarge,
+        containerColor = Color.Transparent,
+        dragHandle = null,
     ) {
         Column(modifier = Modifier.padding(paddingValues = contentPadding)) {
             content()
