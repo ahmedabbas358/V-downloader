@@ -162,7 +162,7 @@ fun SocialHubPage(
                     Card(
                         modifier = Modifier
                             .aspectRatio(1f)
-                            .hapticClickable {
+                            .clickable {
                                 context.makeToast("Enter a $platform link in the extractor above")
                             },
                         shape = MaterialTheme.shapes.large,

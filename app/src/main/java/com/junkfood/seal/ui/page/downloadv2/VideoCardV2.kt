@@ -145,7 +145,7 @@ fun VideoListItem(
     onButtonClick: () -> Unit,
 ) {
     Row(
-        modifier = modifier.height(IntrinsicSize.Min).hapticClickable { onButtonClick() },
+        modifier = modifier.height(IntrinsicSize.Min).clickable { onButtonClick() },
         verticalAlignment = Alignment.Top
     ) {
         Box(modifier = Modifier) {
@@ -241,7 +241,7 @@ fun VideoCardV2(
         }
 
     Card(
-        modifier = modifier.fillMaxWidth().hapticClickable { onButtonClick() },
+        modifier = modifier.fillMaxWidth().clickable { onButtonClick() },
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = containerColor),
     ) {

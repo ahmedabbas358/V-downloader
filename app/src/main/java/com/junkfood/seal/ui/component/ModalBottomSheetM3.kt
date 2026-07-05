@@ -42,12 +42,12 @@ fun SealModalBottomSheet(
     content: @Composable ColumnScope.() -> Unit = {},
 ) {
     ModalBottomSheet(
-        modifier = modifier.glassmorphism(),
+        modifier = modifier,
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
         properties = properties,
         shape = MaterialTheme.shapes.extraLarge,
-        containerColor = Color.Transparent,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         dragHandle = null,
     ) {
         Column(modifier = Modifier.padding(paddingValues = contentPadding)) {
