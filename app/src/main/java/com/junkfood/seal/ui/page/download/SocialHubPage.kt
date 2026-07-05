@@ -83,7 +83,7 @@ fun SocialHubPage(
         modifier = modifier.fillMaxSize().statusBarsPadding(),
         topBar = {
             TopAppBar(
-                modifier = Modifier.glassmorphism(color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)),
+                modifier = Modifier,
                 title = { Text("Social Hub", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onMenuOpen) {
