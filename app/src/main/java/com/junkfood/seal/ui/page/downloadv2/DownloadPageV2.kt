@@ -457,10 +457,12 @@ fun DownloadPageImplV2(
                             items =
                                 filteredMap.toList().sortedBy { (_, state) -> state.downloadState },
                             key = { _, (task, _) -> task.id },
-                        ) { _, (task, state) ->
+                        ) { _, item ->
+                            val task = item.first
+                            val state = item.second
                             with(state.viewState) {
                                 VideoCardV2(
-                                    modifier = Modifier.padding(bottom = 20.dp).animateItem(),
+                                    modifier = Modifier.padding(bottom = 20.dp),
                                     viewState = this,
                                     actionButton = {
                                         ActionButton(
@@ -468,6 +470,7 @@ fun DownloadPageImplV2(
                                             downloadState = state.downloadState,
                                         ) {
                                             onActionPost(task, it)
+
                                         }
                                     },
                                     stateIndicator = {
@@ -485,10 +488,12 @@ fun DownloadPageImplV2(
                             items =
                                 filteredMap.toList().sortedBy { (_, state) -> state.downloadState },
                             key = { _, (task, _) -> task.id },
-                            span = { GridItemSpan(maxLineSpan) },
-                        ) { _, (task, state) ->
+                            span = { _, _ -> GridItemSpan(maxLineSpan) },
+                        ) { _, item ->
+                            val task = item.first
+                            val state = item.second
                             VideoListItem(
-                                modifier = Modifier.padding(bottom = 16.dp).animateItem(),
+                                modifier = Modifier.padding(bottom = 16.dp),
                                 viewState = state.viewState,
                                 stateIndicator = {
                                     ListItemStateText(

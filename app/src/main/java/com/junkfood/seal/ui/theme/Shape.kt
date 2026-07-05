@@ -1,6 +1,7 @@
 package com.junkfood.seal.ui.theme
 
 import androidx.compose.material3.Shapes
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
@@ -42,9 +43,9 @@ class SquircleShape(private val cornerRadius: Dp) : Shape {
 }
 
 val Shapes = Shapes(
-    extraSmall = SquircleShape(8.dp),
-    small = SquircleShape(12.dp),
-    medium = SquircleShape(18.dp),
-    large = SquircleShape(24.dp),
-    extraLarge = SquircleShape(32.dp)
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(18.dp),
+    large = RoundedCornerShape(24.dp),
+    extraLarge = RoundedCornerShape(32.dp)
 )
