@@ -39,7 +39,7 @@ fun Modifier.hapticClickable(
     
     this.clickable(
         interactionSource = finalInteractionSource,
-        indication = androidx.compose.material.ripple.rememberRipple(),
+        indication = androidx.compose.material3.ripple(),
         onClick = {
             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
             onClick()
