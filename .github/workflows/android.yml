@@ -26,7 +26,7 @@ jobs:
 
       # 🔥 بناء نسخة واحدة فقط (مستقرة)
       - name: Build APK
-        run: ./gradlew clean assembleGenericDebug
+        run: ./gradlew clean assembleGenericRelease
 
       # 🔍 تحديد مكان APK
       - name: Find APK
@@ -36,7 +36,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Seal-Dev
-          path: app/build/outputs/apk/generic/debug/*.apk
+          name: V-Downloader-Latest
+          path: app/build/outputs/apk/generic/release/*.apk
           if-no-files-found: error
           retention-days: 20

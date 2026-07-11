@@ -51,10 +51,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.junkfood.seal"
-
-        // 🔥 مهم جداً: يجعل النسخة تثبت بجانب الأصل
-        applicationIdSuffix = ".dev"
+        applicationId = "com.vdownloader.app"
 
         minSdk = 24
         targetSdk = 35
@@ -103,9 +100,7 @@ android {
             if (keystorePropertiesFile.exists()) {
                 signingConfig = signingConfigs.getByName("githubPublish")
             }
-            applicationIdSuffix = ".debug"
-            versionNameSuffix = "-debug"
-            resValue("string", "app_name", "V-Downloader Debug")
+            resValue("string", "app_name", "V-Downloader")
         }
     }
 
@@ -119,8 +114,7 @@ android {
 
         create("githubPreview") {
             dimension = "publishChannel"
-            applicationIdSuffix = ".preview"
-            resValue("string", "app_name", "V-Downloader Preview")
+            resValue("string", "app_name", "V-Downloader")
         }
 
         create("fdroid") {
@@ -201,4 +195,5 @@ dependencies {
     androidTestImplementation(libs.androidx.test.espresso.core)
 
     implementation(libs.androidx.compose.ui.tooling)
-} 
+    implementation("androidx.core:core-splashscreen:1.0.1")
+}

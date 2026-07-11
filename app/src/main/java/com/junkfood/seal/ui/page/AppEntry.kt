@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -48,7 +49,6 @@ import com.junkfood.seal.ui.page.downloadv2.DownloadPageV2
 import com.junkfood.seal.ui.page.settings.SettingsPage
 import com.junkfood.seal.ui.page.settings.about.AboutPage
 import com.junkfood.seal.ui.page.settings.about.CreditsPage
-import com.junkfood.seal.ui.page.settings.about.SponsorsPage
 import com.junkfood.seal.ui.page.settings.about.UpdatePage
 import com.junkfood.seal.ui.page.settings.appearance.AppearancePreferences
 import com.junkfood.seal.ui.page.settings.appearance.DarkThemePreferences
@@ -66,6 +66,9 @@ import com.junkfood.seal.ui.page.settings.network.NetworkPreferences
 import com.junkfood.seal.ui.page.settings.network.WebViewPage
 import com.junkfood.seal.ui.page.settings.troubleshooting.TroubleShootingPage
 import com.junkfood.seal.ui.page.videolist.VideoListPage
+import com.junkfood.seal.util.PreferenceUtil
+import com.junkfood.seal.util.PreferenceUtil.getInt
+import com.junkfood.seal.util.WELCOME_DIALOG
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
@@ -88,6 +91,12 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
     val versionReport = App.packageInfo.versionName.toString()
     val appName = stringResource(R.string.app_name)
     val scope = rememberCoroutineScope()
+    var firstRunGuideState by rememberSaveable { mutableIntStateOf(WELCOME_DIALOG.getInt()) }
+
+    if (firstRunGuideState > 0) {
+        FirstRunGuide { firstRunGuideState = 0 }
+        return
+    }
 
     val onNavigateBack: () -> Unit = {
         with(navController) {
@@ -187,9 +196,8 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
                 )
             }
 
-            // Privacy: Auto updaters disabled completely
-            // AppUpdater()
-            // YtdlpUpdater()
+            AppUpdater()
+            YtdlpUpdater()
         }
     }
 }
@@ -222,10 +230,8 @@ fun NavGraphBuilder.settingsGraph(
                 onNavigateBack = onNavigateBack,
                 onNavigateToCreditsPage = { onNavigateTo(Route.CREDITS) },
                 onNavigateToUpdatePage = { onNavigateTo(Route.AUTO_UPDATE) },
-                onNavigateToDonatePage = { onNavigateTo(Route.DONATE) },
             )
         }
-        animatedComposable(Route.DONATE) { SponsorsPage(onNavigateBack) }
         animatedComposable(Route.CREDITS) { CreditsPage(onNavigateBack) }
         animatedComposable(Route.AUTO_UPDATE) { UpdatePage(onNavigateBack) }
         animatedComposable(Route.APPEARANCE) {

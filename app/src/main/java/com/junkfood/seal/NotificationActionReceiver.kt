@@ -18,10 +18,11 @@ class NotificationActionReceiver : BroadcastReceiver(), KoinComponent {
 
     companion object {
         private const val TAG = "CancelReceiver"
-        private const val PACKAGE_NAME_PREFIX = "com.junkfood.seal."
+        private const val PACKAGE_NAME_PREFIX = "com.vdownloader.app."
 
         const val ACTION_CANCEL_TASK = 0
         const val ACTION_ERROR_REPORT = 1
+        const val ACTION_EXIT_APP = 2
 
         const val ACTION_KEY = PACKAGE_NAME_PREFIX + "action"
         const val TASK_ID_KEY = PACKAGE_NAME_PREFIX + "taskId"
@@ -44,6 +45,12 @@ class NotificationActionReceiver : BroadcastReceiver(), KoinComponent {
             ACTION_ERROR_REPORT -> {
                 val errorReport = intent.getStringExtra(ERROR_REPORT_KEY)
                 if (!errorReport.isNullOrEmpty()) copyErrorReport(errorReport, notificationId)
+            }
+            
+            ACTION_EXIT_APP -> {
+                App.stopService()
+                NotificationUtil.cancelNotification(notificationId)
+                System.exit(0)
             }
         }
     }

@@ -14,6 +14,7 @@ import android.os.PowerManager
 import com.junkfood.seal.util.NotificationUtil.SERVICE_NOTIFICATION_ID
 
 private const val TAG = "DownloadService"
+private const val BACKGROUND_LOCK_TIMEOUT_MS = 2 * 60 * 60 * 1000L
 
 /** This `Service` does nothing */
 class DownloadService : Service() {
@@ -47,15 +48,21 @@ class DownloadService : Service() {
     private fun acquireLocks() {
         if (wakeLock == null) {
             val powerManager = getSystemService(POWER_SERVICE) as PowerManager
-            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Seal::DownloadWakeLock")
+            wakeLock =
+                powerManager
+                    .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "VDownloader::DownloadWakeLock")
+                    .apply { setReferenceCounted(false) }
         }
         if (wakeLock?.isHeld == false) {
-            wakeLock?.acquire()
+            wakeLock?.acquire(BACKGROUND_LOCK_TIMEOUT_MS)
         }
 
         if (wifiLock == null) {
             val wifiManager = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
-            wifiLock = wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "Seal::DownloadWifiLock")
+            wifiLock =
+                wifiManager
+                    .createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "VDownloader::DownloadWifiLock")
+                    .apply { setReferenceCounted(false) }
         }
         if (wifiLock?.isHeld == false) {
             wifiLock?.acquire()

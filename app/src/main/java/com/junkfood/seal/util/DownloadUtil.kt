@@ -80,13 +80,13 @@ object DownloadUtil {
 
     const val PLAYLIST_INDEX_PREFIX = "%(playlist_index|)s"
 
-    const val PLAYLIST_INDEX_PADDED = "%(playlist_index)03d"
+    const val PLAYLIST_INDEX_PADDED = "%(playlist_index,autonumber)03d"
 
     const val OUTPUT_TEMPLATE_PLAYLIST = "$PLAYLIST_INDEX_PADDED - $BASENAME$EXTENSION"
 
     const val OUTPUT_TEMPLATE_PLAYLIST_ID = "$PLAYLIST_INDEX_PADDED - $BASENAME $ID$EXTENSION"
 
-    private const val PLAYLIST_TITLE_SUBDIRECTORY_PREFIX = "%(playlist)s/"
+    private const val PLAYLIST_TITLE_SUBDIRECTORY_PREFIX = "%(playlist_title,playlist,uploader,id).200B/"
 
     private const val CROP_ARTWORK_COMMAND =
         """--ppa "ffmpeg: -c:v mjpeg -vf crop=\"'if(gt(ih,iw),iw,ih)':'if(gt(iw,ih),ih,iw)'\"""""
@@ -108,11 +108,13 @@ object DownloadUtil {
             ToastUtil.makeToastSuspend(context.getString(R.string.fetching_playlist_info))
             val request = YoutubeDLRequest(playlistURL)
             with(request) {
-                //            addOption("--compat-options", "no-youtube-unavailable-videos")
+                addOption("--compat-options", "no-youtube-unavailable-videos,no-live-chat")
                 addOption("--flat-playlist")
                 addOption("--dump-single-json")
+                addOption("--ignore-errors")
+                addYoutubeCompatibilityOptions()
                 addOption("-o", BASENAME)
-                addOption("-R", "1")
+                addResilienceOptions(light = true)
                 addOption("--socket-timeout", "15")
                 downloadPreferences.run {
                     if (extractAudio) {
@@ -194,8 +196,11 @@ object DownloadUtil {
                     } else {
                         addOption("--dump-single-json")
                     }
-                    addOption("-R", "1")
-                    addOption("--no-playlist")
+                    addYoutubeCompatibilityOptions()
+                    addResilienceOptions(light = true)
+                    if (playlistIndex == null) {
+                        addOption("--no-playlist")
+                    }
                     addOption("--socket-timeout", "15")
                 }
             val result = getVideoInfo(request, taskKey)
@@ -404,14 +409,24 @@ object DownloadUtil {
             addOption("--socket-timeout", "30")
             addOption("--retries", "10")
             addOption("--fragment-retries", "10")
-            addOption("--extractor-args", "youtube:player_client=ios,android,web")
         }
+
+    private fun YoutubeDLRequest.addYoutubeCompatibilityOptions(): YoutubeDLRequest =
+        apply { addOption("--extractor-args", "youtube:player_client=android,ios") }
 
     private fun YoutubeDLRequest.enableProxy(proxyUrl: String): YoutubeDLRequest =
         this.addOption("--proxy", proxyUrl)
 
     private fun YoutubeDLRequest.useDownloadArchive(): YoutubeDLRequest =
         this.addOption("--download-archive", context.getArchiveFile().absolutePath)
+
+    private fun YoutubeDLRequest.addResilienceOptions(light: Boolean = false): YoutubeDLRequest =
+        apply {
+            addOption("-R", if (light) "3" else "10")
+            addOption("--fragment-retries", if (light) "3" else "10")
+            addOption("--file-access-retries", "3")
+            addOption("--extractor-retries", if (light) "1" else "3")
+        }
 
     @CheckResult
     fun getCookieListFromDatabase(): Result<List<Cookie>> = runCatching {
@@ -491,6 +506,7 @@ object DownloadUtil {
                     applyFormatSorter(this, toFormatSorter())
                 }
                 if (downloadSubtitle) {
+                    addOption("--write-subs")
                     if (autoSubtitle) {
                         addOption("--write-auto-subs")
                         if (!autoTranslatedSubtitles) {
@@ -504,11 +520,6 @@ object DownloadUtil {
                     }
                     if (embedSubtitle) {
                         addOption("--embed-subs")
-                        if (keepSubtitle) {
-                            addOption("--write-subs")
-                        }
-                    } else {
-                        addOption("--write-subs")
                     }
                     when (convertSubtitle) {
                         CONVERT_ASS -> addOption("--convert-subs", "ass")
@@ -743,6 +754,7 @@ object DownloadUtil {
                     if (forceIpv4) {
                         addOption("-4")
                     }
+                    addYoutubeCompatibilityOptions()
                     if (debug) {
                         addOption("-v")
                     }
@@ -763,6 +775,9 @@ object DownloadUtil {
                     if (rateLimit && maxDownloadRate.isNumberInRange(1, 1000000)) {
                         addOption("-r", "${maxDownloadRate}K")
                     }
+                    addOption("--ignore-errors")
+                    addOption("--compat-options", "no-youtube-unavailable-videos,no-live-chat")
+                    addResilienceOptions()
 
                     if (playlistItem != 0 && downloadPlaylist) {
                         addOption("--playlist-items", playlistItem)
@@ -833,7 +848,7 @@ object DownloadUtil {
                         if (splitByChapter) {
                             OUTPUT_TEMPLATE_SPLIT
                         } else if (videoClips.isEmpty()) {
-                            if (downloadPlaylist && playlistNumbering)
+                            if (downloadPlaylist && playlistNumbering && playlistItem != 0)
                                 outputTemplate.withPlaylistNumbering()
                             else outputTemplate
                         } else {

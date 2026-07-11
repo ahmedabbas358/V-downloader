@@ -32,10 +32,9 @@ data class Task(
     val url: String,
     val type: TypeInfo = TypeInfo.URL,
     val preferences: DownloadUtil.DownloadPreferences,
+    val timeCreated: Long = System.currentTimeMillis(),
     val id: String = makeId(url, type, preferences),
 ) : Comparable<Task> {
-
-    val timeCreated: Long = System.currentTimeMillis()
 
     override fun compareTo(other: Task): Int {
         return timeCreated.compareTo(other.timeCreated)

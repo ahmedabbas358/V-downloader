@@ -70,12 +70,12 @@ fun TroubleShootingPage(
                         modifier = Modifier,
                         text = stringResource(R.string.issue_tracker_hint),
                     )
-                    val knownIssueUrlSeal = "https://github.com/JunkFood02/Seal/issues/1399"
+                    val knownIssueUrlApp = "https://github.com/ahmedabbas358/V-downloader/issues"
                     PreferenceItem(
-                        title = "Seal Issue Tracker",
+                        title = "V-Downloader Issue Tracker",
                         description = null,
                         icon = Icons.AutoMirrored.Outlined.OpenInNew,
-                        onClick = { uriHandler.openUri(knownIssueUrlSeal) },
+                        onClick = { uriHandler.openUri(knownIssueUrlApp) },
                     )
 
                     val knownIssueUrlYtdlp = "https://github.com/yt-dlp/yt-dlp/issues/3766"

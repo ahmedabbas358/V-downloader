@@ -16,7 +16,9 @@ import kotlinx.coroutines.launch
 
 object DatabaseUtil {
     private const val DATABASE_NAME = "app_database"
-    private val db = Room.databaseBuilder(context, AppDatabase::class.java, DATABASE_NAME).build()
+    private val db = Room.databaseBuilder(context, AppDatabase::class.java, DATABASE_NAME)
+        .setJournalMode(RoomDatabase.JournalMode.TRUNCATE)
+        .build()
     private val dao = db.videoInfoDao()
 
     fun insertInfo(vararg infoList: DownloadedVideoInfo) {

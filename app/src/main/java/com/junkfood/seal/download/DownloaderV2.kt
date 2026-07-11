@@ -104,7 +104,10 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                 .onEach { doYourWork() }
                 .map { it.countRunning() }
                 .distinctUntilChanged()
-                .collect { if (it > 0) App.startService() else App.stopService() }
+                .collect {
+                    if (it > 0 && NotificationUtil.areNotificationsEnabled()) App.startService()
+                    else App.stopService()
+                }
         }
 
         scope.launch(Dispatchers.IO) {
@@ -112,7 +115,7 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
             enqueueFromBackup()
 
             snapshotFlow
-                .map { it.filter { it.value.downloadState !is Completed } }
+                .map { it.trimTaskHistory() }
                 .distinctUntilChanged()
                 .collect {
                     it.forEach { Log.d(TAG, it.value.viewState.title) }
@@ -124,7 +127,6 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
     private fun enqueueFromBackup() {
         val taskList =
             PreferenceUtil.decodeTaskListBackup()
-                .filter { it.value.downloadState !is Completed }
                 .mapValues { (_, state) ->
                     val preState = state.downloadState
                     val downloadState =
@@ -152,6 +154,17 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
     private fun Map<Task, Task.State>.countRunning(): Int = count { (_, state) ->
         state.downloadState is Running || state.downloadState is FetchingInfo
     }
+
+    private fun Map<Task, Task.State>.trimTaskHistory(maxSize: Int = 100): Map<Task, Task.State> =
+        entries
+            .sortedWith(
+                compareByDescending<Map.Entry<Task, Task.State>> {
+                        it.value.downloadState is Running || it.value.downloadState is FetchingInfo
+                    }
+                    .thenByDescending { it.key.timeCreated }
+            )
+            .take(maxSize)
+            .associate { it.toPair() }
 
     override fun getTaskStateMap(): SnapshotStateMap<Task, Task.State> {
         return taskStateMap
@@ -286,8 +299,12 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
         }
         scope
             .launch(Dispatchers.Default) {
+                val playlistItem = (type as? TypeInfo.Playlist)?.index ?: 0
+                val sourcePlaylistUrl = if (playlistItem != 0) url else ""
                 DownloadUtil.downloadVideo(
                         videoInfo = info,
+                        playlistUrl = sourcePlaylistUrl,
+                        playlistItem = playlistItem,
                         taskId = id,
                         downloadPreferences = preferences,
                         progressCallback = { progressPercentage, _, text ->

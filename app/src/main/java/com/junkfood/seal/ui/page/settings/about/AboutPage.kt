@@ -12,7 +12,6 @@ import androidx.compose.material.icons.outlined.NewReleases
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Update
 import androidx.compose.material.icons.outlined.UpdateDisabled
-import androidx.compose.material.icons.outlined.VolunteerActivism
 import androidx.compose.material.icons.outlined.Work
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -58,14 +57,13 @@ import com.junkfood.seal.util.AUTO_UPDATE
 import com.junkfood.seal.util.PreferenceUtil
 import com.junkfood.seal.util.ToastUtil
 
-private const val releaseURL = "https://github.com"
-private const val repoUrl = "https://github.com"
+private const val releaseURL = "https://github.com/ahmedabbas358/V-downloader/releases"
+private const val repoUrl = "https://github.com/ahmedabbas358/V-downloader"
 const val weblate = ""
 const val YtdlpRepository = "https://github.com/yt-dlp/yt-dlp"
 private const val githubIssueUrl = "https://github.com"
 private const val telegramChannelUrl = ""
 private const val matrixSpaceUrl = ""
-private const val githubSponsor = ""
 private const val TAG = "AboutPage"
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -74,7 +72,6 @@ fun AboutPage(
     onNavigateBack: () -> Unit,
     onNavigateToCreditsPage: () -> Unit,
     onNavigateToUpdatePage: () -> Unit,
-    onNavigateToDonatePage: () -> Unit,
 ) {
     val scrollBehavior =
         TopAppBarDefaults.exitUntilCollapsedScrollBehavior(
@@ -162,16 +159,6 @@ fun AboutPage(
                 }*/
                 item {
                     PreferenceItem(
-                        title = stringResource(id = R.string.sponsor),
-                        description = stringResource(id = R.string.sponsors_desc),
-                        icon = Icons.Outlined.VolunteerActivism,
-                    ) {
-                        //                    openUrl(githubSponsor)
-                        onNavigateToDonatePage()
-                    }
-                }
-                item {
-                    PreferenceItem(
                         title = stringResource(R.string.telegram_channel),
                         description = telegramChannelUrl,
                         icon = painterResource(id = R.drawable.icons8_telegram_app),
@@ -248,7 +235,7 @@ fun AutoUpdateUnavailableDialog(onDismissRequest: () -> Unit = {}) {
         val startIndex = text.indexOf(hyperLinkText)
         val endIndex = startIndex + hyperLinkText.length
         addUrlAnnotation(
-            UrlAnnotation("https://github.com/JunkFood02/Seal/releases/latest"),
+            UrlAnnotation("https://github.com/ahmedabbas358/V-downloader/releases/latest"),
             start = startIndex,
             end = endIndex,
         )

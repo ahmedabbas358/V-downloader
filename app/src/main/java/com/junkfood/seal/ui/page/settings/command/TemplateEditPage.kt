@@ -19,6 +19,9 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -82,6 +85,7 @@ fun TemplateEditPage(onDismissRequest: () -> Unit, templateId: Int) {
     val focusManager = LocalFocusManager.current
     val softwareKeyboardController = LocalSoftwareKeyboardController.current
     var isEditingShortcuts by remember { mutableStateOf(false) }
+    var showHelpDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -98,6 +102,9 @@ fun TemplateEditPage(onDismissRequest: () -> Unit, templateId: Int) {
                 },
                 navigationIcon = { BackButton { onDismissRequest() } },
                 actions = {
+                    IconButton(onClick = { showHelpDialog = true }) {
+                        Icon(Icons.Outlined.Info, contentDescription = "yt-dlp arguments help")
+                    }
                     TextButton(
                         modifier = Modifier.padding(end = 8.dp),
                         onClick = {
@@ -123,6 +130,9 @@ fun TemplateEditPage(onDismissRequest: () -> Unit, templateId: Int) {
             )
         },
     ) { paddings ->
+        if (showHelpDialog) {
+            YtdlpHelpDialog(onDismissRequest = { showHelpDialog = false })
+        }
         LazyColumn(modifier = Modifier.padding(paddings), contentPadding = PaddingValues()) {
             item {
                 val description = stringResource(R.string.template_label)

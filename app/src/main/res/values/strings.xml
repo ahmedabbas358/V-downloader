@@ -89,6 +89,8 @@
     <string name="close">Close</string>
     <string name="close_never_show_again">Don\'t show up again</string>
     <string name="user_guide">User guide</string>
+    <string name="first_run_language_desc">Choose the display language first. You can change it later from settings.</string>
+    <string name="first_run_guide_desc">A quick tour of the main tools before you start downloading.</string>
     <string name="open_settings">Open settings</string>
     <string name="paste_desc">Click \"Paste\" to get video link from your clipboard.</string>
     <string name="download_desc">Then click \"Download\" after adjusting its settings.
@@ -288,13 +290,9 @@
     <string name="clear_all_cookies">Clear all cookies</string>
     <string name="clear_all_cookies_desc">Delete all the cookies stored in the app for good?</string>
     <string name="temporary_directory_desc">Store temporary files in the internal directory</string>
-    <string name="sponsor">Sponsor</string>
-    <string name="sponsors_desc">V-Downloader relies on donations and sponsors. Please consider supporting the app.</string>
     <string name="concurrent_downloads">Concurrent downloads</string>
     <string name="concurrent_downloads_desc">Maximum number of concurrent tasks (1-10)</string>
-    <string name="sponsor_msg">V-Downloader will be always free and open source for everyone. If you like it, please consider sponsoring me on GitHub!</string>
     <string name="feedback">Feedback</string>
-    <string name="sponsors">Sponsors</string>
     <string name="audio_format">Audio format</string>
     <string name="no_downloaded_media">No downloaded media</string>
     <string name="beta_features">Beta</string>
@@ -310,7 +308,6 @@
     <string name="feature_unavailable">Feature not available</string>
     <string name="no_custom_command_tasks">No custom command tasks</string>
     <string name="msg_from_developer">Message from developer</string>
-    <string name="sponsor_msg2">Thank you very much!</string>
     <string name="download_video_desc">Download videos from the URL</string>
     <string name="convert_subtitle">Convert subtitles</string>
     <string name="convert_subtitle_desc">Convert the subtitles to another format</string>
@@ -454,4 +451,5 @@
         <item quantity="one">%d audio</item>
         <item quantity="other">%d audios</item>
     </plurals>
+    <string name="exit">Exit</string>
 </resources>

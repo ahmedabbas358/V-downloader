@@ -166,6 +166,17 @@ object NotificationUtil {
     }
 
     fun makeServiceNotification(intent: PendingIntent, text: String? = null): Notification {
+        val exitIntent = Intent(context, NotificationActionReceiver::class.java)
+            .putExtra(NotificationActionReceiver.ACTION_KEY, NotificationActionReceiver.ACTION_EXIT_APP)
+            .putExtra(NotificationActionReceiver.NOTIFICATION_ID_KEY, SERVICE_NOTIFICATION_ID)
+
+        val exitPendingIntent = PendingIntent.getBroadcast(
+            context,
+            1001,
+            exitIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         serviceNotification =
             NotificationCompat.Builder(context, SERVICE_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat_seal)
@@ -173,6 +184,7 @@ object NotificationUtil {
                 .setContentText(text)
                 .setOngoing(true)
                 .setContentIntent(intent)
+                .addAction(R.drawable.outline_close_24, context.getString(R.string.exit), exitPendingIntent)
                 .setForegroundServiceBehavior(FOREGROUND_SERVICE_IMMEDIATE)
                 .build()
         return serviceNotification
