@@ -1,6 +1,7 @@
 package com.junkfood.seal.util
 
 import androidx.room.Room
+import androidx.room.RoomDatabase
 import com.junkfood.seal.App.Companion.applicationScope
 import com.junkfood.seal.App.Companion.context
 import com.junkfood.seal.database.AppDatabase
@@ -16,22 +17,25 @@ import kotlinx.coroutines.launch
 
 object DatabaseUtil {
     private const val DATABASE_NAME = "app_database"
-    private val db = Room.databaseBuilder(context, AppDatabase::class.java, DATABASE_NAME)
-        .setJournalMode(RoomDatabase.JournalMode.TRUNCATE)
-        .build()
-    private val dao = db.videoInfoDao()
-
-    fun insertInfo(vararg infoList: DownloadedVideoInfo) {
-        applicationScope.launch(Dispatchers.IO) {
-            infoList.forEach { dao.insertInfoDistinctByPath(it) }
-        }
+    val db by lazy {
+        Room.databaseBuilder(context, AppDatabase::class.java, DATABASE_NAME)
+            .setJournalMode(RoomDatabase.JournalMode.TRUNCATE)
+            .fallbackToDestructiveMigration()
+            .build()
     }
+    private val dao by lazy { db.videoInfoDao() }
 
-    init {
+    fun initDatabase() {
         applicationScope.launch {
             getTemplateFlow().collect {
                 if (it.isEmpty()) PreferenceUtil.initializeTemplateSample()
             }
+        }
+    }
+
+    fun insertInfo(vararg infoList: DownloadedVideoInfo) {
+        applicationScope.launch(Dispatchers.IO) {
+            infoList.forEach { dao.insertInfoDistinctByPath(it) }
         }
     }
 
