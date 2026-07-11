@@ -184,7 +184,7 @@ object NotificationUtil {
                 .setContentText(text)
                 .setOngoing(true)
                 .setContentIntent(intent)
-                .addAction(R.drawable.outline_close_24, context.getString(R.string.exit), exitPendingIntent)
+                .addAction(R.drawable.outline_cancel_24, context.getString(R.string.exit), exitPendingIntent)
                 .setForegroundServiceBehavior(FOREGROUND_SERVICE_IMMEDIATE)
                 .build()
         return serviceNotification
