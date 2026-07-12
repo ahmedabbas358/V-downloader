@@ -204,18 +204,30 @@ val DEFAULT_COMMAND_TEMPLATES =
                 --ignore-errors
                 --retries 10
                 --fragment-retries 10
-                -o "%(playlist_title,playlist)s/%(playlist_index,playlist_autonumber)03d - %(title).200B.%(ext)s"
+                -o "%(playlist_title,playlist)s/%(playlist_index&%(playlist_index)03d|%(autonumber)03d)s - %(title).200B.%(ext)s"
                 """.trimIndent(),
         ),
         CommandTemplate(
             id = 0,
-            name = "Arabic and English subtitles",
+            name = "Arabic and English subtitles (Auto translated skipped)",
             template =
                 """
                 --write-subs
                 --write-auto-subs
+                --extractor-args "youtube:skip=translated_subs"
                 --sub-langs "ar.*,en.*,.*-orig"
                 --sub-format "srt/best"
+                --convert-subs srt
+                """.trimIndent(),
+        ),
+        CommandTemplate(
+            id = 0,
+            name = "Download Subtitles Only",
+            template =
+                """
+                --skip-download
+                --write-subs
+                --sub-langs "ar.*,en.*"
                 --convert-subs srt
                 """.trimIndent(),
         ),
@@ -253,6 +265,24 @@ val DEFAULT_COMMAND_TEMPLATES =
                 --download-archive archive.txt
                 --no-overwrites
                 --continue
+                """.trimIndent(),
+        ),
+        CommandTemplate(
+            id = 0,
+            name = "Remove sponsors (SponsorBlock)",
+            template =
+                """
+                --sponsorblock-remove all
+                --embed-metadata
+                """.trimIndent(),
+        ),
+        CommandTemplate(
+            id = 0,
+            name = "Split video by chapters",
+            template =
+                """
+                --split-chapters
+                -o "chapter:%(title)s/%(section_number)03d - %(section_title)s.%(ext)s"
                 """.trimIndent(),
         ),
     )

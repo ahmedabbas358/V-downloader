@@ -99,6 +99,8 @@ object NotificationUtil {
             .setProgress(PROGRESS_MAX, progress, progress <= 0)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
+            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .setGroup("DOWNLOADS_GROUP")
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .run {
@@ -127,6 +129,8 @@ object NotificationUtil {
                 .setContentText(text)
                 .setOngoing(false)
                 .setAutoCancel(true)
+                .setCategory(NotificationCompat.CATEGORY_STATUS)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
         title?.let { builder.setContentTitle(title) }
         intent?.let { builder.setContentIntent(intent) }
         builder.setGroup("DOWNLOADS_GROUP")

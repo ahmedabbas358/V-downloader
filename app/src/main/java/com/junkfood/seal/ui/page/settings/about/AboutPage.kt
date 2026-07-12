@@ -111,27 +111,7 @@ fun AboutPage(
         },
         content = {
             LazyColumn(modifier = Modifier.padding(it)) {
-                item {
-                    PreferenceItem(
-                        title = "Lead Developer / Architect",
-                        description = "Ahmed Abbas",
-                        icon = Icons.Outlined.Person,
-                    ) {
-                        openUrl("https://github.com/ahmedabbas358")
-                    }
-                }
-                item {
-                    PreferenceItem(
-                        title = "LinkedIn Profile",
-                        description = "Ahmed Abbas",
-                        icon = Icons.Outlined.Work,
-                    ) {
-                        openUrl("https://www.linkedin.com/in/ahmed-abbas-049141248?utm_source=share_via&utm_content=profile&utm_medium=member_android")
-                    }
-                }
-                item {
-                    androidx.compose.material3.Divider(modifier = Modifier.padding(vertical = 8.dp))
-                }
+
                 item {
                     PreferenceItem(
                         title = stringResource(R.string.readme),

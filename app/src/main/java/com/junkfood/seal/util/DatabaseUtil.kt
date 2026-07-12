@@ -19,7 +19,7 @@ object DatabaseUtil {
     private const val DATABASE_NAME = "app_database"
     val db by lazy {
         Room.databaseBuilder(context, AppDatabase::class.java, DATABASE_NAME)
-            .setJournalMode(RoomDatabase.JournalMode.TRUNCATE)
+            .setJournalMode(RoomDatabase.JournalMode.AUTOMATIC)
             .fallbackToDestructiveMigration()
             .build()
     }

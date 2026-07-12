@@ -80,7 +80,7 @@ object DownloadUtil {
 
     const val PLAYLIST_INDEX_PREFIX = "%(playlist_index|)s"
 
-    const val PLAYLIST_INDEX_PADDED = "%(playlist_index,autonumber)03d"
+    const val PLAYLIST_INDEX_PADDED = "%(playlist_index&%(playlist_index)03d|%(autonumber)03d)s"
 
     const val OUTPUT_TEMPLATE_PLAYLIST = "$PLAYLIST_INDEX_PADDED - $BASENAME$EXTENSION"
 
@@ -412,7 +412,7 @@ object DownloadUtil {
         }
 
     private fun YoutubeDLRequest.addYoutubeCompatibilityOptions(): YoutubeDLRequest =
-        apply { addOption("--extractor-args", "youtube:player_client=android,ios") }
+        apply { addOption("--extractor-args", "youtube:player_client=android,web") }
 
     private fun YoutubeDLRequest.enableProxy(proxyUrl: String): YoutubeDLRequest =
         this.addOption("--proxy", proxyUrl)
@@ -836,8 +836,7 @@ object DownloadUtil {
                     if (newTitle.isNotEmpty()) {
                         addCommands(listOf("--replace-in-metadata", "title", ".+", newTitle))
                     }
-                    if (Build.VERSION.SDK_INT > 23 && !sdcard)
-                        addOption("-P", "temp:" + getExternalTempDir())
+                    // Removed temp: directory configuration to prevent Errno 2 with subtitles and subdirectories
 
                     if (splitByChapter) {
                         addOption("-o", OUTPUT_TEMPLATE_CHAPTERS)
