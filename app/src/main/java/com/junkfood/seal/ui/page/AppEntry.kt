@@ -76,6 +76,7 @@ import com.junkfood.seal.ui.page.videolist.VideoListPage
 import com.junkfood.seal.ui.page.onboarding.OnboardingScreen
 import com.junkfood.seal.util.PreferenceUtil
 import com.junkfood.seal.util.PreferenceUtil.getInt
+import com.junkfood.seal.util.PreferenceUtil.updateInt
 import com.junkfood.seal.util.WELCOME_DIALOG
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
@@ -104,7 +105,7 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
     if (firstRunGuideState > 0) {
         OnboardingScreen { 
             firstRunGuideState = 0
-            PreferenceUtil.kv.encode(WELCOME_DIALOG, 0)
+            WELCOME_DIALOG.updateInt(0)
         }
         return
     }
