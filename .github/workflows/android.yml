@@ -27,13 +27,13 @@ jobs:
       - name: Grant execute permission
         run: chmod +x ./gradlew
 
-      # 🔥 بناء نسخة واحدة فقط (مستقرة)
-      - name: Build APK
-        run: ./gradlew clean assembleGenericRelease
+# 🔥 بناء نسخة واحدة مع تفاصيل الخطأ
+- name: Build APK
+  run: ./gradlew clean assembleGenericRelease --stacktrace --info
 
-      # 🔍 تحديد مكان APK
-      - name: Find APK
-        run: find . -name "*.apk"
+# 🔍 تحديد مكان APK
+- name: Find APK
+  run: find . -name "*.apk"
 
       # 📦 رفع الملف
       - name: Upload APK
