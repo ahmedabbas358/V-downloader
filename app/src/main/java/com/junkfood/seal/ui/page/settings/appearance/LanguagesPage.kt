@@ -48,13 +48,13 @@ import com.junkfood.seal.ui.component.BackButton
 import com.junkfood.seal.ui.component.PreferenceSingleChoiceItem
 import com.junkfood.seal.ui.component.PreferenceSubtitle
 import com.junkfood.seal.ui.component.PreferencesHintCard
-import com.junkfood.seal.ui.page.settings.about.weblate
 import com.junkfood.seal.ui.theme.SealTheme
 import com.junkfood.seal.util.LocaleLanguageCodeMap
 import com.junkfood.seal.util.PreferenceUtil
 import com.junkfood.seal.util.setLanguage
 import com.junkfood.seal.util.toDisplayName
 import java.util.Locale
+private const val weblate = "https://hosted.weblate.org/engage/seal/"
 
 @Composable
 fun LanguagePage(onNavigateBack: () -> Unit = {}) {
