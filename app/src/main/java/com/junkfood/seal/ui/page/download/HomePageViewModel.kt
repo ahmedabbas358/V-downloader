@@ -7,11 +7,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.junkfood.seal.App.Companion.applicationScope
 import com.junkfood.seal.App.Companion.context
-import com.junkfood.seal.Downloader
-import com.junkfood.seal.Downloader.State
-import com.junkfood.seal.Downloader.manageDownloadError
-import com.junkfood.seal.Downloader.updatePlaylistResult
 import com.junkfood.seal.R
+import com.junkfood.seal.download.DownloaderV2
+import com.junkfood.seal.download.Task
+import com.junkfood.seal.download.TaskFactory
 import com.junkfood.seal.util.CUSTOM_COMMAND
 import com.junkfood.seal.util.DownloadUtil
 import com.junkfood.seal.util.FORMAT_SELECTION
@@ -26,8 +25,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-// TODO: Refactoring for introducing multitasking and download queue management
-class HomePageViewModel : ViewModel() {
+// Refactoring for introducing multitasking and download queue management
+class HomePageViewModel(private val downloaderV2: DownloaderV2) : ViewModel() {
 
     private val mutableViewStateFlow = MutableStateFlow(ViewState())
     val viewStateFlow = mutableViewStateFlow.asStateFlow()
@@ -39,6 +38,8 @@ class HomePageViewModel : ViewModel() {
         val url: String = "",
         val showFormatSelectionPage: Boolean = false,
         val isUrlSharingTriggered: Boolean = false,
+        val isFetchingInfo: Boolean = false,
+        val playlistResult: PlaylistResult? = null
     )
 
     fun updateUrl(url: String, isUrlSharingTriggered: Boolean = false) =
@@ -48,12 +49,6 @@ class HomePageViewModel : ViewModel() {
 
     fun startDownloadVideo() {
         val url = viewStateFlow.value.url
-        Downloader.clearErrorState()
-        if (CUSTOM_COMMAND.getBoolean()) {
-            applicationScope.launch(Dispatchers.IO) { DownloadUtil.executeCommandInBackground(url) }
-            return
-        }
-        if (!Downloader.isDownloaderAvailable()) return
         if (url.isBlank()) {
             ToastUtil.makeToast(context.getString(R.string.url_empty))
             return
@@ -68,60 +63,55 @@ class HomePageViewModel : ViewModel() {
             return
         }
 
-        Downloader.getInfoAndDownload(url)
+        val task = Task(url = url, preferences = DownloadUtil.DownloadPreferences.createFromPreferences())
+        downloaderV2.enqueue(task)
     }
 
     private fun fetchInfoForFormatSelection(url: String) {
-        Downloader.updateState(State.FetchingInfo)
+        mutableViewStateFlow.update { it.copy(isFetchingInfo = true) }
         DownloadUtil.fetchVideoInfoFromUrl(url = url)
             .onSuccess { showFormatSelectionPageOrDownload(it) }
             .onFailure {
-                manageDownloadError(th = it, url = url, isFetchingInfo = true, isTaskAborted = true)
+                ToastUtil.makeToast(it.message ?: "Error fetching info")
             }
-        Downloader.updateState(State.Idle)
+        mutableViewStateFlow.update { it.copy(isFetchingInfo = false) }
     }
 
-    private fun parsePlaylistInfo(url: String): Unit =
-        Downloader.run {
-            if (!isDownloaderAvailable()) return
-            clearErrorState()
-            updateState(State.FetchingInfo)
-            DownloadUtil.getPlaylistOrVideoInfo(url)
-                .onSuccess { info ->
-                    updateState(State.Idle)
-                    when (info) {
-                        is PlaylistResult -> {
-                            showPlaylistPage(info)
-                        }
+    private fun parsePlaylistInfo(url: String) {
+        mutableViewStateFlow.update { it.copy(isFetchingInfo = true) }
+        DownloadUtil.getPlaylistOrVideoInfo(url)
+            .onSuccess { info ->
+                mutableViewStateFlow.update { it.copy(isFetchingInfo = false) }
+                when (info) {
+                    is PlaylistResult -> {
+                        showPlaylistPage(info)
+                    }
 
-                        is VideoInfo -> {
-                            if (FORMAT_SELECTION.getBoolean()) {
-
-                                showFormatSelectionPageOrDownload(info)
-                            } else if (isDownloaderAvailable()) {
-                                downloadVideoWithInfo(info = info)
-                            }
+                    is VideoInfo -> {
+                        if (FORMAT_SELECTION.getBoolean()) {
+                            showFormatSelectionPageOrDownload(info)
+                        } else {
+                            val task = Task(url = url, preferences = DownloadUtil.DownloadPreferences.createFromPreferences())
+                            downloaderV2.enqueue(task)
                         }
                     }
                 }
-                .onFailure {
-                    manageDownloadError(
-                        th = it,
-                        url = url,
-                        isFetchingInfo = true,
-                        isTaskAborted = true,
-                    )
-                }
-        }
+            }
+            .onFailure {
+                mutableViewStateFlow.update { it.copy(isFetchingInfo = false) }
+                ToastUtil.makeToast(it.message ?: "Error fetching playlist info")
+            }
+    }
 
     private fun showPlaylistPage(playlistResult: PlaylistResult) {
-        updatePlaylistResult(playlistResult)
-        mutableViewStateFlow.update { it.copy(showPlaylistSelectionDialog = true) }
+        mutableViewStateFlow.update { it.copy(showPlaylistSelectionDialog = true, playlistResult = playlistResult) }
     }
 
     private fun showFormatSelectionPageOrDownload(info: VideoInfo) {
-        if (info.format.isNullOrEmpty()) Downloader.downloadVideoWithInfo(info)
-        else {
+        if (info.format.isNullOrEmpty()) {
+            val task = Task(url = info.originalUrl.toString(), preferences = DownloadUtil.DownloadPreferences.createFromPreferences())
+            downloaderV2.enqueue(task)
+        } else {
             videoInfoFlow.update { info }
             mutableViewStateFlow.update { it.copy(showFormatSelectionPage = true) }
         }

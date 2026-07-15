@@ -63,11 +63,10 @@ class App : Application() {
             androidLogger()
             androidContext(this@App)
             modules(
-                com.junkfood.seal.core.di.engineModule,
                 module {
                     single<DownloaderV2> { DownloaderV2Impl(androidContext()) }
                     viewModel { DownloadDialogViewModel(downloader = get()) }
-                    viewModel { HomePageViewModel() }
+                    viewModel { HomePageViewModel(downloaderV2 = get()) }
                     viewModel { CookiesViewModel() }
                     viewModel { VideoListViewModel() }
                 }
@@ -96,6 +95,7 @@ class App : Application() {
                 DownloadUtil.getCookiesContentFromDatabase().getOrNull()?.let {
                     FileUtil.writeContentToFile(it, getCookiesFile())
                 }
+                UpgradeManager.checkAndRunMigrations(this@App)
                 UpdateUtil.deleteOutdatedApk()
             } catch (th: Throwable) {
                 withContext(Dispatchers.Main) { startCrashReportActivity(th) }

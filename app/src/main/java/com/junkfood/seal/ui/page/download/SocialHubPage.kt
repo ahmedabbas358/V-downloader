@@ -67,7 +67,7 @@ val socialPlatforms = listOf(
     "Mastodon", "Patreon", "OnlyFans", "Fansly", "Substack", "Medium", "Dev.to", "GitHub",
     "StackOverflow", "Coursera", "Udemy", "Skillshare", "TED", "Khan Academy", "PBS",
     "BBC", "CNN", "Fox News", "Al Jazeera", "Yahoo", "MSN", "AOL", "ESPN", "Bleacher Report",
-    "IMDb", "Rotten Tomatoes", "Giphy", "Tenor", "Imgur", "9GAG", "iFunny", "Discord", "Telegram"
+    "IMDb", "Rotten Tomatoes", "Giphy", "Tenor", "Imgur", "9GAG", "iFunny", "Discord"
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
