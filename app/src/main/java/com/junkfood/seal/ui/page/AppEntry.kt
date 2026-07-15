@@ -4,6 +4,8 @@ import android.webkit.CookieManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.MaterialTheme
@@ -145,7 +147,26 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val gradientBrush = if (isDark) {
+        Brush.linearGradient(
+            colors = listOf(
+                ComposeColor(0xFF1E1E2C),
+                ComposeColor(0xFF2D2A4A),
+                ComposeColor(0xFF16162C)
+            )
+        )
+    } else {
+        Brush.linearGradient(
+            colors = listOf(
+                ComposeColor(0xFFE0C3FC),
+                ComposeColor(0xFF8EC5FC),
+                ComposeColor(0xFFE0C3FC)
+            )
+        )
+    }
+
+    Box(modifier = Modifier.fillMaxSize().background(gradientBrush)) {
         NavigationDrawer(
             windowWidth = windowWidth,
             drawerState = drawerState,

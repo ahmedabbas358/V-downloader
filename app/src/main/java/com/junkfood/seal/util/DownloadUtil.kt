@@ -79,11 +79,11 @@ object DownloadUtil {
     private const val OUTPUT_TEMPLATE_SPLIT = "$BASENAME/$OUTPUT_TEMPLATE_DEFAULT"
 
     // Fixed: safely conditionally insert playlist_index and dash only if playlist_index exists
-    const val PLAYLIST_INDEX_PADDED = "%(playlist_index&%(playlist_index)03d|)s"
+    const val PLAYLIST_INDEX_PADDED = "%(playlist_index|%(autonumber)s)03d"
 
-    const val OUTPUT_TEMPLATE_PLAYLIST = "%(playlist_index&%(playlist_index)03d - |)s$BASENAME$EXTENSION"
+    const val OUTPUT_TEMPLATE_PLAYLIST = "%(playlist_index|%(autonumber)s)03d - $BASENAME$EXTENSION"
 
-    const val OUTPUT_TEMPLATE_PLAYLIST_ID = "%(playlist_index&%(playlist_index)03d - |)s$BASENAME $ID$EXTENSION"
+    const val OUTPUT_TEMPLATE_PLAYLIST_ID = "%(playlist_index|%(autonumber)s)03d - $BASENAME $ID$EXTENSION"
 
     private const val PLAYLIST_TITLE_SUBDIRECTORY_PREFIX = "%(playlist_title,playlist,uploader,id).200B/"
 
@@ -513,7 +513,8 @@ object DownloadUtil {
                 addOption("--ignore-no-formats-error")
                 addOption("--no-abort-on-error")
                 if (formatIdString.isNotEmpty()) {
-                    addOption("-f", formatIdString)
+                    // Fix: Add fallback to 'bestvideo+bestaudio/best' if the specific format is missing
+                    addOption("-f", "$formatIdString/bestvideo+bestaudio/best")
                     if (mergeAudioStream) {
                         addOption("--audio-multistreams")
                     }
@@ -542,11 +543,12 @@ object DownloadUtil {
                             } else {
                                 addOption("--sub-langs", subtitleLanguage)
                             }
-                        } else {
                             // Default to common languages instead of 'all' which can cause timeouts
                             addOption("--sub-langs", "ar.*,en.*,fr.*,es.*,de.*,.*-orig")
                         }
-                        addOption("--sub-format", "best")
+                        // Use srt for subtitles conversion to avoid embedding issues with mp4
+                        addOption("--convert-subs", "srt")
+                        addOption("--sub-format", "srt/best")
                         if (embedSubtitle) {
                             addOption("--embed-subs")
                         }
@@ -673,7 +675,8 @@ object DownloadUtil {
                         } else {
                             addOption("--sub-langs", "ar.*,en.*,fr.*,es.*,de.*,.*-orig")
                         }
-                        addOption("--sub-format", "best")
+                        addOption("--convert-subs", "srt")
+                        addOption("--sub-format", "srt/best")
                         when (convertSubtitle) {
                             CONVERT_ASS -> addOption("--convert-subs", "ass")
                             CONVERT_SRT -> addOption("--convert-subs", "srt")
@@ -686,7 +689,8 @@ object DownloadUtil {
                     }
                 }
                 if (formatIdString.isNotEmpty()) {
-                    addOption("-f", formatIdString)
+                    // Fix: Add fallback to 'bestaudio/best' if the specific format is missing
+                    addOption("-f", "$formatIdString/bestaudio/best")
                     if (mergeAudioStream) {
                         addOption("--audio-multistreams")
                     }
@@ -917,6 +921,15 @@ object DownloadUtil {
                             th.message?.contains("Unable to communicate with SponsorBlock API") ==
                                 true
                     ) {
+                        th.printStackTrace()
+                        onFinishDownloading(
+                            preferences = this,
+                            videoInfo = videoInfo,
+                            downloadPath = pathBuilder.toString(),
+                            sdcardUri = sdcardUri,
+                        )
+                    } else if (downloadPlaylist && th is com.yausername.youtubedl_android.YoutubeDLException) {
+                        // Playlist download: if yt-dlp threw an exception due to a single failure but other items might have succeeded
                         th.printStackTrace()
                         onFinishDownloading(
                             preferences = this,

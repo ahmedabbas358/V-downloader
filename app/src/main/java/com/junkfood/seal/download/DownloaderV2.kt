@@ -8,6 +8,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import com.junkfood.seal.App
 import com.junkfood.seal.R
+import com.junkfood.seal.database.objects.DownloadOperation
 import com.junkfood.seal.download.Task.DownloadState
 import com.junkfood.seal.download.Task.DownloadState.Canceled
 import com.junkfood.seal.download.Task.DownloadState.Completed
@@ -338,7 +339,18 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                         },
                     )
                     .onSuccess { pathList ->
-                        downloadState = Completed(pathList.firstOrNull())
+                        val path = pathList.firstOrNull()
+                        downloadState = Completed(path)
+                        com.junkfood.seal.util.DatabaseUtil.insertDownloadOperation(
+                            DownloadOperation(
+                                url = task.url,
+                                title = viewState.title,
+                                status = "Completed",
+                                timestamp = System.currentTimeMillis(),
+                                filePath = path,
+                                playlistIndex = (task.type as? Task.TypeInfo.Playlist)?.index
+                            )
+                        )
 
                         val text =
                             appContext.getString(
@@ -367,6 +379,16 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                             return@onFailure
                         }
                         downloadState = Error(throwable = throwable, action = Download)
+                        com.junkfood.seal.util.DatabaseUtil.insertDownloadOperation(
+                            DownloadOperation(
+                                url = task.url,
+                                title = viewState.title,
+                                status = "Error",
+                                errorMessage = throwable.message,
+                                timestamp = System.currentTimeMillis(),
+                                playlistIndex = (task.type as? Task.TypeInfo.Playlist)?.index
+                            )
+                        )
                         NotificationUtil.notifyError(
                             title = viewState.title,
                             textId = R.string.download_error_msg,

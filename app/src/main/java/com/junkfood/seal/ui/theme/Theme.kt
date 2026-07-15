@@ -57,8 +57,8 @@ fun SealTheme(
         }
     }
 
-    val colorScheme = dynamicColorScheme(!darkTheme).run {
-            val alphaFactor = 0.85f // Apple Glassmorphism effect
+        val colorScheme = dynamicColorScheme(!darkTheme).run {
+            val alphaFactor = 0.55f // Glassmorphism transparency
             val adjustedScheme = if (isHighContrastModeEnabled && darkTheme) {
                 copy(
                     surface = Color.Black.copy(alpha = alphaFactor),
