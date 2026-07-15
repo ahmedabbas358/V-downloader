@@ -10,6 +10,9 @@ import android.util.Log
 import com.junkfood.seal.util.NotificationUtil
 import android.net.wifi.WifiManager
 import android.os.PowerManager
+import com.junkfood.seal.download.DownloaderV2
+import com.junkfood.seal.util.PreferenceUtil
+import org.koin.android.ext.android.inject
 
 import com.junkfood.seal.util.NotificationUtil.SERVICE_NOTIFICATION_ID
 
@@ -21,6 +24,7 @@ class DownloadService : Service() {
 
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
+    private val downloader: DownloaderV2 by inject()
 
     override fun onBind(intent: Intent): IBinder {
         val pendingIntent: PendingIntent =
@@ -48,6 +52,8 @@ class DownloadService : Service() {
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
         Log.d(TAG, "onTaskRemoved: ")
+        // Synchronously save the task list before the service is killed
+        PreferenceUtil.encodeTaskListBackup(downloader.getTaskStateMap())
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE)
         } else {

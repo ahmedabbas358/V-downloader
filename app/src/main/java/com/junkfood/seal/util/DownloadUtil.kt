@@ -78,15 +78,12 @@ object DownloadUtil {
 
     private const val OUTPUT_TEMPLATE_SPLIT = "$BASENAME/$OUTPUT_TEMPLATE_DEFAULT"
 
-    const val PLAYLIST_INDEX_PREFIX = "%(playlist_index|)s"
+    // Fixed: safely conditionally insert playlist_index and dash only if playlist_index exists
+    const val PLAYLIST_INDEX_PADDED = "%(playlist_index&%(playlist_index)03d|)s"
 
-    // Fixed: use playlist_autonumber as fallback which is always set during playlist downloads,
-    // and drop prefix entirely for single videos to avoid N/A in filenames
-    const val PLAYLIST_INDEX_PADDED = "%(playlist_autonumber&%(playlist_autonumber)03d|%(playlist_index&%(playlist_index)03d|)s)s"
+    const val OUTPUT_TEMPLATE_PLAYLIST = "%(playlist_index&%(playlist_index)03d - |)s$BASENAME$EXTENSION"
 
-    const val OUTPUT_TEMPLATE_PLAYLIST = "$PLAYLIST_INDEX_PADDED - $BASENAME$EXTENSION"
-
-    const val OUTPUT_TEMPLATE_PLAYLIST_ID = "$PLAYLIST_INDEX_PADDED - $BASENAME $ID$EXTENSION"
+    const val OUTPUT_TEMPLATE_PLAYLIST_ID = "%(playlist_index&%(playlist_index)03d - |)s$BASENAME $ID$EXTENSION"
 
     private const val PLAYLIST_TITLE_SUBDIRECTORY_PREFIX = "%(playlist_title,playlist,uploader,id).200B/"
 
@@ -521,21 +518,11 @@ object DownloadUtil {
                         addOption("--audio-multistreams")
                     }
                 } else {
-                    // Build proper format selection based on resolution
+                    // Apply format sorter (-S) which is safer and respects user's resolution/codec choice
+                    // without causing 'requested format not available' errors
                     val formatSorter = toFormatSorter()
                     if (formatSorter.isNotEmpty()) {
                         applyFormatSorter(this, formatSorter)
-                    }
-                    // Apply explicit resolution limit when user selected a specific quality
-                    when (videoResolution) {
-                        1 -> addOption("-f", "bestvideo[height<=2160]+bestaudio/best[height<=2160]")
-                        2 -> addOption("-f", "bestvideo[height<=1440]+bestaudio/best[height<=1440]")
-                        3 -> addOption("-f", "bestvideo[height<=1080]+bestaudio/best[height<=1080]")
-                        4 -> addOption("-f", "bestvideo[height<=720]+bestaudio/best[height<=720]")
-                        5 -> addOption("-f", "bestvideo[height<=480]+bestaudio/best[height<=480]")
-                        6 -> addOption("-f", "bestvideo[height<=360]+bestaudio/best[height<=360]")
-                        7 -> addOption("-f", "worstvideo+worstaudio/worst")
-                        else -> {} // 0 = best available, no filter needed
                     }
                 }
                 // Subtitles: isolated in try-catch so subtitle failure never blocks video download

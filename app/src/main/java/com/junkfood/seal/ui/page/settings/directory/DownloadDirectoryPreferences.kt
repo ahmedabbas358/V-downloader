@@ -226,9 +226,16 @@ fun DownloadDirectoryPreferences(onNavigateBack: () -> Unit) {
 
     fun openDirectoryChooser(directory: Directory = Directory.VIDEO) {
         editingDirectory = directory
-        if (Build.VERSION.SDK_INT > 29 || storagePermission.status == PermissionStatus.Granted)
-            launcher.launch(null)
-        else storagePermission.launchPermissionRequest()
+        if (Build.VERSION.SDK_INT > 29 || storagePermission.status == PermissionStatus.Granted) {
+            try {
+                launcher.launch(null)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                android.widget.Toast.makeText(context, R.string.feature_unavailable, android.widget.Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            storagePermission.launchPermissionRequest()
+        }
     }
 
     Scaffold(

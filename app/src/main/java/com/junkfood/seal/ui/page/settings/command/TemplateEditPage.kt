@@ -28,6 +28,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -86,6 +88,7 @@ fun TemplateEditPage(onDismissRequest: () -> Unit, templateId: Int) {
     val softwareKeyboardController = LocalSoftwareKeyboardController.current
     var isEditingShortcuts by remember { mutableStateOf(false) }
     var showHelpDialog by remember { mutableStateOf(false) }
+    var showPresetMenu by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -171,6 +174,42 @@ fun TemplateEditPage(onDismissRequest: () -> Unit, templateId: Int) {
                             minLines = 6,
                         )
                     }
+                    
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        TextButton(onClick = { showPresetMenu = true }) {
+                            Text("Load Preset")
+                        }
+                        DropdownMenu(
+                            expanded = showPresetMenu,
+                            onDismissRequest = { showPresetMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Audio Only (Best Quality)") },
+                                onClick = {
+                                    templateName = "Audio Only"
+                                    templateText = "-f bestaudio --extract-audio --audio-format mp3"
+                                    showPresetMenu = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Video + Subtitles") },
+                                onClick = {
+                                    templateName = "Video with Subs"
+                                    templateText = "-f bestvideo+bestaudio --write-auto-subs --embed-subs"
+                                    showPresetMenu = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Playlist Indexing") },
+                                onClick = {
+                                    templateName = "Playlist Download"
+                                    templateText = "-o \"%(playlist_index|)03d - %(title)s.%(ext)s\" -f best"
+                                    showPresetMenu = false
+                                }
+                            )
+                        }
+                    }
+
                     LinkButton(modifier = Modifier.padding(vertical = 12.dp))
                     HorizontalDivider(
                         Modifier.fillMaxWidth()

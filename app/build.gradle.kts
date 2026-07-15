@@ -102,6 +102,7 @@ android {
             if (keystorePropertiesFile.exists()) {
                 signingConfig = signingConfigs.getByName("githubPublish")
             }
+            // Removed debug application id and version suffixes to make it a unified production-like app
             resValue("string", "app_name", "V-Downloader")
         }
     }

@@ -73,6 +73,7 @@ import com.junkfood.seal.ui.page.settings.network.NetworkPreferences
 import com.junkfood.seal.ui.page.settings.network.WebViewPage
 import com.junkfood.seal.ui.page.settings.troubleshooting.TroubleShootingPage
 import com.junkfood.seal.ui.page.videolist.VideoListPage
+import com.junkfood.seal.ui.page.onboarding.OnboardingScreen
 import com.junkfood.seal.util.PreferenceUtil
 import com.junkfood.seal.util.PreferenceUtil.getInt
 import com.junkfood.seal.util.WELCOME_DIALOG
@@ -101,7 +102,10 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
     var firstRunGuideState by rememberSaveable { mutableIntStateOf(WELCOME_DIALOG.getInt()) }
 
     if (firstRunGuideState > 0) {
-        FirstRunGuide { firstRunGuideState = 0 }
+        OnboardingScreen { 
+            firstRunGuideState = 0
+            PreferenceUtil.kv.encode(WELCOME_DIALOG, 0)
+        }
         return
     }
 

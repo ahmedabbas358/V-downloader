@@ -796,10 +796,10 @@ internal class DownloadPageV2Test {
             override fun cancel(task: Task): Boolean {
                 return false
             }
-
-            override fun cancel(task: Task) {}
-
-            override fun pause(task: Task) {}
+            
+            override fun pause(task: Task): Boolean {
+                return false
+            }
 
             override fun restart(task: Task) {}
 
