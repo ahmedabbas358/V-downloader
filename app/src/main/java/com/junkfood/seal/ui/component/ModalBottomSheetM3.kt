@@ -42,17 +42,23 @@ fun SealModalBottomSheet(
     content: @Composable ColumnScope.() -> Unit = {},
 ) {
     ModalBottomSheet(
-        modifier = modifier,
+        modifier = modifier.glassmorphism(),
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
         properties = properties,
-        shape = MaterialTheme.shapes.extraLarge,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-        dragHandle = null,
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.85f),
+        dragHandle = {
+            androidx.compose.material3.BottomSheetDefaults.DragHandle(
+                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+                width = 48.dp,
+                height = 5.dp
+            )
+        },
     ) {
         Column(modifier = Modifier.padding(paddingValues = contentPadding)) {
             content()
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }

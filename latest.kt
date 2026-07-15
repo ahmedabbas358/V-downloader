@@ -25,7 +25,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.Cancel
-import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Error
@@ -81,6 +80,25 @@ import com.junkfood.seal.util.toDurationText
 import com.junkfood.seal.util.toFileSizeText
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+sealed interface UiAction {
+    data class OpenFile(val filePath: String?) : UiAction
+
+    data class ShareFile(val filePath: String?) : UiAction
+
+    data class OpenThumbnailURL(val url: String?) : UiAction
+
+    data object CopyVideoURL : UiAction
+
+    data class OpenVideoURL(val url: String) : UiAction
+
+    data object Cancel : UiAction
+
+    data object Delete : UiAction
+
+    data object Resume : UiAction
+
+    data class CopyErrorReport(val throwable: Throwable) : UiAction
+}
 
 private val IconButtonSize = 64.dp
 private val IconSize = 36.dp
@@ -416,7 +434,7 @@ fun ListItemStateText(
     ) { downloadState ->
         val text =
             when (downloadState) {
-                is Canceled -> if (downloadState.isPaused) stringResource(R.string.status_paused) else stringResource(R.string.status_canceled)
+                is Canceled -> stringResource(R.string.status_canceled)
                 is Completed -> stringResource(R.string.status_downloaded)
                 is Error -> stringResource(R.string.status_error)
                 is FetchingInfo -> stringResource(R.string.status_fetching_video_info)
@@ -424,8 +442,11 @@ fun ListItemStateText(
                 ReadyWithInfo -> stringResource(R.string.status_enqueued)
                 is Running -> {
                     val progress = downloadState.progress
+                    val eta = downloadState.etaSeconds
                     if (progress >= 0) {
-                        "%.1f %%".format(downloadState.progress * 100)
+                        val percentText = "%.1f %%".format(downloadState.progress * 100)
+                        if (eta >= 0) "$percentText • ${eta.toInt().toDurationText()}"
+                        else percentText
                     } else {
                         stringResource(R.string.status_downloading)
                     }
@@ -435,7 +456,7 @@ fun ListItemStateText(
             when (downloadState) {
                 is Canceled -> {
                     Icon(
-                        imageVector = if (downloadState.isPaused) Icons.Outlined.Pause else Icons.Outlined.Cancel,
+                        imageVector = Icons.Outlined.Cancel,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = sizeModifier,
@@ -496,7 +517,7 @@ private fun CardItemStateText(modifier: Modifier = Modifier, downloadState: Task
 
     val text =
         when (downloadState) {
-            is Canceled -> if (downloadState.isPaused) R.string.status_paused else R.string.status_canceled
+            is Canceled -> R.string.status_canceled
             is Completed -> R.string.status_downloaded
             is Error -> R.string.status_error
             is FetchingInfo -> R.string.status_fetching_video_info
@@ -550,7 +571,7 @@ fun ActionButton(
         }
         is Running -> {
             ProgressButton(modifier = modifier, progress = downloadState.progress) {
-                onActionPost(UiAction.Pause)
+                onActionPost(UiAction.Cancel)
             }
         }
     }

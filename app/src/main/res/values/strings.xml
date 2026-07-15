@@ -1,9 +1,15 @@
 <resources>
     <string name="app_name" translatable="false">V-Downloader</string>
+    <string name="quick_download_short_label">Quick Download</string>
+    <string name="quick_download_long_label">Download from Clipboard</string>
+    <string name="quick_download_tile_label">Download from Clipboard</string>
     <string name="video_directory">Video folder</string>
     <string name="extract_audio">Save as audio</string>
     <string name="create_thumbnail">Save thumbnail</string>
     <string name="settings">Settings</string>
+    <string name="pause">Pause</string>
+    <string name="resume">Resume</string>
+    <string name="status_paused">Paused</string>
     <string name="download_settings_desc">General, format, custom command</string>
     <string name="download">Download</string>
     <string name="url_empty">The link cannot be empty</string>

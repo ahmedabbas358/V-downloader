@@ -93,7 +93,7 @@ data class Task(
         }
 
         @Serializable
-        data class Canceled(override val action: RestartableAction, val progress: Float? = null) :
+        data class Canceled(override val action: RestartableAction, val progress: Float? = null, val isPaused: Boolean = false) :
             DownloadState, Restartable
 
         @Serializable

@@ -258,9 +258,6 @@ fun NavGraphBuilder.settingsGraph(
         }
         animatedComposable(Route.INTERACTION) { InteractionPreferencePage(onBack = onNavigateBack) }
         animatedComposable(Route.LANGUAGES) { LanguagePage { onNavigateBack() } }
-        animatedComposable(Route.DOWNLOAD_DIRECTORY) {
-            DownloadDirectoryPreferences { onNavigateBack() }
-        }
         animatedComposable(Route.TEMPLATE) {
             TemplateListPage(onNavigateBack = onNavigateBack) {
                 onNavigateTo(Route.TEMPLATE_EDIT id it)

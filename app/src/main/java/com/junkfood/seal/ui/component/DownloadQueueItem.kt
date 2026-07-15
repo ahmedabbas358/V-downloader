@@ -19,6 +19,8 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material.icons.outlined.UnfoldMore
@@ -146,6 +148,7 @@ enum class TaskStatus {
     RUNNING,
     ERROR,
     CANCELED,
+    PAUSED,
     FINISHED,
 }
 
@@ -170,6 +173,8 @@ fun CustomCommandTaskItem(
     onRestart: () -> Unit = {},
     onShowLog: () -> Unit = {},
     onCancel: () -> Unit = {},
+    onPause: () -> Unit = {},
+    onResume: () -> Unit = {},
 ) {
     CompositionLocalProvider(LocalTonalPalettes provides GreenTonalPalettes) {
         val greenScheme = dynamicColorScheme(!LocalDarkTheme.current.isDarkTheme())
@@ -177,7 +182,7 @@ fun CustomCommandTaskItem(
             MaterialTheme.colorScheme.run {
                 when (status) {
                     TaskStatus.FINISHED -> greenScheme.primary
-                    TaskStatus.CANCELED -> onSurfaceVariant
+                    TaskStatus.CANCELED, TaskStatus.PAUSED -> onSurfaceVariant
                     TaskStatus.RUNNING -> primary
                     TaskStatus.ERROR -> error.harmonizeWithPrimary()
                 }
@@ -212,6 +217,7 @@ fun CustomCommandTaskItem(
                     when (status) {
                         TaskStatus.FINISHED -> R.string.status_completed
                         TaskStatus.CANCELED -> R.string.status_canceled
+                        TaskStatus.PAUSED -> R.string.status_paused
                         TaskStatus.RUNNING -> R.string.status_downloading
                         TaskStatus.ERROR -> R.string.status_error
                     }
@@ -232,12 +238,14 @@ fun CustomCommandTaskItem(
                             )
                         }
 
-                        TaskStatus.CANCELED -> {
+                        TaskStatus.CANCELED, TaskStatus.PAUSED -> {
                             Icon(
                                 modifier = Modifier.padding(8.dp).size(24.dp),
-                                imageVector = Icons.Filled.Cancel,
+                                imageVector = if (status == TaskStatus.PAUSED) Icons.Filled.Pause else Icons.Filled.Cancel,
                                 tint = accentColor,
-                                contentDescription = stringResource(id = R.string.status_canceled),
+                                contentDescription = stringResource(
+                                    id = if (status == TaskStatus.PAUSED) R.string.status_paused else R.string.status_canceled
+                                ),
                             )
                         }
 
@@ -332,7 +340,7 @@ fun CustomCommandTaskItem(
                         ) {
                             onCopyError()
                         }
-                    if (status == TaskStatus.RUNNING)
+                    if (status == TaskStatus.RUNNING) {
                         FlatButtonChip(
                             icon = Icons.Outlined.Cancel,
                             label = stringResource(id = R.string.cancel),
@@ -340,12 +348,19 @@ fun CustomCommandTaskItem(
                         ) {
                             onCancel()
                         }
-                    if (status == TaskStatus.CANCELED || status == TaskStatus.ERROR)
+                        FlatButtonChip(
+                            icon = Icons.Outlined.Pause,
+                            label = stringResource(id = R.string.pause),
+                        ) {
+                            onPause()
+                        }
+                    }
+                    if (status == TaskStatus.CANCELED || status == TaskStatus.ERROR || status == TaskStatus.PAUSED)
                         FlatButtonChip(
                             icon = Icons.Outlined.RestartAlt,
-                            label = stringResource(id = R.string.restart),
+                            label = stringResource(id = if (status == TaskStatus.PAUSED) R.string.resume else R.string.restart),
                         ) {
-                            onRestart()
+                            if (status == TaskStatus.PAUSED) onResume() else onRestart()
                         }
                 }
             }

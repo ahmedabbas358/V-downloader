@@ -191,8 +191,32 @@ val DEFAULT_COMMAND_TEMPLATES =
                 --no-mtime
                 --embed-metadata
                 --embed-thumbnail
+                --embed-chapters
                 --convert-thumbnails jpg
                 -S "res,codec:avc:m4a,ext"
+                """.trimIndent(),
+        ),
+        CommandTemplate(
+            id = 0,
+            name = "Best quality 1080p MP4",
+            template =
+                """
+                -f "bestvideo[height<=1080]+bestaudio/best[height<=1080]"
+                --merge-output-format mp4
+                --embed-metadata
+                --embed-thumbnail
+                --convert-thumbnails jpg
+                """.trimIndent(),
+        ),
+        CommandTemplate(
+            id = 0,
+            name = "4K UHD video",
+            template =
+                """
+                -f "bestvideo[height<=2160]+bestaudio/best[height<=2160]"
+                --merge-output-format mkv
+                --embed-metadata
+                --embed-thumbnail
                 """.trimIndent(),
         ),
         CommandTemplate(
@@ -202,9 +226,10 @@ val DEFAULT_COMMAND_TEMPLATES =
                 """
                 --yes-playlist
                 --ignore-errors
-                --retries 10
-                --fragment-retries 10
-                -o "%(playlist_title,playlist)s/%(playlist_index&%(playlist_index)03d|%(autonumber)03d)s - %(title).200B.%(ext)s"
+                --retries 15
+                --fragment-retries 15
+                --socket-timeout 30
+                -o "%(playlist_title,playlist)s/%(playlist_autonumber&%(playlist_autonumber)03d|%(playlist_index&%(playlist_index)03d|)s)s - %(title).200B.%(ext)s"
                 """.trimIndent(),
         ),
         CommandTemplate(
@@ -222,11 +247,25 @@ val DEFAULT_COMMAND_TEMPLATES =
         ),
         CommandTemplate(
             id = 0,
-            name = "Download Subtitles Only",
+            name = "Download subtitles with embedded subs",
+            template =
+                """
+                --write-subs
+                --write-auto-subs
+                --embed-subs
+                --sub-langs "ar.*,en.*,fr.*,es.*"
+                --sub-format "srt/best"
+                --convert-subs srt
+                """.trimIndent(),
+        ),
+        CommandTemplate(
+            id = 0,
+            name = "Download subtitles only",
             template =
                 """
                 --skip-download
                 --write-subs
+                --write-auto-subs
                 --sub-langs "ar.*,en.*"
                 --convert-subs srt
                 """.trimIndent(),
@@ -242,6 +281,17 @@ val DEFAULT_COMMAND_TEMPLATES =
                 --embed-metadata
                 --embed-thumbnail
                 --convert-thumbnails jpg
+                """.trimIndent(),
+        ),
+        CommandTemplate(
+            id = 0,
+            name = "FLAC lossless audio",
+            template =
+                """
+                -x
+                --audio-format flac
+                --embed-metadata
+                --embed-thumbnail
                 """.trimIndent(),
         ),
         CommandTemplate(
@@ -283,6 +333,26 @@ val DEFAULT_COMMAND_TEMPLATES =
                 """
                 --split-chapters
                 -o "chapter:%(title)s/%(section_number)03d - %(section_title)s.%(ext)s"
+                """.trimIndent(),
+        ),
+        CommandTemplate(
+            id = 0,
+            name = "Download thumbnail only",
+            template =
+                """
+                --write-thumbnail
+                --convert-thumbnails png
+                --skip-download
+                """.trimIndent(),
+        ),
+        CommandTemplate(
+            id = 0,
+            name = "Speed limited download (1 MB/s)",
+            template =
+                """
+                -r 1M
+                --no-mtime
+                --embed-metadata
                 """.trimIndent(),
         ),
     )

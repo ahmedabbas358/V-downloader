@@ -51,7 +51,13 @@ interface DownloaderV2 {
         return getTaskStateMap().keys.find { it.id == taskId }?.let { cancel(it) } ?: false
     }
 
+    fun pause(taskId: String): Boolean {
+        return getTaskStateMap().keys.find { it.id == taskId }?.let { pause(it) } ?: false
+    }
+
     fun restart(task: Task)
+
+    fun pause(task: Task): Boolean
 
     /** Enqueue a [Task] with an empty [Task.State] */
     fun enqueue(task: Task)
@@ -72,6 +78,10 @@ internal object FakeDownloaderV2 : DownloaderV2 {
     }
 
     override fun cancel(task: Task): Boolean {
+        return false
+    }
+
+    override fun pause(task: Task): Boolean {
         return false
     }
 
@@ -192,7 +202,9 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
         return false
     }
 
-    override fun cancel(task: Task): Boolean = task.cancelImpl()
+    override fun cancel(task: Task): Boolean = task.cancelImpl(isPaused = false)
+
+    override fun pause(task: Task): Boolean = task.cancelImpl(isPaused = true)
 
     override fun restart(task: Task) {
         task.restartImpl()
@@ -366,7 +378,7 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
             .also { job -> downloadState = Running(job = job, taskId = id) }
     }
 
-    private fun Task.cancelImpl(): Boolean {
+    private fun Task.cancelImpl(isPaused: Boolean = false): Boolean {
         when (val preState = downloadState) {
             is DownloadState.Cancelable -> {
                 YoutubeDL.destroyProcessById(preState.taskId)
@@ -374,14 +386,14 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                 val progress = if (preState is Running) preState.progress else null
                 NotificationUtil.cancelNotification(notificationId)
                 downloadState =
-                    DownloadState.Canceled(action = preState.action, progress = progress)
+                    DownloadState.Canceled(action = preState.action, progress = progress, isPaused = isPaused)
                 return true
             }
             Idle -> {
-                downloadState = DownloadState.Canceled(action = FetchInfo)
+                downloadState = DownloadState.Canceled(action = FetchInfo, isPaused = isPaused)
             }
             ReadyWithInfo -> {
-                downloadState = DownloadState.Canceled(action = Download)
+                downloadState = DownloadState.Canceled(action = Download, isPaused = isPaused)
             }
 
             else -> {

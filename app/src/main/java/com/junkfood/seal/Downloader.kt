@@ -13,7 +13,9 @@ import com.junkfood.seal.App.Companion.context
 import com.junkfood.seal.App.Companion.startService
 import com.junkfood.seal.App.Companion.stopService
 import com.junkfood.seal.database.objects.CommandTemplate
+import com.junkfood.seal.database.objects.DownloadOperation
 import com.junkfood.seal.util.COMMAND_DIRECTORY
+import com.junkfood.seal.util.DatabaseUtil
 import com.junkfood.seal.util.DownloadUtil
 import com.junkfood.seal.util.FileUtil
 import com.junkfood.seal.util.NotificationUtil
@@ -39,6 +41,8 @@ import kotlinx.coroutines.launch
 object Downloader {
 
     private const val TAG = "Downloader"
+    private const val MAX_RETRY_ATTEMPTS = 3
+    private const val RETRY_BASE_DELAY_MS = 2000L
 
     sealed class State {
         data class DownloadingPlaylist(val currentItem: Int = 0, val itemCount: Int = 0) : State()
@@ -409,6 +413,16 @@ object Downloader {
                     notificationId = notificationId,
                     isTaskAborted = !isDownloadingPlaylist,
                 )
+                // Log failed operation
+                DatabaseUtil.insertDownloadOperation(
+                    DownloadOperation(
+                        url = videoInfo.originalUrl ?: "",
+                        title = videoInfo.title,
+                        status = "FAILED",
+                        errorMessage = it.message,
+                        playlistIndex = if (playlistIndex > 0) playlistIndex else null,
+                    )
+                )
             }
             .onSuccess {
                 if (!isDownloadingPlaylist) finishProcessing()
@@ -433,6 +447,16 @@ object Downloader {
                             else null,
                     )
                 }
+                // Log successful operation
+                DatabaseUtil.insertDownloadOperation(
+                    DownloadOperation(
+                        url = videoInfo.originalUrl ?: "",
+                        title = videoInfo.title,
+                        status = "COMPLETED",
+                        filePath = it.firstOrNull(),
+                        playlistIndex = if (playlistIndex > 0) playlistIndex else null,
+                    )
+                )
             }
     }
 
@@ -451,6 +475,10 @@ object Downloader {
 
         currentJob =
             applicationScope.launch(Dispatchers.IO) {
+                var successCount = 0
+                var failCount = 0
+                val failedItems = mutableListOf<String>()
+
                 for (i in indexList.indices) {
                     mutableDownloaderState.update {
                         if (it is State.DownloadingPlaylist)
@@ -470,40 +498,81 @@ object Downloader {
 
                     val title = playlistEntry?.title
 
-                    DownloadUtil.fetchVideoInfoFromUrl(
+                    // Retry mechanism: attempt up to MAX_RETRY_ATTEMPTS per item
+                    var itemSuccess = false
+                    for (attempt in 1..MAX_RETRY_ATTEMPTS) {
+                        if (downloaderState.value !is State.DownloadingPlaylist) return@launch
+
+                        val fetchResult = DownloadUtil.fetchVideoInfoFromUrl(
                             url = url,
                             playlistIndex = playlistIndex,
                             preferences = preferences,
                         )
-                        .onSuccess {
-                            if (downloaderState.value !is State.DownloadingPlaylist) return@launch
-                            downloadResultTemp =
-                                downloadVideo(
-                                        videoInfo = it,
+
+                        fetchResult
+                            .onSuccess { videoInfo ->
+                                if (downloaderState.value !is State.DownloadingPlaylist) return@launch
+                                downloadResultTemp =
+                                    downloadVideo(
+                                        videoInfo = videoInfo,
                                         playlistIndex = playlistIndex,
                                         playlistUrl = url,
                                         preferences = preferences,
                                     )
-                                    .onFailure { th ->
-                                        manageDownloadError(
-                                            th = th,
-                                            url = it.originalUrl,
-                                            title = it.title,
-                                            isFetchingInfo = false,
-                                            isTaskAborted = false,
-                                        )
-                                    }
+                                if (downloadResultTemp.isSuccess) {
+                                    itemSuccess = true
+                                }
+                            }
+                            .onFailure { th ->
+                                if (th is YoutubeDL.CanceledException) return@launch
+                                Log.w(TAG, "Playlist item $playlistIndex attempt $attempt failed: ${th.message}")
+                            }
+
+                        if (itemSuccess) break
+
+                        // If not the last attempt, wait before retrying
+                        if (attempt < MAX_RETRY_ATTEMPTS) {
+                            val backoffDelay = RETRY_BASE_DELAY_MS * attempt
+                            Log.d(TAG, "Retrying item $playlistIndex in ${backoffDelay}ms (attempt ${attempt + 1}/$MAX_RETRY_ATTEMPTS)")
+                            delay(backoffDelay)
                         }
-                        .onFailure { th ->
-                            manageDownloadError(
-                                th = th,
-                                url = playlistEntry?.url,
-                                title = title,
-                                isFetchingInfo = true,
-                                isTaskAborted = false,
-                            )
-                        }
+                    }
+
+                    if (itemSuccess) {
+                        successCount++
+                    } else {
+                        failCount++
+                        failedItems.add(title ?: "Item #$playlistIndex")
+                        // Log failure but continue with next item
+                        manageDownloadError(
+                            th = Exception("Failed after $MAX_RETRY_ATTEMPTS attempts"),
+                            url = playlistEntry?.url,
+                            title = title,
+                            isFetchingInfo = true,
+                            isTaskAborted = false,
+                        )
+                    }
                 }
+
+                // Show summary notification for playlist
+                val summaryText = if (failCount > 0) {
+                    context.getString(R.string.download_finish_notification) +
+                        " ($successCount/$itemCount) - $failCount failed"
+                } else {
+                    context.getString(R.string.download_finish_notification) +
+                        " ($successCount/$itemCount)"
+                }
+                NotificationUtil.finishNotification(
+                    notificationId = url.toNotificationId(),
+                    title = "Playlist",
+                    text = summaryText,
+                )
+
+                Log.d(TAG, "Playlist download finished: $successCount/$itemCount succeeded, $failCount failed")
+                if (failedItems.isNotEmpty()) {
+                    Log.w(TAG, "Failed items: ${failedItems.joinToString(", ")}")
+                }
+
                 finishProcessing()
             }
     }

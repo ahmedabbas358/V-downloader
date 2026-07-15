@@ -112,13 +112,37 @@ fun WelcomeDialog(onClick: () -> Unit) {
 }
 
 @Composable
-fun IconDescription(modifier: Modifier = Modifier, icon: ImageVector, description: String) {
+fun IconDescription(modifier: Modifier = Modifier, icon: ImageVector, description: String, title: String? = null) {
     Row(
-        modifier = modifier.padding(top = 12.dp, bottom = 9.dp),
+        modifier = modifier.padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(modifier = Modifier.size(24.dp), imageVector = icon, contentDescription = null)
-        Text(modifier = Modifier.padding(start = 12.dp), text = description)
+        androidx.compose.material3.Surface(
+            shape = androidx.compose.foundation.shape.CircleShape,
+            color = MaterialTheme.colorScheme.primaryContainer,
+            modifier = Modifier.size(48.dp)
+        ) {
+            Icon(
+                modifier = Modifier.padding(12.dp),
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        }
+        Column(modifier = Modifier.padding(start = 16.dp)) {
+            if (title != null) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
@@ -139,92 +163,127 @@ fun FirstRunGuide(onFinished: () -> Unit) {
     }
 
     Scaffold { paddingValues ->
-        LazyColumn(
+        androidx.compose.animation.AnimatedContent(
+            targetState = step,
             modifier = Modifier.fillMaxSize().padding(paddingValues),
-            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            item {
-                Column(modifier = Modifier.widthIn(max = 520.dp)) {
-                    Text(
-                        text =
-                            if (step == 0) stringResource(R.string.language)
-                            else stringResource(R.string.user_guide),
-                        style = MaterialTheme.typography.headlineMedium,
-                    )
-                    Text(
-                        modifier = Modifier.padding(top = 8.dp),
-                        text =
-                            if (step == 0) stringResource(R.string.first_run_language_desc)
-                            else stringResource(R.string.first_run_guide_desc),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-
-            if (step == 0) {
-                items(languageOptions.size) { index ->
-                    val locale = languageOptions[index]
-                    ElevatedCard(modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth()) {
-                        PreferenceSingleChoiceItem(
-                            text = locale.toDisplayName(),
-                            selected = selectedLocale == locale,
-                        ) {
-                            selectedLocale = locale
-                            PreferenceUtil.saveLocalePreference(locale)
-                            setLanguage(locale)
-                        }
+            label = "onboarding_step"
+        ) { currentStep ->
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 32.dp, vertical = 48.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                item {
+                    Column(
+                        modifier = Modifier.widthIn(max = 520.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = if (currentStep == 0) Icons.Outlined.Translate else Icons.Outlined.AutoAwesome,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp).padding(bottom = 16.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text =
+                                if (currentStep == 0) stringResource(R.string.language)
+                                else stringResource(R.string.user_guide),
+                            style = MaterialTheme.typography.displaySmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        Text(
+                            text =
+                                if (currentStep == 0) stringResource(R.string.first_run_language_desc)
+                                else stringResource(R.string.first_run_guide_desc),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
                     }
                 }
-            } else {
-                item {
-                    ElevatedCard(modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(16.dp)) {
+
+                if (currentStep == 0) {
+                    item { Spacer(modifier = Modifier.height(16.dp)) }
+                    items(languageOptions.size) { index ->
+                        val locale = languageOptions[index]
+                        ElevatedCard(
+                            modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth(),
+                            shape = MaterialTheme.shapes.large,
+                            onClick = {
+                                selectedLocale = locale
+                                PreferenceUtil.saveLocalePreference(locale)
+                                setLanguage(locale)
+                            }
+                        ) {
+                            PreferenceSingleChoiceItem(
+                                text = locale.toDisplayName(),
+                                selected = selectedLocale == locale,
+                            ) {
+                                selectedLocale = locale
+                                PreferenceUtil.saveLocalePreference(locale)
+                                setLanguage(locale)
+                            }
+                        }
+                    }
+                } else {
+                    item {
+                        Column(
+                            modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth().padding(vertical = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             IconDescription(
                                 icon = Icons.Outlined.FileDownload,
+                                title = "Smart Downloads",
                                 description = stringResource(R.string.download_video_desc),
                             )
                             IconDescription(
                                 icon = Icons.Outlined.Subscriptions,
+                                title = "Playlists & Channels",
                                 description = stringResource(R.string.download_playlist_desc),
                             )
                             IconDescription(
                                 icon = Icons.Outlined.Translate,
+                                title = "Auto Subtitles",
                                 description = stringResource(R.string.subtitle_desc),
                             )
                             IconDescription(
                                 icon = Icons.Outlined.SettingsSuggest,
+                                title = "Powerful Settings",
                                 description = stringResource(R.string.check_download_settings_desc),
-                            )
-                            IconDescription(
-                                icon = Icons.Outlined.Downloading,
-                                description = stringResource(R.string.download_queue),
                             )
                         }
                     }
                 }
-            }
 
-            item {
-                Row(
-                    modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (step == 1) {
-                        OutlinedButton(onClick = { step = 0 }) {
-                            Text(stringResource(R.string.back))
-                        }
-                        Spacer(Modifier.size(8.dp))
-                    }
-                    Button(
-                        onClick = {
-                            if (step == 0) step = 1 else finish()
-                        }
+                item {
+                    Spacer(modifier = Modifier.height(32.dp))
+                    Row(
+                        modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(stringResource(if (step == 0) R.string.proceed else R.string.start))
+                        if (currentStep == 1) {
+                            TextButton(onClick = { step = 0 }) {
+                                Text(stringResource(R.string.back))
+                            }
+                        } else {
+                            Spacer(modifier = Modifier.width(1.dp))
+                        }
+                        Button(
+                            onClick = {
+                                if (currentStep == 0) step = 1 else finish()
+                            },
+                            shape = androidx.compose.foundation.shape.CircleShape,
+                            contentPadding = PaddingValues(horizontal = 32.dp, vertical = 16.dp)
+                        ) {
+                            Text(
+                                text = stringResource(if (currentStep == 0) R.string.proceed else R.string.start),
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        }
                     }
                 }
             }

@@ -163,8 +163,8 @@ fun SealModalBottomSheetM2Variant(
         modifier = modifier,
         sheetShape =
             RoundedCornerShape(
-                topStart = 0.dp,
-                topEnd = 0.dp,
+                topStart = 28.dp,
+                topEnd = 28.dp,
                 bottomEnd = 0.dp,
                 bottomStart = 0.dp,
             ),
@@ -173,12 +173,14 @@ fun SealModalBottomSheetM2Variant(
         sheetElevation = if (sheetState.isVisible) ModalBottomSheetDefaults.Elevation else 0.dp,
         sheetGesturesEnabled = sheetGesturesEnabled,
         sheetContent = {
-            Column { Box(modifier = Modifier) { Column { sheetContent() } } }
-            NavigationBarSpacer(
-                modifier =
-                    Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                        .fillMaxWidth()
-            )
+            Column(modifier = Modifier.background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f), RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))) { 
+                Box(modifier = Modifier) { Column { sheetContent() } } 
+                NavigationBarSpacer(
+                    modifier =
+                        Modifier.background(Color.Transparent)
+                            .fillMaxWidth()
+                )
+            }
         },
     ) {}
 }

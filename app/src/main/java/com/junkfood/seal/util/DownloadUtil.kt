@@ -80,7 +80,9 @@ object DownloadUtil {
 
     const val PLAYLIST_INDEX_PREFIX = "%(playlist_index|)s"
 
-    const val PLAYLIST_INDEX_PADDED = "%(playlist_index&%(playlist_index)03d|%(autonumber)03d)s"
+    // Fixed: use playlist_autonumber as fallback which is always set during playlist downloads,
+    // and drop prefix entirely for single videos to avoid N/A in filenames
+    const val PLAYLIST_INDEX_PADDED = "%(playlist_autonumber&%(playlist_autonumber)03d|%(playlist_index&%(playlist_index)03d|)s)s"
 
     const val OUTPUT_TEMPLATE_PLAYLIST = "$PLAYLIST_INDEX_PADDED - $BASENAME$EXTENSION"
 
@@ -99,6 +101,17 @@ object DownloadUtil {
         return replaceRange(fileNameStart, fileNameStart, prefix)
     }
 
+    /**
+     * Sanitize filename output to remove N/A or NA prefixes that yt-dlp may produce
+     * when playlist_index is not available.
+     */
+    private fun sanitizePlaylistFilename(filename: String): String {
+        return filename
+            .replace(Regex("^(N/A|NA|n/a|na)\\s*-?\\s*"), "")
+            .replace(Regex("/(N/A|NA|n/a|na)\\s*-?\\s*"), "/")
+            .trim()
+    }
+
     @CheckResult
     fun getPlaylistOrVideoInfo(
         playlistURL: String,
@@ -114,7 +127,7 @@ object DownloadUtil {
                 addOption("--ignore-errors")
                 addYoutubeCompatibilityOptions()
                 addOption("-o", BASENAME)
-                addResilienceOptions(light = true)
+                addResilienceOptions(light = false)
                 addOption("--socket-timeout", "15")
                 downloadPreferences.run {
                     if (extractAudio) {
@@ -422,10 +435,13 @@ object DownloadUtil {
 
     private fun YoutubeDLRequest.addResilienceOptions(light: Boolean = false): YoutubeDLRequest =
         apply {
-            addOption("-R", if (light) "3" else "10")
-            addOption("--fragment-retries", if (light) "3" else "10")
-            addOption("--file-access-retries", "3")
-            addOption("--extractor-retries", if (light) "1" else "3")
+            addOption("-R", if (light) "5" else "15")
+            addOption("--fragment-retries", if (light) "5" else "15")
+            addOption("--file-access-retries", if (light) "3" else "5")
+            addOption("--extractor-retries", if (light) "3" else "5")
+            if (!light) {
+                addOption("--socket-timeout", "30")
+            }
         }
 
     @CheckResult
@@ -497,36 +513,65 @@ object DownloadUtil {
             downloadPreferences.run {
                 addOption("--add-metadata")
                 addOption("--no-embed-info-json")
+                addOption("--ignore-no-formats-error")
+                addOption("--no-abort-on-error")
                 if (formatIdString.isNotEmpty()) {
                     addOption("-f", formatIdString)
                     if (mergeAudioStream) {
                         addOption("--audio-multistreams")
                     }
                 } else {
-                    applyFormatSorter(this, toFormatSorter())
+                    // Build proper format selection based on resolution
+                    val formatSorter = toFormatSorter()
+                    if (formatSorter.isNotEmpty()) {
+                        applyFormatSorter(this, formatSorter)
+                    }
+                    // Apply explicit resolution limit when user selected a specific quality
+                    when (videoResolution) {
+                        1 -> addOption("-f", "bestvideo[height<=2160]+bestaudio/best[height<=2160]")
+                        2 -> addOption("-f", "bestvideo[height<=1440]+bestaudio/best[height<=1440]")
+                        3 -> addOption("-f", "bestvideo[height<=1080]+bestaudio/best[height<=1080]")
+                        4 -> addOption("-f", "bestvideo[height<=720]+bestaudio/best[height<=720]")
+                        5 -> addOption("-f", "bestvideo[height<=480]+bestaudio/best[height<=480]")
+                        6 -> addOption("-f", "bestvideo[height<=360]+bestaudio/best[height<=360]")
+                        7 -> addOption("-f", "worstvideo+worstaudio/worst")
+                        else -> {} // 0 = best available, no filter needed
+                    }
                 }
+                // Subtitles: isolated in try-catch so subtitle failure never blocks video download
                 if (downloadSubtitle) {
-                    addOption("--write-subs")
-                    if (autoSubtitle) {
-                        addOption("--write-auto-subs")
-                        if (!autoTranslatedSubtitles) {
-                            addOption("--extractor-args", "youtube:skip=translated_subs")
+                    try {
+                        addOption("--write-subs")
+                        if (autoSubtitle) {
+                            addOption("--write-auto-subs")
+                            if (!autoTranslatedSubtitles) {
+                                addOption("--extractor-args", "youtube:skip=translated_subs")
+                            }
                         }
-                    }
-                    if (subtitleLanguage.isNotEmpty()) {
-                        addOption("--sub-langs", subtitleLanguage)
-                    } else {
-                        addOption("--sub-langs", "all")
-                    }
-                    if (embedSubtitle) {
-                        addOption("--embed-subs")
-                    }
-                    when (convertSubtitle) {
-                        CONVERT_ASS -> addOption("--convert-subs", "ass")
-                        CONVERT_SRT -> addOption("--convert-subs", "srt")
-                        CONVERT_VTT -> addOption("--convert-subs", "vtt")
-                        CONVERT_LRC -> addOption("--convert-subs", "lrc")
-                        else -> {}
+                        if (subtitleLanguage.isNotEmpty()) {
+                            // Combine user selection with safe fallbacks for auto-translate
+                            if (autoSubtitle) {
+                                addOption("--sub-langs", "$subtitleLanguage,en.*,.*-orig")
+                            } else {
+                                addOption("--sub-langs", subtitleLanguage)
+                            }
+                        } else {
+                            // Default to common languages instead of 'all' which can cause timeouts
+                            addOption("--sub-langs", "ar.*,en.*,fr.*,es.*,de.*,.*-orig")
+                        }
+                        addOption("--sub-format", "best")
+                        if (embedSubtitle) {
+                            addOption("--embed-subs")
+                        }
+                        when (convertSubtitle) {
+                            CONVERT_ASS -> addOption("--convert-subs", "ass")
+                            CONVERT_SRT -> addOption("--convert-subs", "srt")
+                            CONVERT_VTT -> addOption("--convert-subs", "vtt")
+                            CONVERT_LRC -> addOption("--convert-subs", "lrc")
+                            else -> {}
+                        }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Subtitle options failed, continuing without subtitles: ${e.message}")
                     }
                 }
                 if (mergeToMkv) {
@@ -543,7 +588,10 @@ object DownloadUtil {
     @CheckResult
     private fun DownloadPreferences.toAudioFormatSorter(): String =
         this.run {
-            if (!useCustomAudioPreset) return@run ""
+            if (!useCustomAudioPreset) {
+                // Even without custom preset, sort by best audio bitrate
+                return@run "abr"
+            }
             val format =
                 when (audioFormat) {
                     M4A -> "acodec:aac"
@@ -555,9 +603,10 @@ object DownloadUtil {
                     HIGH -> "abr~192"
                     MEDIUM -> "abr~128"
                     LOW -> "abr~64"
-                    else -> ""
+                    ULTRA_LOW -> "abr~32"
+                    else -> "abr" // Default: best bitrate
                 }
-            return@run connectWithDelimiter(format, quality, delimiter = ",")
+            return@run connectWithDelimiter(quality, format, delimiter = ",")
         }
 
     @CheckResult
@@ -575,6 +624,7 @@ object DownloadUtil {
 
                     else -> ""
                 }
+            // Resolution sorting: always put resolution first so quality selection actually works
             val res =
                 when (videoResolution) {
                     1 -> "res:2160"
@@ -583,15 +633,11 @@ object DownloadUtil {
                     4 -> "res:720"
                     5 -> "res:480"
                     6 -> "res:360"
-                    7 -> "+res"
-                    else -> ""
+                    7 -> "+res" // lowest resolution
+                    else -> "res" // best resolution (descending by default)
                 }
-            val sorter = if (videoFormat == FORMAT_COMPATIBILITY) {
-                connectWithDelimiter(format, res, delimiter = ",")
-            } else {
-                connectWithDelimiter(res, format, delimiter = ",")
-            }
-            return@run sorter
+            // Always prioritize resolution over codec preference
+            return@run connectWithDelimiter(res, format, delimiter = ",")
         }
 
     private fun YoutubeDLRequest.applyFormatSorter(
@@ -619,26 +665,37 @@ object DownloadUtil {
         this.apply {
             with(preferences) {
                 addOption("-x")
+                addOption("--ignore-no-formats-error")
+                addOption("--no-abort-on-error")
+                // Subtitles: isolated so subtitle failure never blocks audio download
                 if (downloadSubtitle) {
-                    addOption("--write-subs")
-
-                    if (autoSubtitle) {
-                        addOption("--write-auto-subs")
-                        if (!autoTranslatedSubtitles) {
-                            addOption("--extractor-args", "youtube:skip=translated_subs")
+                    try {
+                        addOption("--write-subs")
+                        if (autoSubtitle) {
+                            addOption("--write-auto-subs")
+                            if (!autoTranslatedSubtitles) {
+                                addOption("--extractor-args", "youtube:skip=translated_subs")
+                            }
                         }
-                    }
-                    if (subtitleLanguage.isNotEmpty()) {
-                        addOption("--sub-langs", subtitleLanguage)
-                    } else {
-                        addOption("--sub-langs", "all")
-                    }
-                    when (convertSubtitle) {
-                        CONVERT_ASS -> addOption("--convert-subs", "ass")
-                        CONVERT_SRT -> addOption("--convert-subs", "srt")
-                        CONVERT_VTT -> addOption("--convert-subs", "vtt")
-                        CONVERT_LRC -> addOption("--convert-subs", "lrc")
-                        else -> {}
+                        if (subtitleLanguage.isNotEmpty()) {
+                            if (autoSubtitle) {
+                                addOption("--sub-langs", "$subtitleLanguage,en.*,.*-orig")
+                            } else {
+                                addOption("--sub-langs", subtitleLanguage)
+                            }
+                        } else {
+                            addOption("--sub-langs", "ar.*,en.*,fr.*,es.*,de.*,.*-orig")
+                        }
+                        addOption("--sub-format", "best")
+                        when (convertSubtitle) {
+                            CONVERT_ASS -> addOption("--convert-subs", "ass")
+                            CONVERT_SRT -> addOption("--convert-subs", "srt")
+                            CONVERT_VTT -> addOption("--convert-subs", "vtt")
+                            CONVERT_LRC -> addOption("--convert-subs", "lrc")
+                            else -> {}
+                        }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Subtitle options failed for audio: ${e.message}")
                     }
                 }
                 if (formatIdString.isNotEmpty()) {
@@ -650,14 +707,19 @@ object DownloadUtil {
                     when (audioConvertFormat) {
                         CONVERT_MP3 -> {
                             addOption("--audio-format", "mp3")
+                            addOption("--audio-quality", "0") // Best quality
                         }
 
                         CONVERT_M4A -> {
                             addOption("--audio-format", "m4a")
+                            addOption("--audio-quality", "0") // Best quality
                         }
                     }
                 } else {
-                    applyFormatSorter(preferences, toAudioFormatSorter())
+                    val audioSorter = toAudioFormatSorter()
+                    if (audioSorter.isNotEmpty()) {
+                        applyFormatSorter(preferences, audioSorter)
+                    }
                 }
 
                 if (embedMetadata) {

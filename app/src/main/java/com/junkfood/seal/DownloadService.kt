@@ -71,9 +71,15 @@ class DownloadService : Service() {
 
         if (wifiLock == null) {
             val wifiManager = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
+            @Suppress("DEPRECATION")
+            val wifiMode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                WifiManager.WIFI_MODE_FULL_LOW_LATENCY
+            } else {
+                WifiManager.WIFI_MODE_FULL_HIGH_PERF
+            }
             wifiLock =
                 wifiManager
-                    .createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "VDownloader::DownloadWifiLock")
+                    .createWifiLock(wifiMode, "VDownloader::DownloadWifiLock")
                     .apply { setReferenceCounted(false) }
         }
         if (wifiLock?.isHeld == false) {

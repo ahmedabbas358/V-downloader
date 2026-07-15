@@ -56,6 +56,14 @@ class QuickDownloadActivity : ComponentActivity() {
                 }
             }
 
+            "com.junkfood.seal.action.QUICK_DOWNLOAD" -> {
+                val clipboardManager = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                if (clipboardManager.hasPrimaryClip()) {
+                    val text = clipboardManager.primaryClip?.getItemAt(0)?.text?.toString() ?: ""
+                    matchUrlFromSharedText(text)
+                } else null
+            }
+
             else -> {
                 null
             }
@@ -68,7 +76,9 @@ class QuickDownloadActivity : ComponentActivity() {
         intent.getSharedURL()?.let { sharedUrlCached = it }
 
         if (sharedUrlCached.isEmpty()) {
+            android.widget.Toast.makeText(this, "Clipboard does not contain a valid URL", android.widget.Toast.LENGTH_SHORT).show()
             finish()
+            return
         }
 
         App.startService()

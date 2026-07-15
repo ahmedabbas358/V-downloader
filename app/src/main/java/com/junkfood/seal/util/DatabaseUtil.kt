@@ -1,5 +1,6 @@
 package com.junkfood.seal.util
 
+import android.util.Log
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.junkfood.seal.App.Companion.applicationScope
@@ -11,6 +12,7 @@ import com.junkfood.seal.database.backup.BackupUtil.decodeToBackup
 import com.junkfood.seal.database.objects.CommandTemplate
 import com.junkfood.seal.database.objects.CookieProfile
 import com.junkfood.seal.database.objects.DownloadedVideoInfo
+import com.junkfood.seal.database.objects.DownloadOperation
 import com.junkfood.seal.database.objects.OptionShortcut
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -19,8 +21,11 @@ object DatabaseUtil {
     private const val DATABASE_NAME = "app_database"
     val db by lazy {
         Room.databaseBuilder(context, AppDatabase::class.java, DATABASE_NAME)
-            .setJournalMode(RoomDatabase.JournalMode.AUTOMATIC)
-            .fallbackToDestructiveMigration()
+            // Use WAL mode for better concurrent read/write performance and crash safety
+            .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
+            // Only destroy data on downgrades (e.g. installing older APK), never on upgrades.
+            // AutoMigration handles all forward migrations in AppDatabase.
+            .fallbackToDestructiveMigrationOnDowngrade()
             .build()
     }
     private val dao by lazy { db.videoInfoDao() }
@@ -138,6 +143,36 @@ object DatabaseUtil {
     suspend fun deleteTemplateById(id: Int) = dao.deleteTemplateById(id)
 
     suspend fun deleteTemplates(templates: List<CommandTemplate>) = dao.deleteTemplates(templates)
+
+    // ---- Download Operations (persistent logging) ----
+
+    fun getDownloadOperationsFlow() = dao.getDownloadOperationsFlow()
+
+    fun insertDownloadOperation(operation: DownloadOperation) {
+        applicationScope.launch(Dispatchers.IO) {
+            try {
+                dao.insertDownloadOperation(operation)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to insert download operation: ${e.message}")
+            }
+        }
+    }
+
+    suspend fun insertDownloadOperationSuspend(operation: DownloadOperation): Long {
+        return dao.insertDownloadOperation(operation)
+    }
+
+    suspend fun updateDownloadOperation(operation: DownloadOperation) {
+        dao.updateDownloadOperation(operation)
+    }
+
+    suspend fun deleteDownloadOperation(operation: DownloadOperation) {
+        dao.deleteDownloadOperation(operation)
+    }
+
+    suspend fun clearDownloadOperations() {
+        dao.clearDownloadOperations()
+    }
 
     private const val TAG = "DatabaseUtil"
 }
