@@ -47,7 +47,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TriStateCheckbox
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -86,28 +85,38 @@ fun InputUrlPage(
 ) {
     val clipboardManager = LocalClipboardManager.current
     val urlList = remember { mutableStateListOf<String>() }
-    val savedLinks = remember(config) { mutableStateListOf<String>() }
 
-    LaunchedEffect(Unit) {
-        clipboardManager.getText()?.let {
-            urlList.clear()
-            urlList.addAll(findURLsFromString(it.toString()).toSet())
-        }
+    // Fix #2: keyed on config.savedLinks instead of config, and only initialized once
+    // per distinct saved-links set, so re-compositions don't duplicate entries.
+    val savedLinks = remember(config.savedLinks) {
+        mutableStateListOf<String>().apply { addAll(config.savedLinks) }
     }
 
-    LaunchedEffect(config) { savedLinks.addAll(config.savedLinks) }
+    // Fix #1: read AnnotatedString.text and de-duplicate via distinct() while preserving order.
+    LaunchedEffect(Unit) {
+        clipboardManager.getText()?.text?.let { text ->
+            urlList.clear()
+            urlList.addAll(findURLsFromString(text).distinct())
+        }
+    }
 
     InputUrlPageImpl(
         modifier = modifier,
         urlListFromClipboard = urlList,
         savedLinks = savedLinks,
-        onSaveLink = { savedLinks.add(it) },
+        onSaveLink = {
+            if (!savedLinks.contains(it)) {
+                savedLinks.add(it)
+            }
+        },
         onRemoveSavedLink = { savedLinks.remove(it) },
         onActionPost = onActionPost,
     )
 
-    DisposableEffect(Unit) {
-        onDispose { onConfigUpdate(config.copy(savedLinks = savedLinks.toSet())) }
+    // Persist savedLinks as they change, not only when the page is disposed — otherwise a
+    // force-close or crash before onDispose runs would silently lose everything added.
+    LaunchedEffect(savedLinks.toList()) {
+        onConfigUpdate(config.copy(savedLinks = savedLinks.toSet()))
     }
 }
 
@@ -147,6 +156,9 @@ private fun InputUrlPageImpl(
         )
         OutlinedTextField(
             value = url,
+            // Don't rewrite the user's text while typing/pasting — extracting a single URL out
+            // of free-form text here is surprising if they're composing a normal sentence.
+            // Multi-URL extraction only happens when they hit Proceed.
             onValueChange = { url = it },
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp).padding(horizontal = 32.dp),
             label = { Text(stringResource(R.string.video_url)) },
@@ -256,8 +268,16 @@ private fun InputUrlPageImpl(
             FilledButtonWithIcon(
                 icon = Icons.AutoMirrored.Outlined.ArrowForward,
                 text = stringResource(R.string.proceed),
+                // Only enable Proceed when the text actually contains an extractable URL,
+                // not just any non-blank text (e.g. "hello world" shouldn't enable it).
+                enabled = findURLsFromString(url).isNotEmpty(),
             ) {
-                onActionPost(Action.ProceedWithURLs(listOf(url)))
+                // Fix #3: never post a blank/empty URL; validate through findURLsFromString.
+                val urls = findURLsFromString(url)
+
+                if (urls.isNotEmpty()) {
+                    onActionPost(Action.ProceedWithURLs(urls))
+                }
             }
         }
     }
@@ -310,7 +330,13 @@ private fun URLSelectionDialog(
             OutlinedButton(onClick = onDismissRequest) { Text(stringResource(R.string.cancel)) }
         },
         text = {
-            Box(modifier = Modifier.fillMaxSize()) {
+            // Fix #5: bound the dialog content instead of letting it expand to fill the
+            // entire screen — width fills the dialog, height is capped.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 600.dp)
+            ) {
                 HorizontalDivider(modifier = Modifier.align(Alignment.TopCenter))
                 LazyColumn(modifier = Modifier.padding(bottom = 48.dp).heightIn(max = 600.dp)) {
                     itemsIndexed(urlListFromClipboard) { index, url ->
@@ -459,9 +485,14 @@ private fun SavedUrlDialogImpl(
     onActionPost: (Action) -> Unit,
     onDismissRequest: () -> Unit,
 ) {
-    if (urls.isEmpty()) {
-        onDismissRequest()
+    // Fix #6 (dialog side): move the side-effect out of the composable body and into
+    // LaunchedEffect so it doesn't run during composition / cause unstable recomposition.
+    LaunchedEffect(urls.isEmpty()) {
+        if (urls.isEmpty()) {
+            onDismissRequest()
+        }
     }
+
     var selectedUrl: String? by remember(urls.size) { mutableStateOf(null) }
     val hapticFeedback = LocalHapticFeedback.current
 
@@ -489,12 +520,10 @@ private fun SavedUrlDialogImpl(
                     itemsIndexed(items = urls, key = { index, url -> "$index:$url" }) { _, url ->
                         val dismissState = rememberSwipeToDismissBoxState()
                         LaunchedEffect(dismissState.currentValue) {
-                            when (dismissState.currentValue) {
-                                SwipeToDismissBoxValue.EndToStart -> {
-                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
-                                    onRemoveLink(url)
-                                }
-                                else -> {}
+                            if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
+                                hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
+                                onRemoveLink(url)
+                                dismissState.reset()
                             }
                         }
                         val containerColor by
