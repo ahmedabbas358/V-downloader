@@ -114,4 +114,4 @@ fun Locale?.toDisplayName(): String =
 fun setLanguage(locale: Locale?) {
     val localeList =
         locale?.let { LocaleListCompat.create(it) } ?: LocaleListCompat.getEmptyLocaleList()
-    AppCompatDelegate.setApplicationLocales(localeList
+    AppCompatDelegate.setApplicationLocales(localeList) 
