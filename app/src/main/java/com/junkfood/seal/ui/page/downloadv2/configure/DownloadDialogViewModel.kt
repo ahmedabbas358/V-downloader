@@ -108,11 +108,15 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
         }
     }
 
-    // Fix #1: sanitize the incoming URL list — trim whitespace, drop blanks, and
-    // de-duplicate — before it reaches the Configure screen. Prevents blank/duplicate
-    // entries (e.g. from a malformed paste) from propagating into the UI.
+    // Sanitize incoming URL list: trim, drop blanks, de-dup, and cap at a sane limit so a
+    // malformed/huge paste can't flood the Configure screen or downstream enqueue calls.
     private fun proceedWithUrls(action: Action.ProceedWithURLs) {
-        val validUrls = action.urlList.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+        val validUrls =
+            action.urlList
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .distinct()
+                .take(MAX_URLS_PER_BATCH)
 
         if (validUrls.isEmpty()) return
 
@@ -147,9 +151,8 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
                         }
                     }
                     .onFailure { th ->
-                        // Fix #2: this callback runs on the IO dispatcher (the coroutine hasn't
-                        // switched back yet), so update the state flow from the Main thread to
-                        // stay consistent with every other UI-state mutation in this class.
+                        // Runs on the IO dispatcher (no context switch happened yet), so hop
+                        // back to Main to stay consistent with every other state mutation here.
                         withContext(Dispatchers.Main) {
                             mSheetStateFlow.update {
                                 SheetState.Error(action = action, throwable = th)
@@ -188,8 +191,8 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
         mSheetStateFlow.update { SheetState.Loading(taskKey = "FetchFormat_$url", job = job) }
     }
 
-    // Fix #3: sanitize urlList the same way as proceedWithUrls so a blank/duplicate entry
-    // can't slip through into a failed Task.
+    // Same sanitation as proceedWithUrls, so a blank/duplicate entry can't slip into a
+    // failed Task when downloading directly from a preset.
     private fun downloadWithPreset(
         urlList: List<String>,
         preferences: DownloadUtil.DownloadPreferences,
@@ -198,10 +201,13 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
             .map { it.trim() }
             .filter { it.isNotBlank() }
             .distinct()
+            .take(MAX_URLS_PER_BATCH)
             .forEach { downloader.enqueue(Task(url = it, preferences = preferences)) }
         hideDialog()
     }
 
+    // Fix: this previously never called hideDialog(), so the sheet stayed open after
+    // enqueuing a custom-command task.
     private fun runCommand(
         url: String,
         template: CommandTemplate,
@@ -214,6 +220,7 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
                 preferences = preferences,
             )
         downloader.enqueue(task)
+        hideDialog()
     }
 
     private fun hideDialog() {
@@ -237,9 +244,6 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
         mSheetValueFlow.update { SheetValue.Expanded }
     }
 
-    // Fix #4: simplified to a single expression body — behavior is unchanged
-    // (still destroys the process, cancels the job, and returns whether the
-    // destroy call succeeded), just without the redundant early return.
     private fun cancel(): Boolean =
         when (val state = sheetState) {
             is SheetState.Loading -> {
@@ -252,5 +256,9 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
 
     private fun resetSelectionState() {
         mSelectionStateFlow.update { SelectionState.Idle }
+    }
+
+    private companion object {
+        const val MAX_URLS_PER_BATCH = 50
     }
 }
