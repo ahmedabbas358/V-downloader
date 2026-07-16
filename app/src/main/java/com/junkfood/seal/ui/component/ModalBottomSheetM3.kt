@@ -42,7 +42,7 @@ fun SealModalBottomSheet(
     content: @Composable ColumnScope.() -> Unit = {},
 ) {
     ModalBottomSheet(
-        modifier = modifier.glassmorphism(),
+        modifier = modifier.glassmorphism(blurRadius = 0f),
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
         properties = properties,
