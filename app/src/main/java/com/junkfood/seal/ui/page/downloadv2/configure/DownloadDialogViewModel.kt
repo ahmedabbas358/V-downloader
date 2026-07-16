@@ -108,8 +108,15 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
         }
     }
 
+    // Fix #1: sanitize the incoming URL list — trim whitespace, drop blanks, and
+    // de-duplicate — before it reaches the Configure screen. Prevents blank/duplicate
+    // entries (e.g. from a malformed paste) from propagating into the UI.
     private fun proceedWithUrls(action: Action.ProceedWithURLs) {
-        mSheetStateFlow.update { SheetState.Configure(action.urlList) }
+        val validUrls = action.urlList.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+
+        if (validUrls.isEmpty()) return
+
+        mSheetStateFlow.update { SheetState.Configure(validUrls) }
     }
 
     private fun fetchPlaylist(action: Action.FetchPlaylist) {
@@ -140,7 +147,14 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
                         }
                     }
                     .onFailure { th ->
-                        mSheetStateFlow.update { SheetState.Error(action = action, throwable = th) }
+                        // Fix #2: this callback runs on the IO dispatcher (the coroutine hasn't
+                        // switched back yet), so update the state flow from the Main thread to
+                        // stay consistent with every other UI-state mutation in this class.
+                        withContext(Dispatchers.Main) {
+                            mSheetStateFlow.update {
+                                SheetState.Error(action = action, throwable = th)
+                            }
+                        }
                     }
             }
         mSheetStateFlow.update { SheetState.Loading(taskKey = "FetchPlaylist_$url", job = job) }
@@ -174,11 +188,17 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
         mSheetStateFlow.update { SheetState.Loading(taskKey = "FetchFormat_$url", job = job) }
     }
 
+    // Fix #3: sanitize urlList the same way as proceedWithUrls so a blank/duplicate entry
+    // can't slip through into a failed Task.
     private fun downloadWithPreset(
         urlList: List<String>,
         preferences: DownloadUtil.DownloadPreferences,
     ) {
-        urlList.forEach { downloader.enqueue(Task(url = it, preferences = preferences)) }
+        urlList
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .forEach { downloader.enqueue(Task(url = it, preferences = preferences)) }
         hideDialog()
     }
 
@@ -217,16 +237,18 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
         mSheetValueFlow.update { SheetValue.Expanded }
     }
 
-    private fun cancel(): Boolean {
-        return when (val state = sheetState) {
+    // Fix #4: simplified to a single expression body — behavior is unchanged
+    // (still destroys the process, cancels the job, and returns whether the
+    // destroy call succeeded), just without the redundant early return.
+    private fun cancel(): Boolean =
+        when (val state = sheetState) {
             is SheetState.Loading -> {
                 val res = YoutubeDL.destroyProcessById(id = state.taskKey)
                 state.job.cancel()
-                return res
+                res
             }
             else -> false
         }
-    }
 
     private fun resetSelectionState() {
         mSelectionStateFlow.update { SelectionState.Idle }
