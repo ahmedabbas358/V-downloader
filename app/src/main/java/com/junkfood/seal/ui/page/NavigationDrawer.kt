@@ -249,6 +249,7 @@ fun NavigationDrawerSheetContent(
                         scope
                             .launch { onDismissRequest() }
                             .invokeOnCompletion {
+                                onNavigateToRoute(Route.SETTINGS)
                                 onNavigateToRoute(Route.GENERAL_DOWNLOAD_PREFERENCES)
                             }
                     },
@@ -261,7 +262,10 @@ fun NavigationDrawerSheetContent(
                     onClick = {
                         scope
                             .launch { onDismissRequest() }
-                            .invokeOnCompletion { onNavigateToRoute(Route.DOWNLOAD_DIRECTORY) }
+                            .invokeOnCompletion {
+                                onNavigateToRoute(Route.SETTINGS)
+                                onNavigateToRoute(Route.DOWNLOAD_DIRECTORY)
+                            }
                     },
                     selected = currentRoute == Route.DOWNLOAD_DIRECTORY,
                 )
@@ -272,7 +276,10 @@ fun NavigationDrawerSheetContent(
                     onClick = {
                         scope
                             .launch { onDismissRequest() }
-                            .invokeOnCompletion { onNavigateToRoute(Route.COOKIE_PROFILE) }
+                            .invokeOnCompletion {
+                                onNavigateToRoute(Route.SETTINGS)
+                                onNavigateToRoute(Route.COOKIE_PROFILE)
+                            }
                     },
                     selected = currentRoute == Route.COOKIE_PROFILE,
                 )
@@ -283,7 +290,10 @@ fun NavigationDrawerSheetContent(
                     onClick = {
                         scope
                             .launch { onDismissRequest() }
-                            .invokeOnCompletion { onNavigateToRoute(Route.TROUBLESHOOTING) }
+                            .invokeOnCompletion {
+                                onNavigateToRoute(Route.SETTINGS)
+                                onNavigateToRoute(Route.TROUBLESHOOTING)
+                            }
                     },
                     selected = currentRoute == Route.TROUBLESHOOTING,
                 )
@@ -294,7 +304,10 @@ fun NavigationDrawerSheetContent(
                     onClick = {
                         scope
                             .launch { onDismissRequest() }
-                            .invokeOnCompletion { onNavigateToRoute(Route.ABOUT) }
+                            .invokeOnCompletion {
+                                onNavigateToRoute(Route.SETTINGS)
+                                onNavigateToRoute(Route.ABOUT)
+                            }
                     },
                     selected = currentRoute == Route.ABOUT,
                 )

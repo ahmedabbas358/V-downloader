@@ -351,13 +351,13 @@ fun DownloadPageImplV2(
 
     LaunchedEffect(selectedTask, taskDownloadStateMap.size) {
         if (!taskDownloadStateMap.contains(selectedTask)) {
-            selectedTask == null
+            selectedTask = null
         }
     }
 
     Scaffold(
         modifier = modifier.fillMaxSize().statusBarsPadding(),
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = Color.Transparent,
         floatingActionButton = { FABs(modifier = Modifier, downloadCallback = downloadCallback) },
     ) { windowInsetsPadding ->
         val lazyListState = rememberLazyGridState()

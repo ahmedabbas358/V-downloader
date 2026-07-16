@@ -58,25 +58,15 @@ fun SealTheme(
     }
 
         val colorScheme = dynamicColorScheme(!darkTheme).run {
-            val alphaFactor = 0.55f // Glassmorphism transparency
+            val alphaFactor = 0.92f // Subtle glassmorphism transparency
             val adjustedScheme = if (isHighContrastModeEnabled && darkTheme) {
                 copy(
                     surface = Color.Black.copy(alpha = alphaFactor),
-                    background = Color.Black,
-                    surfaceContainerLowest = Color.Black,
-                    surfaceContainerLow = surfaceContainerLowest.copy(alpha = alphaFactor),
-                    surfaceContainer = surfaceContainerLow.copy(alpha = alphaFactor),
-                    surfaceContainerHigh = surfaceContainerLow.copy(alpha = alphaFactor),
-                    surfaceContainerHighest = surfaceContainer.copy(alpha = alphaFactor),
+                    background = Color.Black
                 )
             } else {
                 copy(
-                    surface = surface.copy(alpha = alphaFactor),
-                    surfaceContainer = surfaceContainer.copy(alpha = alphaFactor),
-                    surfaceContainerHigh = surfaceContainerHigh.copy(alpha = alphaFactor),
-                    surfaceContainerHighest = surfaceContainerHighest.copy(alpha = alphaFactor),
-                    surfaceContainerLow = surfaceContainerLow.copy(alpha = alphaFactor),
-                    surfaceContainerLowest = surfaceContainerLowest.copy(alpha = alphaFactor)
+                    surface = surface.copy(alpha = alphaFactor)
                 )
             }
             adjustedScheme

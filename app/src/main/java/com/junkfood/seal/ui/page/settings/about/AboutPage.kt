@@ -59,6 +59,8 @@ import com.junkfood.seal.util.ToastUtil
 
 private const val releaseURL = "https://github.com/ahmedabbas358/V-downloader/releases"
 private const val repoUrl = "https://github.com/ahmedabbas358/V-downloader"
+private const val developerGithubUrl = "https://github.com/ahmedabbas358"
+private const val developerLinkedInUrl = "https://linkedin.com/in/ahmed-abbas-049141248"
 const val YtdlpRepository = "https://github.com/yt-dlp/yt-dlp"
 private const val TAG = "AboutPage"
 
@@ -172,6 +174,37 @@ fun AboutPage(
                     PreferenceItem(title = "Package name", description = context.packageName) {
                         clipboardManager.setText(AnnotatedString(context.packageName))
                         ToastUtil.makeToast(R.string.info_copied)
+                    }
+                }
+
+                // Developer Profile Section
+                item {
+                    androidx.compose.foundation.layout.Spacer(
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                    androidx.compose.material3.HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    androidx.compose.foundation.layout.Spacer(
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                }
+                item {
+                    PreferenceItem(
+                        title = "Developer",
+                        description = "Ahmed Abbas — GitHub Profile",
+                        icon = Icons.Outlined.Person,
+                    ) {
+                        openUrl(developerGithubUrl)
+                    }
+                }
+                item {
+                    PreferenceItem(
+                        title = "LinkedIn",
+                        description = "Connect on LinkedIn",
+                        icon = Icons.Outlined.Work,
+                    ) {
+                        openUrl(developerLinkedInUrl)
                     }
                 }
             }

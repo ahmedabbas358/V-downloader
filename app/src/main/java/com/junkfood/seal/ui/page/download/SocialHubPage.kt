@@ -82,6 +82,7 @@ fun SocialHubPage(
 
     Scaffold(
         modifier = modifier.fillMaxSize().statusBarsPadding(),
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 modifier = Modifier,
