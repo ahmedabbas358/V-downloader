@@ -156,15 +156,21 @@ fun LanguageSelectionPage() {
         Spacer(modifier = Modifier.height(48.dp))
         
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .glassmorphism(cornerRadius = 24.dp, blurRadius = 30f)
-                .padding(24.dp)
+            modifier = Modifier.fillMaxWidth()
         ) {
+            // Blur/background only affects this layer, not the Text below,
+            // otherwise RenderEffect blurs the label text as well.
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .glassmorphism(cornerRadius = 24.dp, blurRadius = 30f)
+            )
             Text(
                 text = "Language: System Default",
                 style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.align(Alignment.Center)
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(24.dp)
             )
         }
     }
