@@ -78,7 +78,7 @@ val LocaleLanguageCodeMap =
         Locale("he") to HEBREW,
         Locale("hi") to HINDI,
         Locale("hu") to HUNGARIAN,
-        Locale("in") to INDONESIAN,
+        Locale("id") to INDONESIAN,
         Locale("it") to ITALIAN,
         Locale("ja") to JAPANESE,
         Locale("kn") to KANNADA,
@@ -108,10 +108,15 @@ val LocaleLanguageCodeMap =
     )
 
 @Composable
-fun Locale?.toDisplayName(): String =
-    this?.getDisplayName(this) ?: stringResource(id = R.string.follow_system)
+fun Locale?.toDisplayName(): String {
+    return this?.getDisplayName(this)
+        ?: stringResource(id = R.string.follow_system)
+}
 
 fun setLanguage(locale: Locale?) {
-    val localeList =
-        locale?.let { LocaleListCompat.create(it) } ?: LocaleListCompat.getEmptyLocaleList()
-    AppCompatDelegate.setApplicationLocales(localeList) 
+    val localeList = locale?.let {
+        LocaleListCompat.create(it)
+    } ?: LocaleListCompat.getEmptyLocaleList()
+
+    AppCompatDelegate.setApplicationLocales(localeList)
+}
