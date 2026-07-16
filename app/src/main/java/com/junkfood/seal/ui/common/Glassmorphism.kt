@@ -26,7 +26,13 @@ fun Modifier.glassmorphism(
             .clip(RoundedCornerShape(cornerRadius))
             .background(backgroundColor)
             .graphicsLayer {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                // NOTE: this blur is applied to this layer's own contents (including any
+                // children passed into the composable using this modifier), not to whatever
+                // is visually behind it. Only pass blurRadius > 0f when this modifier is
+                // applied to a purely decorative background element with no readable content
+                // of its own (e.g. see OnboardingScreen's LanguageSelectionPage), otherwise
+                // that content will be blurred into unreadable/invisible state.
+                if (blurRadius > 0f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     renderEffect = RenderEffect.createBlurEffect(
                         blurRadius,
                         blurRadius,
