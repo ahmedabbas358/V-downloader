@@ -173,7 +173,10 @@ fun SealModalBottomSheetM2Variant(
         sheetElevation = if (sheetState.isVisible) ModalBottomSheetDefaults.Elevation else 0.dp,
         sheetGesturesEnabled = sheetGesturesEnabled,
         sheetContent = {
-            Column(modifier = Modifier.background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f), RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))) { 
+            // NOTE: no backdrop blur is applied here (Android/Compose can't blur what's behind a
+            // layer without a library like `haze`), so the sheet background must stay fully
+            // opaque — a translucent color here lets the previous screen's content bleed through.
+            Column(modifier = Modifier.background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))) { 
                 Box(modifier = Modifier) { Column { sheetContent() } } 
                 NavigationBarSpacer(
                     modifier =
