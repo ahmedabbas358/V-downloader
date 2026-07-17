@@ -57,7 +57,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SheetState
@@ -411,7 +410,6 @@ private fun DownloadDialogContent(
 
             InputUrl -> {
                 InputUrlPage(
-                    modifier = Modifier.heightIn(min = 350.dp),
                     config = config,
                     onConfigUpdate = { Config.updatePreferences(newValue = it, oldValue = config) },
                     onActionPost = onActionPost,
@@ -544,13 +542,8 @@ private fun ConfigurePage(
         }
     }
 
-    Column(
-        modifier = modifier
-            .verticalScroll(rememberScrollState())
-            .padding(bottom = 16.dp)
-            .navigationBarsPadding()
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+    Column {
+        Column(modifier = modifier.padding(horizontal = 20.dp)) {
             Header(
                 modifier = Modifier.align(Alignment.CenterHorizontally),
                 title = stringResource(R.string.settings_before_download),
@@ -568,58 +561,20 @@ private fun ConfigurePage(
                         text = stringResource(id = R.string.format_selection),
                         modifier = Modifier,
                     )
-                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                        SingleChoiceSegmentedButton(
-                            selected = !useFormatSelection,
-                            onClick = { useFormatSelection = false },
-                            shape = SegmentedButtonDefaults.itemShape(0, 2),
-                        ) {
-                            Text(text = stringResource(R.string.preset))
-                        }
-                        SingleChoiceSegmentedButton(
-                            selected = useFormatSelection,
-                            onClick = { useFormatSelection = true },
-                            shape = SegmentedButtonDefaults.itemShape(1, 2),
-                            enabled = selectedType != Playlist
-                        ) {
-                            Text(text = stringResource(R.string.custom))
-                        }
-                    }
-                    if (!useFormatSelection) {
-                        val description = when (selectedType) {
-                            Audio -> PreferenceStrings.getAudioPresetText(preferences)
-                            Video -> PreferenceStrings.getVideoPresetText(preferences)
-                            Playlist -> stringResource(R.string.preset_format_selection_desc)
-                            else -> ""
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp, start = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = description,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.weight(1f)
-                            )
-                            if (selectedType != Playlist) {
-                                IconButton(onClick = { onPresetEdit(selectedType) }) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Edit,
-                                        contentDescription = stringResource(R.string.edit),
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            }
-                        }
-                    } else {
-                        Text(
-                            text = stringResource(R.string.custom_format_selection_desc),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 8.dp, start = 8.dp)
-                        )
-                    }
+                    Preset(
+                        modifier = Modifier,
+                        preference = preferences,
+                        selected = !useFormatSelection,
+                        downloadType = selectedType,
+                        onClick = { useFormatSelection = false },
+                        showEditIcon = !useFormatSelection && selectedType != Playlist,
+                        onEdit = { onPresetEdit(selectedType) },
+                    )
+                    Custom(
+                        selected = useFormatSelection,
+                        enabled = selectedType != Playlist,
+                        onClick = { useFormatSelection = true },
+                    )
                 } else {
                     if (showTemplateSelectionDialog) {
                         TemplatePickerDialog { showTemplateSelectionDialog = false }
@@ -665,10 +620,9 @@ private fun ConfigurePage(
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
-            DrawerSheetSubtitle(text = stringResource(R.string.additional_settings))
-            settingChips()
         }
+        var expanded by remember { mutableStateOf(false) }
+        ExpandableTitle(expanded = expanded, onClick = { expanded = true }) { settingChips() }
 
         ActionButtons(
             modifier = Modifier.padding(horizontal = 20.dp),
@@ -737,13 +691,8 @@ fun ConfigurePagePlaylistVariant(
 
     var selectedType by remember(initialDownloadType) { mutableStateOf(initialDownloadType) }
 
-    Column(
-        modifier = modifier
-            .verticalScroll(rememberScrollState())
-            .padding(bottom = 16.dp)
-            .navigationBarsPadding()
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+    Column {
+        Column(modifier = modifier.padding(horizontal = 20.dp)) {
             Header(
                 modifier = Modifier.align(Alignment.CenterHorizontally),
                 title = stringResource(R.string.settings_before_download),
@@ -759,42 +708,20 @@ fun ConfigurePagePlaylistVariant(
                 text = stringResource(id = R.string.format_selection),
                 modifier = Modifier,
             )
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                SingleChoiceSegmentedButton(
-                    selected = true,
-                    onClick = { },
-                    shape = SegmentedButtonDefaults.itemShape(0, 1),
-                ) {
-                    Text(text = stringResource(R.string.preset))
-                }
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp, start = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = when (selectedType) {
-                        Audio -> PreferenceStrings.getAudioPresetText(preferences)
-                        Video -> PreferenceStrings.getVideoPresetText(preferences)
-                        Playlist -> stringResource(R.string.preset_format_selection_desc)
-                        else -> ""
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f)
-                )
-                IconButton(onClick = { onPresetEdit(selectedType) }) {
-                    Icon(
-                        imageVector = Icons.Outlined.Edit,
-                        contentDescription = stringResource(R.string.edit),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            DrawerSheetSubtitle(text = stringResource(R.string.additional_settings))
-            AdditionalSettings(
+            Preset(
                 modifier = Modifier,
+                preference = preferences,
+                selected = true,
+                downloadType = selectedType,
+                onClick = { onPresetEdit(selectedType) },
+                showEditIcon = true,
+                onEdit = { onPresetEdit(selectedType) },
+            )
+        }
+        var expanded by remember { mutableStateOf(false) }
+        ExpandableTitle(expanded = expanded, onClick = { expanded = true }) {
+            AdditionalSettings(
+                modifier = Modifier.padding(horizontal = 16.dp),
                 isQuickDownload = false,
                 preference = preferences,
                 selectedType = Audio,
@@ -803,6 +730,7 @@ fun ConfigurePagePlaylistVariant(
                 },
             )
         }
+
         ActionButtons(
             modifier = Modifier.padding(horizontal = 20.dp),
             canProceed = true,
@@ -995,20 +923,20 @@ private fun SingleChoiceItem(
 
 @Composable
 internal fun Header(modifier: Modifier = Modifier, icon: ImageVector, title: String) {
-    Row(
-        modifier = modifier.padding(vertical = 12.dp), 
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    Column(modifier = modifier) {
         Icon(
+            modifier = Modifier.align(Alignment.CenterHorizontally),
             imageVector = icon,
             contentDescription = null,
         )
-        Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = title,
-            style = MaterialTheme.typography.titleLarge,
-            maxLines = 1,
+            style = MaterialTheme.typography.headlineSmall,
+            modifier =
+                Modifier.align(Alignment.CenterHorizontally).padding(top = 16.dp, bottom = 8.dp),
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
         )
     }
 }
