@@ -611,8 +611,7 @@ private fun FormatPageImpl(
                     val onClick = {
                         isSuggestedFormatSelected = true
                         selectedAudioOnlyFormats.clear()
-                        selectedVideoAudioFormat = NOT_SELECTED
-                        selectedVideoOnlyFormat = NOT_SELECTED
+                        selectedVideoFormat = NOT_SELECTED
                     }
 
                     Row(
