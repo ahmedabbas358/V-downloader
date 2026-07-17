@@ -163,7 +163,7 @@ data class Format(
 
     fun isVideoOnly(): Boolean = acodec.isAbsentCodec() && !vcodec.isAbsentCodec()
 
-    fun containsVideo(): Boolean = !vcodec.isAbsentCodec() || (width != null && width > 0) || (height != null && height > 0) || (vcodec.isAbsentCodec() && acodec.isAbsentCodec() && resolution != "audio only")
+    fun containsVideo(): Boolean = !vcodec.isAbsentCodec() || (width != null && width > 0.0) || (height != null && height > 0.0) || (vcodec.isAbsentCodec() && acodec.isAbsentCodec() && resolution != "audio only")
 
     fun containsAudio(): Boolean = !acodec.isAbsentCodec() || (vcodec.isAbsentCodec() && acodec.isAbsentCodec())
 
