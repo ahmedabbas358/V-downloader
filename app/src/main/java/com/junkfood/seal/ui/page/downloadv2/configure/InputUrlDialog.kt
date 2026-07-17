@@ -12,14 +12,13 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -31,12 +30,12 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AddLink
 import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material.icons.outlined.ContentPaste
-import androidx.compose.material.icons.outlined.ContentPasteGo
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -47,7 +46,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.TriStateCheckbox
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -64,7 +62,6 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -86,9 +83,8 @@ fun InputUrlPage(
     onConfigUpdate: (Config) -> Unit,
     onActionPost: (Action) -> Unit,
 ) {
-    // Fix #2: keyed on config.savedLinks instead of config, and only initialized once
-    // per distinct saved-links set, so re-compositions don't duplicate entries.
-    val savedLinks = remember(config.savedLinks) {
+    // Fix: استخدام toList() لضمان ترتيب ثابت لأن Set غير مضمون الترتيب
+    val savedLinks = remember(config.savedLinks.toList()) {
         mutableStateListOf<String>().apply { addAll(config.savedLinks) }
     }
 
@@ -104,9 +100,8 @@ fun InputUrlPage(
         onActionPost = onActionPost,
     )
 
-    // Persist savedLinks as they change, not only when the page is disposed — otherwise a
-    // force-close or crash before onDispose runs would silently lose everything added.
-    LaunchedEffect(savedLinks.toList()) {
+    // Fix: استخدام size بدلاً من toList() لتجنب التحديث المتكرر عند إعادة التركيب
+    LaunchedEffect(savedLinks.size) {
         onConfigUpdate(config.copy(savedLinks = savedLinks.toSet()))
     }
 }
@@ -134,32 +129,45 @@ private fun InputUrlPageImpl(
 ) {
 
     var url by remember { mutableStateOf("") }
-    var showPasteDialog by remember { mutableStateOf(false) }
     var showSavedUrlDialog by remember { mutableStateOf(false) }
     val clipboardManager = LocalClipboardManager.current
 
-    Column(modifier = modifier.imePadding().verticalScroll(rememberScrollState())) {
+    // Fix: imePadding على الـ Column كله يسبب قفزات واختفاء أزرار
+    // ننقله إلى TextField فقط
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .verticalScroll(rememberScrollState())
+    ) {
         Header(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 32.dp),
             title = stringResource(R.string.new_task),
             icon = Icons.Outlined.Add,
         )
+
         OutlinedTextField(
             value = url,
-            // Don't rewrite the user's text while typing/pasting — extracting a single URL out
-            // of free-form text here is surprising if they're composing a normal sentence.
-            // Multi-URL extraction only happens when they hit Proceed.
             onValueChange = { url = it },
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp).padding(horizontal = 32.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp)
+                .padding(horizontal = 32.dp)
+                // Fix: imePadding هنا فقط لتجنب قفزات الواجهة
+                .imePadding(),
             label = { Text(stringResource(R.string.video_url)) },
-            maxLines = 2,
+            maxLines = 5,
             trailingIcon = {
                 if (url.isNotEmpty()) {
                     ClearButton { url = "" }
                 } else {
-                    androidx.compose.material3.IconButton(onClick = {
+                    IconButton(onClick = {
                         clipboardManager.getText()?.text?.let { text ->
-                            url = text
+                            // Fix: استخراج الروابط فقط من الحافظة
+                            val urls = findURLsFromString(text)
+                            url = urls.joinToString("\n")
                         }
                     }) {
                         Icon(Icons.Outlined.ContentPaste, contentDescription = "Paste")
@@ -169,11 +177,12 @@ private fun InputUrlPageImpl(
         )
 
         LazyRow(
-            modifier = Modifier.padding(top = 8.dp).fillMaxWidth(),
+            modifier = Modifier
+                .padding(top = 8.dp)
+                .fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = PaddingValues(horizontal = 32.dp),
         ) {
-
             item(key = "saved urls") {
                 val addToSavedLinks by remember {
                     derivedStateOf { url.isNotBlank() && !savedLinks.contains(url) }
@@ -214,8 +223,11 @@ private fun InputUrlPageImpl(
         }
 
         Row(
-            modifier =
-                Modifier.align(Alignment.End).padding(top = 24.dp).padding(horizontal = 32.dp).padding(bottom = 32.dp)
+            modifier = Modifier
+                .align(Alignment.End)
+                .padding(top = 24.dp)
+                .padding(horizontal = 32.dp)
+                .padding(bottom = 32.dp)
         ) {
             OutlinedButtonWithIcon(
                 modifier = Modifier.padding(horizontal = 12.dp),
@@ -228,13 +240,14 @@ private fun InputUrlPageImpl(
                 text = stringResource(R.string.proceed),
                 enabled = url.isNotBlank(),
             ) {
-                if (url.isNotBlank()) {
-                    onActionPost(Action.ProceedWithURLs(listOf(url.trim())))
+                // Fix: استخراج كل الروابط من النص المدخل (يدعم رابط واحد أو عدة روابط)
+                val urls = findURLsFromString(url)
+                if (urls.isNotEmpty()) {
+                    onActionPost(Action.ProceedWithURLs(urls))
                 }
             }
         }
     }
-
 
     if (showSavedUrlDialog) {
         SavedUrlDialogImpl(
@@ -246,8 +259,6 @@ private fun InputUrlPageImpl(
     }
 }
 
-
-
 @Composable
 private fun DialogCheckBoxItemVariant(
     modifier: Modifier = Modifier,
@@ -258,17 +269,16 @@ private fun DialogCheckBoxItemVariant(
     val interactionSource = remember { MutableInteractionSource() }
 
     Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .toggleable(
-                    value = checked,
-                    enabled = true,
-                    onValueChange = onValueChange,
-                    interactionSource = interactionSource,
-                    indication = LocalIndication.current,
-                )
-                .padding(horizontal = 12.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .toggleable(
+                value = checked,
+                enabled = true,
+                onValueChange = onValueChange,
+                interactionSource = interactionSource,
+                indication = LocalIndication.current,
+            )
+            .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.Top,
     ) {
         Checkbox(
@@ -278,7 +288,9 @@ private fun DialogCheckBoxItemVariant(
             interactionSource = interactionSource,
         )
         Text(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp),
             text = text,
             style = MaterialTheme.typography.bodyMedium,
             maxLines = 2,
@@ -296,17 +308,16 @@ private fun DialogSingleChoiceItemVariant(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .selectable(
-                    selected = selected,
-                    enabled = true,
-                    onClick = onSelect,
-                    interactionSource = interactionSource,
-                    indication = LocalIndication.current,
-                )
-                .padding(horizontal = 12.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .selectable(
+                selected = selected,
+                enabled = true,
+                onClick = onSelect,
+                interactionSource = interactionSource,
+                indication = LocalIndication.current,
+            )
+            .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         RadioButton(
@@ -316,7 +327,9 @@ private fun DialogSingleChoiceItemVariant(
             interactionSource = interactionSource,
         )
         Text(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp),
             text = text,
             style = MaterialTheme.typography.bodyMedium,
             maxLines = 2,
@@ -325,7 +338,8 @@ private fun DialogSingleChoiceItemVariant(
     }
 }
 
-@Composable fun SavedURLsDialog(modifier: Modifier = Modifier) {}
+@Composable
+fun SavedURLsDialog(modifier: Modifier = Modifier) {}
 
 @Preview
 @Composable
@@ -333,7 +347,11 @@ private fun SavedUrlPreview() {
     val urls = remember {
         mutableStateListOf<String>().apply { repeat(10) { add("https://www.example$it.com/") } }
     }
-    SavedUrlDialogImpl(urls = urls, onActionPost = {}, onRemoveLink = { urls.remove(it) }) {}
+    SavedUrlDialogImpl(
+        urls = urls,
+        onActionPost = {},
+        onRemoveLink = { urls.remove(it) }
+    ) {}
 }
 
 @Composable
@@ -344,8 +362,6 @@ private fun SavedUrlDialogImpl(
     onActionPost: (Action) -> Unit,
     onDismissRequest: () -> Unit,
 ) {
-    // Fix #6 (dialog side): move the side-effect out of the composable body and into
-    // LaunchedEffect so it doesn't run during composition / cause unstable recomposition.
     LaunchedEffect(urls.isEmpty()) {
         if (urls.isEmpty()) {
             onDismissRequest()
@@ -367,7 +383,9 @@ private fun SavedUrlDialogImpl(
                 text = stringResource(R.string.proceed),
                 enabled = selectedUrl != null,
             ) {
-                onActionPost(Action.ProceedWithURLs(listOf(selectedUrl!!)))
+                selectedUrl?.let { url ->
+                    onActionPost(Action.ProceedWithURLs(listOf(url)))
+                }
             }
         },
         text = {
@@ -376,7 +394,10 @@ private fun SavedUrlDialogImpl(
                 HorizontalDivider(Modifier.align(Alignment.BottomCenter).zIndex(1f))
 
                 LazyColumn(modifier = Modifier.heightIn(max = 600.dp)) {
-                    itemsIndexed(items = urls, key = { index, url -> "$index:$url" }) { _, url ->
+                    itemsIndexed(
+                        items = urls,
+                        key = { index, url -> "$index:$url" }
+                    ) { _, url ->
                         val dismissState = rememberSwipeToDismissBoxState()
                         LaunchedEffect(dismissState.currentValue) {
                             if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
@@ -385,22 +406,20 @@ private fun SavedUrlDialogImpl(
                                 dismissState.reset()
                             }
                         }
-                        val containerColor by
-                            animateColorAsState(
-                                when (dismissState.targetValue) {
-                                    SwipeToDismissBoxValue.EndToStart ->
-                                        ErrorTonalPalettes.accent1(80.0)
-                                    else -> MaterialTheme.colorScheme.surfaceContainerHigh
-                                }
-                            )
-                        val contentColor by
-                            animateColorAsState(
-                                when (dismissState.targetValue) {
-                                    SwipeToDismissBoxValue.Settled ->
-                                        MaterialTheme.colorScheme.onSurface
-                                    else -> ErrorTonalPalettes.accent1(10.0)
-                                }
-                            )
+                        val containerColor by animateColorAsState(
+                            when (dismissState.targetValue) {
+                                SwipeToDismissBoxValue.EndToStart ->
+                                    ErrorTonalPalettes.accent1(80.0)
+                                else -> MaterialTheme.colorScheme.surfaceContainerHigh
+                            }
+                        )
+                        val contentColor by animateColorAsState(
+                            when (dismissState.targetValue) {
+                                SwipeToDismissBoxValue.Settled ->
+                                    MaterialTheme.colorScheme.onSurface
+                                else -> ErrorTonalPalettes.accent1(10.0)
+                            }
+                        )
                         SwipeToDismissBox(
                             modifier = Modifier.animateItem(),
                             state = dismissState,
@@ -411,10 +430,10 @@ private fun SavedUrlDialogImpl(
                                     Icon(
                                         Icons.Outlined.Delete,
                                         null,
-                                        modifier =
-                                            Modifier.align(Alignment.CenterEnd)
-                                                .padding(end = 16.dp)
-                                                .size(28.dp),
+                                        modifier = Modifier
+                                            .align(Alignment.CenterEnd)
+                                            .padding(end = 16.dp)
+                                            .size(28.dp),
                                         tint = contentColor,
                                     )
                                 }
