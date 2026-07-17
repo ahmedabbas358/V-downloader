@@ -131,7 +131,6 @@ fun OnboardingScreen(onFinished: () -> Unit) {
                 ) {
                     Icon(Icons.Rounded.ArrowForward, contentDescription = "Next")
                 }
-                }
             }
         }
     }
