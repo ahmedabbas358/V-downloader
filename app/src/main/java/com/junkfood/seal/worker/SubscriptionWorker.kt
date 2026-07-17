@@ -5,9 +5,10 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.junkfood.seal.util.DatabaseUtil
 import com.junkfood.seal.util.PreferenceUtil
+import com.junkfood.seal.util.ENABLE_EXPERIMENTAL_FEATURES
 import com.junkfood.seal.util.PreferenceUtil.getBoolean
-import io.github.junkfood02.youtubedl.YoutubeDL
-import io.github.junkfood02.youtubedl.YoutubeDLRequest
+import com.yausername.youtubedl_android.YoutubeDL
+import com.yausername.youtubedl_android.YoutubeDLRequest
 import java.util.Date
 
 class SubscriptionWorker(
@@ -16,7 +17,7 @@ class SubscriptionWorker(
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-        if (!PreferenceUtil.ENABLE_EXPERIMENTAL_FEATURES.getBoolean()) {
+        if (!ENABLE_EXPERIMENTAL_FEATURES.getBoolean()) {
             return@withContext Result.success()
         }
 

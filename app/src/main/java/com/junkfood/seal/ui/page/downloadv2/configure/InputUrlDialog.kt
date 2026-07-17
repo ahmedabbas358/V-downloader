@@ -14,14 +14,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Add
@@ -135,7 +138,7 @@ private fun InputUrlPageImpl(
     var showSavedUrlDialog by remember { mutableStateOf(false) }
     val clipboardManager = LocalClipboardManager.current
 
-    Column(modifier = modifier.androidx.compose.foundation.layout.imePadding().androidx.compose.foundation.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+    Column(modifier = modifier.imePadding().verticalScroll(rememberScrollState())) {
         Header(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp),
             title = stringResource(R.string.new_task),

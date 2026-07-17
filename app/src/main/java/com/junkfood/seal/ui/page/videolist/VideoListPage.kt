@@ -101,7 +101,9 @@ import com.junkfood.seal.ui.svg.DynamicColorImageVectors
 import com.junkfood.seal.ui.svg.drawablevectors.videoSteaming
 import com.junkfood.seal.util.AUDIO_REGEX
 import com.junkfood.seal.util.FileUtil
+import com.junkfood.seal.util.Format
 import com.junkfood.seal.util.PreferenceUtil
+import com.junkfood.seal.util.ENABLE_EXPERIMENTAL_FEATURES
 import com.junkfood.seal.util.PreferenceUtil.getBoolean
 import com.junkfood.seal.util.ToastUtil
 import com.junkfood.seal.util.toFileSizeText
@@ -494,7 +496,7 @@ fun VideoListPage(
                                     else selectedItemIds.add(id)
                                 },
                                 onClick = {
-                                    if (PreferenceUtil.ENABLE_EXPERIMENTAL_FEATURES.getBoolean()) {
+                                    if (ENABLE_EXPERIMENTAL_FEATURES.getBoolean()) {
                                         onPlayVideo(videoPath)
                                     } else {
                                         FileUtil.openFile(path = videoPath) {

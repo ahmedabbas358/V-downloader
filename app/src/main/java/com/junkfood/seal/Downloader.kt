@@ -389,21 +389,22 @@ object Downloader {
                 playlistItem = playlistIndex,
                 downloadPreferences = preferences,
                 taskId = videoInfo.id + preferences.hashCode(),
-            ) { progress, _, line ->
-                Log.d(TAG, line)
-                val currentTime = System.currentTimeMillis()
-                if (currentTime - lastUpdateTime > 250 || progress == 100f || progress == 0f) {
-                    lastUpdateTime = currentTime
-                    mutableTaskState.update { it.copy(progress = progress, progressText = line) }
-                    NotificationUtil.notifyProgress(
-                        notificationId = notificationId,
-                        progress = progress.toInt(),
-                        text = line,
-                        title = videoInfo.title,
-                        taskId = taskId,
-                    )
+                progressCallback = { progress, _, line ->
+                    Log.d(TAG, line)
+                    val currentTime = System.currentTimeMillis()
+                    if (currentTime - lastUpdateTime > 250 || progress == 100f || progress == 0f) {
+                        lastUpdateTime = currentTime
+                        mutableTaskState.update { it.copy(progress = progress, progressText = line) }
+                        NotificationUtil.notifyProgress(
+                            notificationId = notificationId,
+                            progress = progress.toInt(),
+                            text = line,
+                            title = videoInfo.title,
+                            taskId = taskId,
+                        )
+                    }
                 }
-            }
+            )
             .onFailure {
                 manageDownloadError(
                     th = it,

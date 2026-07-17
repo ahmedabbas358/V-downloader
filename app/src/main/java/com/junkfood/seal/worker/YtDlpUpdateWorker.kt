@@ -5,8 +5,9 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.junkfood.seal.util.PreferenceUtil
 import com.junkfood.seal.util.UpdateUtil
+import com.junkfood.seal.util.ENABLE_EXPERIMENTAL_FEATURES
 import com.junkfood.seal.util.PreferenceUtil.getBoolean
-import io.github.junkfood02.youtubedl.YoutubeDL
+import com.yausername.youtubedl_android.YoutubeDL
 
 class YtDlpUpdateWorker(
     appContext: Context,
@@ -15,7 +16,7 @@ class YtDlpUpdateWorker(
 
     override suspend fun doWork(): Result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         // Only run if the experimental features flag and auto-update flag are enabled
-        val isExperimentalEnabled = PreferenceUtil.ENABLE_EXPERIMENTAL_FEATURES.getBoolean()
+        val isExperimentalEnabled = ENABLE_EXPERIMENTAL_FEATURES.getBoolean()
         val isAutoUpdateEnabled = PreferenceUtil.isAutoUpdateEnabled()
 
         if (!isExperimentalEnabled || !isAutoUpdateEnabled) {
