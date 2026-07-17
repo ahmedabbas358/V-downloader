@@ -19,6 +19,26 @@ import kotlinx.coroutines.launch
 
 object DatabaseUtil {
     private const val DATABASE_NAME = "app_database"
+    private val MIGRATION_6_7 = object : androidx.room.migration.Migration(6, 7) {
+        override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_DownloadedVideoInfo_videoTitle` ON `DownloadedVideoInfo` (`videoTitle`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_DownloadOperation_videoUrl` ON `DownloadOperation` (`videoUrl`)")
+        }
+    }
+
+    private val MIGRATION_7_8 = object : androidx.room.migration.Migration(7, 8) {
+        override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+            db.execSQL("CREATE TABLE IF NOT EXISTS `Subscription` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `url` TEXT NOT NULL, `title` TEXT NOT NULL, `lastCheckedTimestamp` INTEGER NOT NULL)")
+        }
+    }
+
+    private val MIGRATION_8_9 = object : androidx.room.migration.Migration(8, 9) {
+        override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+            // Add sessionToken to CookieProfile for session management / persistence
+            db.execSQL("ALTER TABLE `CookieProfile` ADD COLUMN `sessionToken` TEXT NOT NULL DEFAULT ''")
+        }
+    }
+
     val db by lazy {
         Room.databaseBuilder(context, AppDatabase::class.java, DATABASE_NAME)
             // Use WAL mode for better concurrent read/write performance and crash safety
@@ -26,6 +46,7 @@ object DatabaseUtil {
             // Only destroy data on downgrades (e.g. installing older APK), never on upgrades.
             // AutoMigration handles all forward migrations in AppDatabase.
             .fallbackToDestructiveMigrationOnDowngrade()
+            .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
             .build()
     }
     private val dao by lazy { db.videoInfoDao() }

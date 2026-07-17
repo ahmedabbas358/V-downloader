@@ -39,6 +39,11 @@ import com.junkfood.seal.util.UpdateUtil
 import com.junkfood.seal.util.UpgradeManager
 import com.junkfood.seal.util.VIDEO_DIRECTORY
 import com.junkfood.seal.util.YT_DLP_VERSION
+import com.junkfood.seal.worker.YtDlpUpdateWorker
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import java.util.concurrent.TimeUnit
 import com.tencent.mmkv.MMKV
 import com.yausername.aria2c.Aria2c
 import com.yausername.ffmpeg.FFmpeg
@@ -112,6 +117,18 @@ class App : Application() {
         if (Build.VERSION.SDK_INT >= 26) NotificationUtil.createNotificationChannel()
 
         Thread.setDefaultUncaughtExceptionHandler { _, e -> startCrashReportActivity(e) }
+        
+        setupWorkManager()
+    }
+
+    private fun setupWorkManager() {
+        val updateRequest = PeriodicWorkRequestBuilder<YtDlpUpdateWorker>(3, TimeUnit.DAYS)
+            .build()
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "YtDlpUpdateWork",
+            ExistingPeriodicWorkPolicy.KEEP,
+            updateRequest
+        )
     }
 
     private fun startCrashReportActivity(th: Throwable) {

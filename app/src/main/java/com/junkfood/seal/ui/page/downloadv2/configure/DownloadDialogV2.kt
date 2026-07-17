@@ -410,6 +410,7 @@ private fun DownloadDialogContent(
 
             InputUrl -> {
                 InputUrlPage(
+                    modifier = Modifier.heightIn(min = 350.dp),
                     config = config,
                     onConfigUpdate = { Config.updatePreferences(newValue = it, oldValue = config) },
                     onActionPost = onActionPost,

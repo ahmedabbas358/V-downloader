@@ -129,35 +129,39 @@ object FileUtil {
     @CheckResult
     fun moveFilesToSdcard(tempPath: File, sdcardUri: String): Result<List<String>> {
         val uriList = mutableListOf<String>()
-        val destDir =
-            Uri.parse(sdcardUri).run {
-                DocumentsContract.buildDocumentUriUsingTree(
-                    this,
-                    DocumentsContract.getTreeDocumentId(this),
-                )
-            }
+        val destDir = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, Uri.parse(sdcardUri)) 
+            ?: return Result.failure(Exception("Invalid SD Card URI"))
+
+        val dirCache = mutableMapOf<String, androidx.documentfile.provider.DocumentFile>(tempPath.absolutePath to destDir)
+
         val res =
             tempPath.runCatching {
-                walkTopDown().forEach {
-                    if (it.isDirectory) return@forEach
+                walkTopDown().forEach { file ->
+                    if (file.isDirectory) {
+                        if (file != tempPath) {
+                            val parentFile = file.parentFile ?: return@forEach
+                            val parentDoc = dirCache[parentFile.absolutePath] ?: destDir
+                            val existingDir = parentDoc.findFile(file.name)
+                            val newDir = existingDir ?: parentDoc.createDirectory(file.name)
+                            if (newDir != null) {
+                                dirCache[file.absolutePath] = newDir
+                            }
+                        }
+                        return@forEach
+                    }
+
+                    val parentDoc = dirCache[file.parentFile?.absolutePath] ?: destDir
                     val mimeType =
-                        MimeTypeMap.getSingleton().getMimeTypeFromExtension(it.extension) ?: "*/*"
+                        MimeTypeMap.getSingleton().getMimeTypeFromExtension(file.extension) ?: "*/*"
 
-                    val destUri =
-                        DocumentsContract.createDocument(
-                            context.contentResolver,
-                            destDir,
-                            mimeType,
-                            it.name,
-                        ) ?: return@forEach
+                    val newFile = parentDoc.createFile(mimeType, file.name) ?: return@forEach
 
-                    val inputStream = it.inputStream()
-                    val outputStream =
-                        context.contentResolver.openOutputStream(destUri) ?: return@forEach
-                    inputStream.copyTo(outputStream)
-                    inputStream.closeQuietly()
-                    outputStream.closeQuietly()
-                    uriList.add(destUri.toString())
+                    file.inputStream().use { inputStream ->
+                        context.contentResolver.openOutputStream(newFile.uri)?.use { outputStream ->
+                            inputStream.copyTo(outputStream)
+                        } ?: return@forEach
+                    }
+                    uriList.add(newFile.uri.toString())
                 }
                 uriList
             }

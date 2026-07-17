@@ -83,26 +83,14 @@ fun InputUrlPage(
     onConfigUpdate: (Config) -> Unit,
     onActionPost: (Action) -> Unit,
 ) {
-    val clipboardManager = LocalClipboardManager.current
-    val urlList = remember { mutableStateListOf<String>() }
-
     // Fix #2: keyed on config.savedLinks instead of config, and only initialized once
     // per distinct saved-links set, so re-compositions don't duplicate entries.
     val savedLinks = remember(config.savedLinks) {
         mutableStateListOf<String>().apply { addAll(config.savedLinks) }
     }
 
-    // Fix #1: read AnnotatedString.text and de-duplicate via distinct() while preserving order.
-    LaunchedEffect(Unit) {
-        clipboardManager.getText()?.text?.let { text ->
-            urlList.clear()
-            urlList.addAll(findURLsFromString(text).distinct())
-        }
-    }
-
     InputUrlPageImpl(
         modifier = modifier,
-        urlListFromClipboard = urlList,
         savedLinks = savedLinks,
         onSaveLink = {
             if (!savedLinks.contains(it)) {
@@ -127,7 +115,6 @@ private fun InputUrlPreview() {
         mutableStateListOf<String>().apply { repeat(20) { add("https://www.example$it.com/") } }
     }
     InputUrlPageImpl(
-        urlListFromClipboard = listOf("https://www.example.com"),
         savedLinks = urlList,
         onSaveLink = { urlList.add(it) },
         onRemoveSavedLink = { urlList.remove(it) },
@@ -137,7 +124,6 @@ private fun InputUrlPreview() {
 @Composable
 private fun InputUrlPageImpl(
     modifier: Modifier = Modifier,
-    urlListFromClipboard: List<String>,
     savedLinks: List<String> = emptyList(),
     onSaveLink: (String) -> Unit = {},
     onRemoveSavedLink: (String) -> Unit = {},
@@ -147,8 +133,9 @@ private fun InputUrlPageImpl(
     var url by remember { mutableStateOf("") }
     var showPasteDialog by remember { mutableStateOf(false) }
     var showSavedUrlDialog by remember { mutableStateOf(false) }
+    val clipboardManager = LocalClipboardManager.current
 
-    Column(modifier = modifier) {
+    Column(modifier = modifier.androidx.compose.foundation.layout.imePadding().androidx.compose.foundation.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
         Header(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp),
             title = stringResource(R.string.new_task),
@@ -162,10 +149,18 @@ private fun InputUrlPageImpl(
             onValueChange = { url = it },
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp).padding(horizontal = 32.dp),
             label = { Text(stringResource(R.string.video_url)) },
-            maxLines = 3,
+            maxLines = 2,
             trailingIcon = {
                 if (url.isNotEmpty()) {
                     ClearButton { url = "" }
+                } else {
+                    androidx.compose.material3.IconButton(onClick = {
+                        clipboardManager.getText()?.text?.let { text ->
+                            url = text
+                        }
+                    }) {
+                        Icon(Icons.Outlined.ContentPaste, contentDescription = "Paste")
+                    }
                 }
             },
         )
@@ -175,46 +170,6 @@ private fun InputUrlPageImpl(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = PaddingValues(horizontal = 32.dp),
         ) {
-            if (urlListFromClipboard.isNotEmpty()) {
-                item(key = "paste url") {
-                    SuggestionChip(
-                        modifier = Modifier.animateItem(),
-                        onClick = { url = urlListFromClipboard.first() },
-                        label = { Text(stringResource(R.string.paste_msg)) },
-                        icon = {
-                            Icon(
-                                imageVector = Icons.Outlined.ContentPaste,
-                                contentDescription = null,
-                                modifier = Modifier.size(SuggestionChipDefaults.IconSize),
-                            )
-                        },
-                    )
-                }
-            }
-
-            if (urlListFromClipboard.size > 1) {
-                item(key = "paste multiple url") {
-                    SuggestionChip(
-                        modifier = Modifier.animateItem(),
-                        onClick = { showPasteDialog = true },
-                        label = {
-                            Text(
-                                stringResource(
-                                    R.string.select_multiple_link,
-                                    urlListFromClipboard.size,
-                                )
-                            )
-                        },
-                        icon = {
-                            Icon(
-                                imageVector = Icons.Outlined.ContentPasteGo,
-                                contentDescription = null,
-                                modifier = Modifier.size(SuggestionChipDefaults.IconSize),
-                            )
-                        },
-                    )
-                }
-            }
 
             item(key = "saved urls") {
                 val addToSavedLinks by remember {
@@ -257,7 +212,7 @@ private fun InputUrlPageImpl(
 
         Row(
             modifier =
-                Modifier.align(Alignment.End).padding(top = 24.dp).padding(horizontal = 32.dp)
+                Modifier.align(Alignment.End).padding(top = 24.dp).padding(horizontal = 32.dp).padding(bottom = 32.dp)
         ) {
             OutlinedButtonWithIcon(
                 modifier = Modifier.padding(horizontal = 12.dp),
@@ -281,13 +236,7 @@ private fun InputUrlPageImpl(
             }
         }
     }
-    if (showPasteDialog) {
-        URLSelectionDialog(
-            urlListFromClipboard = urlListFromClipboard,
-            onDismissRequest = { showPasteDialog = false },
-            onConfirm = { onActionPost(Action.ProceedWithURLs(it)) },
-        )
-    }
+
 
     if (showSavedUrlDialog) {
         SavedUrlDialogImpl(
@@ -299,95 +248,7 @@ private fun InputUrlPageImpl(
     }
 }
 
-@Composable
-private fun URLSelectionDialog(
-    modifier: Modifier = Modifier,
-    urlListFromClipboard: List<String>,
-    onDismissRequest: () -> Unit,
-    onConfirm: (List<String>) -> Unit,
-) {
-    val indexList =
-        remember(urlListFromClipboard) {
-            mutableStateListOf<Int>().apply { addAll(urlListFromClipboard.indices) }
-        }
 
-    SealDialog(
-        modifier = modifier,
-        onDismissRequest = onDismissRequest,
-        title = { Text(stringResource(R.string.select_multiple_link, urlListFromClipboard.size)) },
-        icon = { Icon(Icons.Outlined.AddLink, null) },
-        confirmButton = {
-            FilledButtonWithIcon(
-                icon = Icons.AutoMirrored.Outlined.ArrowForward,
-                text = stringResource(R.string.proceed),
-                enabled = indexList.isNotEmpty(),
-            ) {
-                onConfirm(indexList.map { urlListFromClipboard[it] })
-                onDismissRequest()
-            }
-        },
-        dismissButton = {
-            OutlinedButton(onClick = onDismissRequest) { Text(stringResource(R.string.cancel)) }
-        },
-        text = {
-            // Fix #5: bound the dialog content instead of letting it expand to fill the
-            // entire screen — width fills the dialog, height is capped.
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 600.dp)
-            ) {
-                HorizontalDivider(modifier = Modifier.align(Alignment.TopCenter))
-                LazyColumn(modifier = Modifier.padding(bottom = 48.dp).heightIn(max = 600.dp)) {
-                    itemsIndexed(urlListFromClipboard) { index, url ->
-                        DialogCheckBoxItemVariant(text = url, checked = indexList.contains(index)) {
-                            if (!it) {
-                                indexList -= index
-                            } else {
-                                indexList += index
-                            }
-                        }
-                    }
-                }
-
-                val checkBoxState =
-                    remember(indexList.size) {
-                        if (indexList.isEmpty()) {
-                            ToggleableState.Off
-                        } else if (indexList.size < urlListFromClipboard.size) {
-                            ToggleableState.Indeterminate
-                        } else {
-                            ToggleableState.On
-                        }
-                    }
-                Column(modifier = Modifier.align(Alignment.BottomCenter)) {
-                    HorizontalDivider(modifier = Modifier)
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).height(48.dp),
-                    ) {
-                        TriStateCheckbox(
-                            state = checkBoxState,
-                            onClick = {
-                                when (checkBoxState) {
-                                    ToggleableState.On -> indexList.clear()
-                                    ToggleableState.Off ->
-                                        indexList.addAll(urlListFromClipboard.indices)
-                                    ToggleableState.Indeterminate -> {
-                                        indexList.clear()
-                                        indexList.addAll(urlListFromClipboard.indices)
-                                    }
-                                }
-                            },
-                        )
-                        Text(stringResource(R.string.select_all))
-                    }
-                }
-            }
-        },
-    )
-}
 
 @Composable
 private fun DialogCheckBoxItemVariant(

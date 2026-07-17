@@ -43,7 +43,7 @@ data class Task(
     @Serializable
     sealed interface TypeInfo {
 
-        @Serializable data class Playlist(val index: Int = 0) : TypeInfo
+        @Serializable data class Playlist(val index: Int = 0, val playlistTitle: String = "", val playlistUrl: String = "", val isFallback: Boolean = false) : TypeInfo
 
         @Serializable data class CustomCommand(val template: CommandTemplate) : TypeInfo
 

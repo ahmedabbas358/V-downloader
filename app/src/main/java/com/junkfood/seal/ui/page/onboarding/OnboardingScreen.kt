@@ -46,6 +46,18 @@ import androidx.compose.ui.unit.dp
 import com.junkfood.seal.R
 import com.junkfood.seal.ui.common.glassmorphism
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import java.util.Locale
+import com.junkfood.seal.util.LocaleLanguageCodeMap
+import com.junkfood.seal.util.PreferenceUtil
+import com.junkfood.seal.util.setLanguage
+import com.junkfood.seal.util.toDisplayName
+import com.junkfood.seal.ui.component.PreferenceSingleChoiceItem
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -119,6 +131,7 @@ fun OnboardingScreen(onFinished: () -> Unit) {
                 ) {
                     Icon(Icons.Rounded.ArrowForward, contentDescription = "Next")
                 }
+                }
             }
         }
     }
@@ -126,13 +139,16 @@ fun OnboardingScreen(onFinished: () -> Unit) {
 
 @Composable
 fun LanguageSelectionPage() {
+    var selectedLocale by remember { mutableStateOf<Locale?>(null) }
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Top
     ) {
+        Spacer(modifier = Modifier.height(32.dp))
         Icon(
             imageVector = Icons.Rounded.Language,
             contentDescription = null,
@@ -148,30 +164,43 @@ fun LanguageSelectionPage() {
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Please select your preferred language in the settings later. The system language is applied by default.",
+            text = "Please select your preferred language. The system language is applied by default.",
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Spacer(modifier = Modifier.height(48.dp))
+        Spacer(modifier = Modifier.height(24.dp))
         
-        Box(
-            modifier = Modifier.fillMaxWidth()
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .clip(MaterialTheme.shapes.extraLarge)
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
         ) {
-            // Blur/background only affects this layer, not the Text below,
-            // otherwise RenderEffect blurs the label text as well.
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .glassmorphism(cornerRadius = 24.dp, blurRadius = 30f)
-            )
-            Text(
-                text = "Language: System Default",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .padding(24.dp)
-            )
+            item {
+                PreferenceSingleChoiceItem(
+                    text = stringResource(id = R.string.follow_system),
+                    selected = selectedLocale == null,
+                    onClick = {
+                        selectedLocale = null
+                        PreferenceUtil.saveLocalePreference(null)
+                        setLanguage(null)
+                    }
+                )
+            }
+            
+            items(LocaleLanguageCodeMap.keys.toList()) { locale ->
+                PreferenceSingleChoiceItem(
+                    text = locale.toDisplayName(),
+                    selected = selectedLocale == locale,
+                    onClick = {
+                        selectedLocale = locale
+                        PreferenceUtil.saveLocalePreference(locale)
+                        setLanguage(locale)
+                    }
+                )
+            }
         }
     }
 }

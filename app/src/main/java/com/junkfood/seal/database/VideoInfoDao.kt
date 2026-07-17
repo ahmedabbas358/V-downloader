@@ -18,7 +18,7 @@ interface VideoInfoDao {
 
     @Insert suspend fun insert(info: DownloadedVideoInfo)
 
-    @Insert suspend fun insertAll(infoList: List<DownloadedVideoInfo>)
+    @Insert @Transaction suspend fun insertAll(infoList: List<DownloadedVideoInfo>)
 
     @Query("select * from DownloadedVideoInfo")
     fun getDownloadHistoryFlow(): Flow<List<DownloadedVideoInfo>>

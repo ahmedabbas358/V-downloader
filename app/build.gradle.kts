@@ -192,6 +192,9 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.bundles.youtubedlAndroid)
     implementation(libs.mmkv)
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.ui)
 
     testImplementation(libs.junit4)
     androidTestImplementation(libs.androidx.test.ext)

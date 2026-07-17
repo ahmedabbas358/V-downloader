@@ -81,7 +81,7 @@ data class VideoInfo(
      */
     fun availableFormats(): List<Format> =
         formats.orEmpty().filter { f ->
-            !f.url.isNullOrBlank() && (f.containsVideo() || f.containsAudio()) && !f.isStoryboard()
+            !f.url.isNullOrBlank() && !f.isStoryboard()
         }
 
     /**

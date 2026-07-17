@@ -445,7 +445,19 @@ fun GeneralDownloadPreferences(onNavigateBack: () -> Unit, navigateToTemplate: (
     }
 
     if (showNotificationDialog) {
+        val isPermanentlyDenied = notificationPermission?.status?.let {
+            it is com.google.accompanist.permissions.PermissionStatus.Denied && !it.shouldShowRationale
+        } == true
+        
         NotificationPermissionDialog(
+            isPermanentlyDenied = isPermanentlyDenied,
+            onOpenSettings = {
+                val intent = android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                    putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+                }
+                context.startActivity(intent)
+                showNotificationDialog = false
+            },
             onDismissRequest = { showNotificationDialog = false },
             onPermissionGranted = {
                 notificationPermission?.launchPermissionRequest()

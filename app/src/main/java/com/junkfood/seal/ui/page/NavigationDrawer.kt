@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Subscriptions
 import androidx.compose.material.icons.outlined.Terminal
+import androidx.compose.material.icons.outlined.VideoLibrary
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Cookie
 import androidx.compose.material.icons.rounded.Folder
@@ -197,8 +198,18 @@ fun NavigationDrawerSheetContent(
                 selected = currentRoute == Route.SOCIAL_HUB,
             )
             NavigationDrawerItem(
-                label = { Text(stringResource(R.string.downloads_history)) },
+                label = { Text("Smart Subscriptions") },
                 icon = { Icon(Icons.Outlined.Subscriptions, null) },
+                onClick = {
+                    scope
+                        .launch { onDismissRequest() }
+                        .invokeOnCompletion { onNavigateToRoute(Route.SUBSCRIPTIONS) }
+                },
+                selected = currentRoute == Route.SUBSCRIPTIONS,
+            )
+            NavigationDrawerItem(
+                label = { Text(stringResource(R.string.downloads_history)) },
+                icon = { Icon(Icons.Outlined.VideoLibrary, null) },
                 onClick = {
                     scope
                         .launch { onDismissRequest() }

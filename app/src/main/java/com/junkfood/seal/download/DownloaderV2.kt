@@ -343,7 +343,7 @@ class DownloaderV2Impl(
         val taskInfo = task.type
 
         val playlistIndex =
-            if (taskInfo is TypeInfo.Playlist) {
+            if (taskInfo is TypeInfo.Playlist && !taskInfo.isFallback) {
                 taskInfo.index
             } else {
                 null
@@ -416,6 +416,7 @@ class DownloaderV2Impl(
                         ""
                     }
 
+                var lastUpdateTime = 0L
                 DownloadUtil
                     .downloadVideo(
                         videoInfo = task.info,
@@ -423,38 +424,44 @@ class DownloaderV2Impl(
                         playlistItem = playlistItem,
                         taskId = task.id,
                         downloadPreferences = task.preferences,
+                        isFallback = (task.type as? TypeInfo.Playlist)?.isFallback ?: false,
+                        fallbackPlaylistTitle = (task.type as? TypeInfo.Playlist)?.playlistTitle ?: "",
                         progressCallback = {
                                 progressPercentage,
                                 _,
                                 text ->
 
-                            val progress =
-                                progressPercentage / 100f
+                            val currentTime = System.currentTimeMillis()
+                            if (currentTime - lastUpdateTime > 250L || progressPercentage == 100f) {
+                                lastUpdateTime = currentTime
+                                val progress =
+                                    progressPercentage / 100f
 
-                            when (
-                                val previousState =
-                                    task.downloadState
-                            ) {
-                                is Running -> {
-                                    task.downloadState =
-                                        previousState.copy(
-                                            progress = progress,
-                                            progressText = text
+                                when (
+                                    val previousState =
+                                        task.downloadState
+                                ) {
+                                    is Running -> {
+                                        task.downloadState =
+                                            previousState.copy(
+                                                progress = progress,
+                                                progressText = text
+                                            )
+
+                                        NotificationUtil.notifyProgress(
+                                            notificationId =
+                                                task.notificationId,
+                                            progress =
+                                                progressPercentage.toInt(),
+                                            text = text,
+                                            title =
+                                                task.viewState.title,
+                                            taskId = task.id
                                         )
+                                    }
 
-                                    NotificationUtil.notifyProgress(
-                                        notificationId =
-                                            task.notificationId,
-                                        progress =
-                                            progressPercentage.toInt(),
-                                        text = text,
-                                        title =
-                                            task.viewState.title,
-                                        taskId = task.id
-                                    )
+                                    else -> Unit
                                 }
-
-                                else -> Unit
                             }
                         }
                     )
@@ -525,6 +532,19 @@ class DownloaderV2Impl(
                             throwable
                                 is YoutubeDL.CanceledException
                         ) {
+                            return@onFailure
+                        }
+
+                        if (task.type is TypeInfo.Playlist && !(task.type as TypeInfo.Playlist).isFallback) {
+                            val playlistType = task.type as TypeInfo.Playlist
+                            val newType = playlistType.copy(isFallback = true)
+                            val fallbackTask = task.copy(url = task.viewState.url, type = newType)
+                            
+                            val oldState = taskStateMap.remove(task)
+                            if (oldState != null) {
+                                taskStateMap[fallbackTask] = oldState.copy(downloadState = Idle, videoInfo = null)
+                                doYourWork()
+                            }
                             return@onFailure
                         }
 

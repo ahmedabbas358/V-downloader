@@ -72,7 +72,7 @@ class HomePageViewModel(private val downloaderV2: DownloaderV2) : ViewModel() {
         DownloadUtil.fetchVideoInfoFromUrl(url = url)
             .onSuccess { showFormatSelectionPageOrDownload(it) }
             .onFailure {
-                ToastUtil.makeToast(it.message ?: "Error fetching info")
+                ToastUtil.makeToastSuspend(it.message.toString())
             }
         mutableViewStateFlow.update { it.copy(isFetchingInfo = false) }
     }
@@ -99,7 +99,7 @@ class HomePageViewModel(private val downloaderV2: DownloaderV2) : ViewModel() {
             }
             .onFailure {
                 mutableViewStateFlow.update { it.copy(isFetchingInfo = false) }
-                ToastUtil.makeToast(it.message ?: "Error fetching playlist info")
+                ToastUtil.makeToastSuspend(it.message ?: "Error fetching playlist info")
             }
     }
 

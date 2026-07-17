@@ -133,30 +133,23 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
                         downloadPreferences = preferences,
                     )
                     .onSuccess { info ->
-                        withContext(Dispatchers.Main) {
-                            when (info) {
-                                is PlaylistResult -> {
-                                    mSelectionStateFlow.update {
-                                        SelectionState.PlaylistSelection(result = info)
-                                    }
-                                }
-
-                                is VideoInfo -> {
-                                    mSelectionStateFlow.update {
-                                        SelectionState.FormatSelection(info = info)
-                                    }
+                        when (info) {
+                            is PlaylistResult -> {
+                                mSelectionStateFlow.update {
+                                    SelectionState.PlaylistSelection(result = info)
                                 }
                             }
-                            hideDialog()
+                            is VideoInfo -> {
+                                mSelectionStateFlow.update {
+                                    SelectionState.FormatSelection(info = info)
+                                }
+                            }
                         }
+                        hideDialog()
                     }
                     .onFailure { th ->
-                        // Runs on the IO dispatcher (no context switch happened yet), so hop
-                        // back to Main to stay consistent with every other state mutation here.
-                        withContext(Dispatchers.Main) {
-                            mSheetStateFlow.update {
-                                SheetState.Error(action = action, throwable = th)
-                            }
+                        mSheetStateFlow.update {
+                            SheetState.Error(action = action, throwable = th)
                         }
                     }
             }
@@ -174,17 +167,13 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
                         taskKey = "FetchFormat_$url",
                     )
                     .onSuccess { info ->
-                        withContext(Dispatchers.Main) {
-                            mSelectionStateFlow.update {
-                                SelectionState.FormatSelection(info = info)
-                            }
-                            hideDialog()
+                        mSelectionStateFlow.update {
+                            SelectionState.FormatSelection(info = info)
                         }
+                        hideDialog()
                     }
                     .onFailure { th ->
-                        withContext(Dispatchers.Main) {
-                            mSheetStateFlow.update { SheetState.Error(action, throwable = th) }
-                        }
+                        mSheetStateFlow.update { SheetState.Error(action, throwable = th) }
                     }
             }
 

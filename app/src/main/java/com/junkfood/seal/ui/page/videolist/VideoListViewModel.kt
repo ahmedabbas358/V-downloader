@@ -34,7 +34,10 @@ class VideoListViewModel : ViewModel() {
     private val _mediaInfoFlow = DatabaseUtil.getDownloadHistoryFlow()
 
     val videoListFlow: Flow<List<DownloadedVideoInfo>> =
-        _mediaInfoFlow.map { it.reversed().sortedBy { info -> info.filterByType() } }
+        _mediaInfoFlow.map { list ->
+            // Optimize sorting by doing it in a single pass instead of allocating intermediate lists with reversed()
+            list.asReversed().sortedBy { info -> info.filterByType() }
+        }
 
     val searchedVideoListFlow =
         videoListFlow.combine(stateFlow) { list, state ->

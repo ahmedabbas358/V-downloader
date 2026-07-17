@@ -543,6 +543,7 @@ object DownloadUtil {
                             } else {
                                 addOption("--sub-langs", subtitleLanguage)
                             }
+                        } else {
                             // Default to common languages instead of 'all' which can cause timeouts
                             addOption("--sub-langs", "ar.*,en.*,fr.*,es.*,de.*,.*-orig")
                         }
@@ -774,6 +775,8 @@ object DownloadUtil {
         taskId: String,
         downloadPreferences: DownloadPreferences,
         progressCallback: ((Float, Long, String) -> Unit)?,
+        isFallback: Boolean = false,
+        fallbackPlaylistTitle: String = "",
     ): Result<List<String>> {
         if (videoInfo == null)
             return Result.failure(Throwable(context.getString(R.string.fetch_info_error_msg)))
@@ -833,12 +836,21 @@ object DownloadUtil {
                     addResilienceOptions()
 
                     if (playlistItem != 0 && downloadPlaylist) {
-                        addOption("--playlist-items", playlistItem)
-                        if (subdirectoryPlaylistTitle && !videoInfo.playlist.isNullOrEmpty()) {
-                            outputBuilder.append(PLAYLIST_TITLE_SUBDIRECTORY_PREFIX)
+                        if (!isFallback) {
+                            addOption("--playlist-items", playlistItem)
+                            if (subdirectoryPlaylistTitle && !videoInfo.playlist.isNullOrEmpty()) {
+                                outputBuilder.append(PLAYLIST_TITLE_SUBDIRECTORY_PREFIX)
+                            }
+                        } else {
+                            addOption("--no-playlist")
+                            if (fallbackPlaylistTitle.isNotEmpty()) {
+                                addOption("--parse-metadata", "$fallbackPlaylistTitle:%(playlist_title)s")
+                            }
+                            addOption("--parse-metadata", "$playlistItem:%(playlist_index)s")
+                            if (subdirectoryPlaylistTitle && fallbackPlaylistTitle.isNotEmpty()) {
+                                outputBuilder.append(PLAYLIST_TITLE_SUBDIRECTORY_PREFIX)
+                            }
                         }
-                        //                    addOption("--compat-options",
-                        // "no-youtube-unavailable-videos")
                     } else {
                         addOption("--no-playlist")
                     }

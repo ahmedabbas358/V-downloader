@@ -9,6 +9,7 @@ import com.junkfood.seal.database.objects.DownloadedVideoInfo
 import com.junkfood.seal.database.objects.OptionShortcut
 
 import com.junkfood.seal.database.objects.DownloadOperation
+import com.junkfood.seal.database.objects.Subscription
 
 @Database(
     entities =
@@ -18,8 +19,9 @@ import com.junkfood.seal.database.objects.DownloadOperation
             CookieProfile::class,
             OptionShortcut::class,
             DownloadOperation::class,
+            Subscription::class,
         ],
-    version = 6,
+    version = 9,
     autoMigrations =
         [
             AutoMigration(from = 1, to = 2),
@@ -27,8 +29,10 @@ import com.junkfood.seal.database.objects.DownloadOperation
             AutoMigration(from = 3, to = 4),
             AutoMigration(from = 4, to = 5),
             AutoMigration(from = 5, to = 6),
+            AutoMigration(from = 8, to = 9),
         ],
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun videoInfoDao(): VideoInfoDao
+    abstract fun subscriptionDao(): SubscriptionDao
 }

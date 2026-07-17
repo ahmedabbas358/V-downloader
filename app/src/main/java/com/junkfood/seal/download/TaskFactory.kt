@@ -98,7 +98,7 @@ object TaskFactory {
                         uploader = entry.uploader ?: entry.channel ?: playlistResult.channel ?: "",
                         thumbnailUrl = (entry.thumbnails?.lastOrNull()?.url) ?: "",
                     )
-                val task = Task(url = playlistUrl, preferences = preferences, type = Task.TypeInfo.Playlist(index))
+                val task = Task(url = playlistUrl, preferences = preferences, type = Task.TypeInfo.Playlist(index = index, playlistTitle = playlistResult.title ?: "", playlistUrl = playlistUrl))
                 val state =
                     Task.State(downloadState = Idle, videoInfo = null, viewState = viewState)
                 TaskWithState(task, state)

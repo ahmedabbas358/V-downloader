@@ -18,13 +18,25 @@ import androidx.compose.ui.unit.dp
 fun Modifier.glassmorphism(
     cornerRadius: Dp = 24.dp,
     blurRadius: Float = 60f,
-    backgroundColor: Color = Color.White.copy(alpha = 0.1f),
-    borderColor: Color = Color.White.copy(alpha = 0.2f)
+    backgroundColor: Color? = null,
+    borderColor: Color? = null
 ): Modifier = composed {
+    val fallbackBackgroundColor = backgroundColor ?: if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        Color.White.copy(alpha = 0.1f)
+    } else {
+        androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.85f)
+    }
+    
+    val fallbackBorderColor = borderColor ?: if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        Color.White.copy(alpha = 0.2f)
+    } else {
+        androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+    }
+
     this.then(
         Modifier
             .clip(RoundedCornerShape(cornerRadius))
-            .background(backgroundColor)
+            .background(fallbackBackgroundColor)
             .graphicsLayer {
                 // NOTE: this blur is applied to this layer's own contents (including any
                 // children passed into the composable using this modifier), not to whatever
@@ -40,6 +52,6 @@ fun Modifier.glassmorphism(
                     ).asComposeRenderEffect()
                 }
             }
-            .border(1.dp, borderColor, RoundedCornerShape(cornerRadius))
+            .border(1.dp, fallbackBorderColor, RoundedCornerShape(cornerRadius))
     )
 }

@@ -101,6 +101,8 @@ import com.junkfood.seal.ui.svg.DynamicColorImageVectors
 import com.junkfood.seal.ui.svg.drawablevectors.videoSteaming
 import com.junkfood.seal.util.AUDIO_REGEX
 import com.junkfood.seal.util.FileUtil
+import com.junkfood.seal.util.PreferenceUtil
+import com.junkfood.seal.util.PreferenceUtil.getBoolean
 import com.junkfood.seal.util.ToastUtil
 import com.junkfood.seal.util.toFileSizeText
 import kotlinx.coroutines.Dispatchers
@@ -134,7 +136,11 @@ private const val TAG = "VideoListPage"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun VideoListPage(viewModel: VideoListViewModel = koinViewModel(), onNavigateBack: () -> Unit) {
+fun VideoListPage(
+    viewModel: VideoListViewModel = koinViewModel(),
+    onNavigateBack: () -> Unit,
+    onPlayVideo: (String) -> Unit = {}
+) {
     val viewState by viewModel.stateFlow.collectAsStateWithLifecycle()
     val fullVideoList by viewModel.videoListFlow.collectAsStateWithLifecycle(emptyList())
     val searchedVideoList by
@@ -488,10 +494,14 @@ fun VideoListPage(viewModel: VideoListViewModel = koinViewModel(), onNavigateBac
                                     else selectedItemIds.add(id)
                                 },
                                 onClick = {
-                                    FileUtil.openFile(path = videoPath) {
-                                        ToastUtil.makeToastSuspend(
-                                            App.context.getString(R.string.file_unavailable)
-                                        )
+                                    if (PreferenceUtil.ENABLE_EXPERIMENTAL_FEATURES.getBoolean()) {
+                                        onPlayVideo(videoPath)
+                                    } else {
+                                        FileUtil.openFile(path = videoPath) {
+                                            ToastUtil.makeToastSuspend(
+                                                App.context.getString(R.string.file_unavailable)
+                                            )
+                                        }
                                     }
                                 },
                                 onLongClick = {

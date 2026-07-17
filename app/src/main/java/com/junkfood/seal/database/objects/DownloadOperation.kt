@@ -1,10 +1,17 @@
 package com.junkfood.seal.database.objects
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
 
-@Entity(tableName = "download_operation")
+@Entity(
+    tableName = "download_operation",
+    indices = [
+        Index(value = ["url"]),
+        Index(value = ["title"])
+    ]
+)
 @Serializable
 data class DownloadOperation(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,

@@ -5,6 +5,8 @@ object Route {
     const val HOME = "home"
     const val SOCIAL_HUB = "social_hub"
     const val DOWNLOADS = "download_history"
+    const val MEDIA_PLAYER = "media_player"
+    const val SUBSCRIPTIONS = "subscriptions"
     const val PLAYLIST = "playlist"
     const val SETTINGS = "settings"
     const val FORMAT_SELECTION = "format"
@@ -34,6 +36,7 @@ object Route {
 
     const val TASK_HASHCODE = "task_hashcode"
     const val TEMPLATE_ID = "template_id"
+    const val VIDEO_ID = "video_id"
 }
 
 infix fun String.arg(arg: String) = "$this/{$arg}"

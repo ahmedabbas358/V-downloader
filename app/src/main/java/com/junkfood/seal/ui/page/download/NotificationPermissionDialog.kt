@@ -15,6 +15,8 @@ import com.junkfood.seal.R
 @Composable
 @Preview
 fun NotificationPermissionDialog(
+    isPermanentlyDenied: Boolean = false,
+    onOpenSettings: () -> Unit = {},
     onDismissRequest: () -> Unit = {},
     onPermissionGranted: () -> Unit = {},
 ) {
@@ -23,11 +25,18 @@ fun NotificationPermissionDialog(
         icon = {
             Icon(imageVector = Icons.Outlined.NotificationsActive, contentDescription = null)
         },
-        text = { Text(text = stringResource(id = R.string.enable_notifications_desc)) },
+        text = { 
+            Text(
+                text = if (isPermanentlyDenied) "الإشعارات معطلة نهائياً. يرجى تفعيلها من إعدادات التطبيق لكي تتمكن من متابعة سير التحميلات في الخلفية." 
+                else stringResource(id = R.string.enable_notifications_desc)
+            ) 
+        },
         title = { Text(text = stringResource(id = R.string.enable_notifications)) },
         confirmButton = {
-            Button(onClick = onPermissionGranted) {
-                Text(text = stringResource(id = R.string.okay))
+            Button(onClick = {
+                if (isPermanentlyDenied) onOpenSettings() else onPermissionGranted()
+            }) {
+                Text(text = if (isPermanentlyDenied) "فتح الإعدادات" else stringResource(id = R.string.okay))
             }
         },
         dismissButton = {

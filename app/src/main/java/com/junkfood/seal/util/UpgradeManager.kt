@@ -44,7 +44,14 @@ object UpgradeManager {
     }
 
     private fun runMigrations(oldVersion: Int, newVersion: Int) {
-        // Example: if (oldVersion < 30) { migrateSomething() }
-        Log.d(TAG, "Running migrations...")
+        Log.d(TAG, "Running migrations from $oldVersion to $newVersion...")
+        
+        // Example Hook: Clear temporary files and caches to avoid update conflicts
+        try {
+            val count = FileUtil.clearTempFiles(FileUtil.getExternalTempDir())
+            Log.d(TAG, "Cleared $count temporary files during upgrade.")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }

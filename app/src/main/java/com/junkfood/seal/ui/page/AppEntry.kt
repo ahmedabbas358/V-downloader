@@ -147,26 +147,7 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
         }
     }
 
-    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
-    val gradientBrush = if (isDark) {
-        Brush.linearGradient(
-            colors = listOf(
-                ComposeColor(0xFF1E1E2C),
-                ComposeColor(0xFF2D2A4A),
-                ComposeColor(0xFF16162C)
-            )
-        )
-    } else {
-        Brush.linearGradient(
-            colors = listOf(
-                ComposeColor(0xFFE0C3FC),
-                ComposeColor(0xFF8EC5FC),
-                ComposeColor(0xFFE0C3FC)
-            )
-        )
-    }
-
-    Box(modifier = Modifier.fillMaxSize().background(gradientBrush)) {
+    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         NavigationDrawer(
             windowWidth = windowWidth,
             drawerState = drawerState,
@@ -179,7 +160,10 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
                 if (currentRoute != it) {
                     navController.navigate(it) {
                         launchSingleTop = true
-                        popUpTo(route = Route.HOME)
+                        restoreState = true
+                        popUpTo(route = Route.HOME) {
+                            saveState = true
+                        }
                     }
                 }
             },
@@ -215,7 +199,33 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
                         },
                     )
                 }
-                animatedComposable(Route.DOWNLOADS) { VideoListPage { onNavigateBack() } }
+                animatedComposable(Route.SUBSCRIPTIONS) {
+                    com.junkfood.seal.ui.page.subscription.SubscriptionScreen(
+                        onNavigateBack = onNavigateBack
+                    )
+                }
+                animatedComposable(Route.DOWNLOADS) { 
+                    VideoListPage(
+                        onNavigateBack = { onNavigateBack() },
+                        onPlayVideo = { path ->
+                            val encoded = java.net.URLEncoder.encode(path, "UTF-8")
+                            navController.navigate(Route.MEDIA_PLAYER id encoded)
+                        }
+                    ) 
+                }
+                
+                animatedComposable(
+                    Route.MEDIA_PLAYER arg Route.VIDEO_ID,
+                    arguments = listOf(navArgument(Route.VIDEO_ID) { type = NavType.StringType })
+                ) {
+                    val encodedPath = it.arguments?.getString(Route.VIDEO_ID) ?: ""
+                    val path = java.net.URLDecoder.decode(encodedPath, "UTF-8")
+                    com.junkfood.seal.ui.page.player.MediaPlaybackScreen(
+                        videoPath = path,
+                        onNavigateBack = onNavigateBack
+                    )
+                }
+                
                 animatedComposableVariant(Route.TASK_LIST) {
                     TaskListPage(
                         onNavigateBack = onNavigateBack,
