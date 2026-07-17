@@ -296,11 +296,11 @@ private fun FormatPageImpl(
 
     if (videoInfo.formats.isNullOrEmpty()) return
     val videoOnlyFormats =
-        videoInfo.formats.filter { it.vcodec != "none" && it.acodec == "none" }.reversed()
+        videoInfo.formats.filter { it.isVideoOnly() && it.containsVideo() }.reversed()
     val audioOnlyFormats =
-        videoInfo.formats.filter { it.acodec != "none" && it.vcodec == "none" }.reversed()
+        videoInfo.formats.filter { it.isAudioOnly() && it.containsAudio() }.reversed()
     val videoAudioFormats =
-        videoInfo.formats.filter { it.acodec != "none" && it.vcodec != "none" }.reversed()
+        videoInfo.formats.filter { it.isCombined() }.reversed()
 
     val duration = videoInfo.duration ?: 0.0
 

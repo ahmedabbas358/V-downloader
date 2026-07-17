@@ -151,7 +151,7 @@ data class Task(
                 val audioOnlyFormats = formats.filter { it.isAudioOnly() }
 
                 return ViewState(
-                    url = info.originalUrl.toString(),
+                    url = info.webpageUrl ?: info.originalUrl.toString(),
                     title = info.title,
                     uploader = info.uploader ?: info.channel ?: info.uploaderId.toString(),
                     extractorKey = info.extractorKey,
