@@ -257,52 +257,6 @@ fun DownloadPageV2(
         }
     }
 
-    var preferences by remember {
-        mutableStateOf(DownloadUtil.DownloadPreferences.createFromPreferences())
-    }
-    val sheetValue by dialogViewModel.sheetValueFlow.collectAsStateWithLifecycle()
-    val state by dialogViewModel.sheetStateFlow.collectAsStateWithLifecycle()
-
-    val selectionState = dialogViewModel.selectionStateFlow.collectAsStateWithLifecycle().value
-
-    var showDialog by remember { mutableStateOf(false) }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    LaunchedEffect(sheetValue) {
-        if (sheetValue == DownloadDialogViewModel.SheetValue.Expanded) {
-            showDialog = true
-        } else {
-            launch { sheetState.hide() }.invokeOnCompletion { showDialog = false }
-        }
-    }
-
-    if (showDialog) {
-
-        DownloadDialog(
-            state = state,
-            sheetState = sheetState,
-            config = Config(),
-            preferences = preferences,
-            onPreferencesUpdate = { preferences = it },
-            onActionPost = { dialogViewModel.postAction(it) },
-        )
-    }
-    when (selectionState) {
-        is DownloadDialogViewModel.SelectionState.FormatSelection ->
-            FormatPage(
-                state = selectionState,
-                onDismissRequest = { dialogViewModel.postAction(Action.Reset) },
-            )
-
-        is DownloadDialogViewModel.SelectionState.PlaylistSelection -> {
-            PlaylistSelectionPage(
-                state = selectionState,
-                onDismissRequest = { dialogViewModel.postAction(Action.Reset) },
-            )
-        }
-
-        DownloadDialogViewModel.SelectionState.Idle -> {}
-    }
 }
 
 @Composable

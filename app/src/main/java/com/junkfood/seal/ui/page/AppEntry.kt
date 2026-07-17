@@ -82,6 +82,12 @@ import com.junkfood.seal.util.PreferenceUtil.updateInt
 import com.junkfood.seal.util.WELCOME_DIALOG
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
+import com.junkfood.seal.ui.page.downloadv2.configure.Config
+import com.junkfood.seal.ui.page.downloadv2.configure.DownloadDialog
+import com.junkfood.seal.ui.page.downloadv2.configure.FormatPage
+import com.junkfood.seal.ui.page.downloadv2.configure.PlaylistSelectionPage
+import com.junkfood.seal.ui.page.downloadv2.configure.DownloadDialogViewModel.Action
+import com.junkfood.seal.util.DownloadUtil
 
 private const val TAG = "HomeEntry"
 
@@ -249,6 +255,48 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
 
             AppUpdater()
             YtdlpUpdater()
+        }
+
+        var preferences by remember {
+            mutableStateOf(DownloadUtil.DownloadPreferences.createFromPreferences())
+        }
+        val sheetValue by dialogViewModel.sheetValueFlow.collectAsStateWithLifecycle()
+        val state by dialogViewModel.sheetStateFlow.collectAsStateWithLifecycle()
+        val selectionState = dialogViewModel.selectionStateFlow.collectAsStateWithLifecycle().value
+        var showDialog by remember { mutableStateOf(false) }
+        val dialogSheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    
+        LaunchedEffect(sheetValue) {
+            if (sheetValue == DownloadDialogViewModel.SheetValue.Expanded) {
+                showDialog = true
+            } else {
+                launch { dialogSheetState.hide() }.invokeOnCompletion { showDialog = false }
+            }
+        }
+    
+        if (showDialog) {
+            DownloadDialog(
+                state = state,
+                sheetState = dialogSheetState,
+                config = Config(),
+                preferences = preferences,
+                onPreferencesUpdate = { preferences = it },
+                onActionPost = { dialogViewModel.postAction(it) },
+            )
+        }
+        when (selectionState) {
+            is DownloadDialogViewModel.SelectionState.FormatSelection ->
+                FormatPage(
+                    state = selectionState,
+                    onDismissRequest = { dialogViewModel.postAction(Action.Reset) },
+                )
+            is DownloadDialogViewModel.SelectionState.PlaylistSelection -> {
+                PlaylistSelectionPage(
+                    state = selectionState,
+                    onDismissRequest = { dialogViewModel.postAction(Action.Reset) },
+                )
+            }
+            DownloadDialogViewModel.SelectionState.Idle -> {}
         }
     }
 }
