@@ -23,6 +23,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -94,6 +95,7 @@ private const val TAG = "HomeEntry"
 private val TopDestinations =
     listOf(Route.HOME, Route.SOCIAL_HUB, Route.TASK_LIST, Route.SETTINGS_PAGE, Route.DOWNLOADS)
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
 
