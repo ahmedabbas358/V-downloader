@@ -567,12 +567,14 @@ private fun HeaderCompact(modifier: Modifier = Modifier, onMenuOpen: () -> Unit)
             Icon(
                 imageVector = Icons.Outlined.Menu,
                 contentDescription = stringResource(R.string.show_navigation_drawer),
+                tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier,
             )
         }
         Spacer(modifier = Modifier.width(4.dp))
         Text(
             stringResource(R.string.download_queue),
+            color = MaterialTheme.colorScheme.onSurface,
             style =
                 MaterialTheme.typography.titleLarge.copy(
                     fontSize = 20.sp,
@@ -588,6 +590,7 @@ private fun HeaderExpanded(modifier: Modifier = Modifier) {
         Spacer(modifier = Modifier.width(4.dp))
         Text(
             stringResource(R.string.download_queue),
+            color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Medium),
         )
     }

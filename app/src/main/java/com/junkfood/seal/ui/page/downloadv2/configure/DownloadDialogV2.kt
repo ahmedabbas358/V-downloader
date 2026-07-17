@@ -543,8 +543,8 @@ private fun ConfigurePage(
         }
     }
 
-    Column {
-        Column(modifier = modifier.padding(horizontal = 20.dp)) {
+    Column(modifier = modifier.verticalScroll(rememberScrollState())) {
+        Column(modifier = Modifier.padding(horizontal = 20.dp)) {
             Header(
                 modifier = Modifier.align(Alignment.CenterHorizontally),
                 title = stringResource(R.string.settings_before_download),
@@ -692,8 +692,8 @@ fun ConfigurePagePlaylistVariant(
 
     var selectedType by remember(initialDownloadType) { mutableStateOf(initialDownloadType) }
 
-    Column {
-        Column(modifier = modifier.padding(horizontal = 20.dp)) {
+    Column(modifier = modifier.verticalScroll(rememberScrollState())) {
+        Column(modifier = Modifier.padding(horizontal = 20.dp)) {
             Header(
                 modifier = Modifier.align(Alignment.CenterHorizontally),
                 title = stringResource(R.string.settings_before_download),
