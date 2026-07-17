@@ -174,14 +174,14 @@ fun LanguageSelectionPage(currentLocale: Locale?, onLocaleChange: (Locale?) -> U
         )
         Spacer(modifier = Modifier.height(24.dp))
         Text(
-            text = "Welcome to V-Downloader",
+            text = stringResource(id = R.string.onboarding_welcome_title),
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Please select your preferred language. The system language is applied by default.",
+            text = stringResource(id = R.string.onboarding_language_body),
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -241,14 +241,14 @@ fun FeaturesPage() {
         )
         Spacer(modifier = Modifier.height(24.dp))
         Text(
-            text = "Ultimate Media Tool",
+            text = stringResource(id = R.string.onboarding_features_title),
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Download videos and audios in the highest quality, seamlessly format playlists, and enjoy background processing.",
+            text = stringResource(id = R.string.onboarding_features_body),
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -273,14 +273,14 @@ fun PermissionsPage(onFinished: () -> Unit) {
         )
         Spacer(modifier = Modifier.height(24.dp))
         Text(
-            text = "Stay Updated",
+            text = stringResource(id = R.string.onboarding_notifications_title),
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "V-Downloader needs notification permissions to show download progress in the background.",
+            text = stringResource(id = R.string.onboarding_notifications_body),
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -296,7 +296,7 @@ fun PermissionsPage(onFinished: () -> Unit) {
         ) {
             Icon(Icons.Rounded.Check, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text(text = "Get Started", style = MaterialTheme.typography.titleMedium)
+            Text(text = stringResource(id = R.string.onboarding_get_started), style = MaterialTheme.typography.titleMedium)
         }
     }
 }

@@ -422,7 +422,7 @@ object DownloadUtil {
         }
 
     private fun YoutubeDLRequest.addYoutubeCompatibilityOptions(): YoutubeDLRequest =
-        apply { addOption("--extractor-args", "youtube:player_client=ios,tv,web") }
+        apply { addOption("--extractor-args", "youtube:player_client=default") }
 
     private fun YoutubeDLRequest.enableProxy(proxyUrl: String): YoutubeDLRequest =
         this.addOption("--proxy", proxyUrl)
