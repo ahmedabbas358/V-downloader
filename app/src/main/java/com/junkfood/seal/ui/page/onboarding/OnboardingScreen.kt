@@ -72,9 +72,26 @@ fun OnboardingScreen(onFinished: () -> Unit) {
         )
     )
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize()
-    ) { innerPadding ->
+    var currentLocale by remember { mutableStateOf(PreferenceUtil.getLocaleFromPreference()) }
+    
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val updatedConfig = remember(configuration, currentLocale) {
+        android.content.res.Configuration(configuration).apply {
+            setLocale(currentLocale ?: java.util.Locale.getDefault())
+        }
+    }
+    val updatedContext = remember(context, updatedConfig) {
+        context.createConfigurationContext(updatedConfig)
+    }
+
+    androidx.compose.runtime.CompositionLocalProvider(
+        androidx.compose.ui.platform.LocalConfiguration provides updatedConfig,
+        androidx.compose.ui.platform.LocalContext provides updatedContext
+    ) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize()
+        ) { innerPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -86,7 +103,7 @@ fun OnboardingScreen(onFinished: () -> Unit) {
                 modifier = Modifier.fillMaxSize()
             ) { page ->
                 when (page) {
-                    0 -> LanguageSelectionPage()
+                    0 -> LanguageSelectionPage(currentLocale = currentLocale, onLocaleChange = { currentLocale = it })
                     1 -> FeaturesPage()
                     2 -> PermissionsPage(onFinished = onFinished)
                 }
@@ -135,10 +152,11 @@ fun OnboardingScreen(onFinished: () -> Unit) {
         }
     }
 }
+}
 
 @Composable
-fun LanguageSelectionPage() {
-    var selectedLocale by remember { mutableStateOf<Locale?>(null) }
+fun LanguageSelectionPage(currentLocale: Locale?, onLocaleChange: (Locale?) -> Unit) {
+    var selectedLocale by remember(currentLocale) { mutableStateOf<Locale?>(currentLocale) }
     
     Column(
         modifier = Modifier
@@ -183,6 +201,7 @@ fun LanguageSelectionPage() {
                     selected = selectedLocale == null,
                     onClick = {
                         selectedLocale = null
+                        onLocaleChange(null)
                         PreferenceUtil.saveLocalePreference(null)
                         setLanguage(null)
                     }
@@ -195,6 +214,7 @@ fun LanguageSelectionPage() {
                     selected = selectedLocale == locale,
                     onClick = {
                         selectedLocale = locale
+                        onLocaleChange(locale)
                         PreferenceUtil.saveLocalePreference(locale)
                         setLanguage(locale)
                     }

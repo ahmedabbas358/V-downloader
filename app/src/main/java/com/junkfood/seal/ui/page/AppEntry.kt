@@ -201,11 +201,7 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
                         },
                     )
                 }
-                animatedComposable(Route.SUBSCRIPTIONS) {
-                    com.junkfood.seal.ui.page.subscription.SubscriptionScreen(
-                        onNavigateBack = onNavigateBack
-                    )
-                }
+
                 animatedComposable(Route.DOWNLOADS) { 
                     VideoListPage(
                         onNavigateBack = { onNavigateBack() },

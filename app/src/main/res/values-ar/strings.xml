@@ -56,6 +56,13 @@
     <string name="user_guide">دليل المستخدم</string>
     <string name="first_run_language_desc">اختر لغة العرض أولاً. يمكنك تغييرها لاحقًا من الإعدادات.</string>
     <string name="first_run_guide_desc">جولة سريعة على الأدوات الأساسية قبل بدء التحميل.</string>
+    <string name="onboarding_welcome_title">مرحباً بك في V-Downloader</string>
+    <string name="onboarding_language_body">اختر لغة العرض أولاً. سيتم استخدام لغة النظام تلقائياً إذا لم تغيّرها.</string>
+    <string name="onboarding_features_title">تنزيل وسائط مضبوط</string>
+    <string name="onboarding_features_body">نزّل الفيديو والصوت والترجمات وقوائم التشغيل بإعدادات مقاومة للأخطاء وتحكم واضح.</string>
+    <string name="onboarding_notifications_title">تقدم التحميل في الخلفية</string>
+    <string name="onboarding_notifications_body">سيُطلب إذن الإشعارات عند الحاجة فقط لعرض تقدم التحميل بوضوح أثناء العمل في الخلفية.</string>
+    <string name="onboarding_get_started">ابدأ الآن</string>
     <string name="open_settings">افتح الإعدادات</string>
     <string name="paste_desc">انقر فوق «لصق» للحصول على رابط الفيديو من الحافظة الخاصة بك.</string>
     <string name="download_playlist">تنزيل قائمة التشغيل</string>

@@ -660,9 +660,11 @@ private fun ConfigurePage(
                         }
                     }
                 }
+            }
             Spacer(modifier = Modifier.height(16.dp))
             DrawerSheetSubtitle(text = stringResource(R.string.additional_settings))
             settingChips()
+        }
         }
 
         ActionButtons(
@@ -793,6 +795,7 @@ fun ConfigurePagePlaylistVariant(
                     onPreferencesUpdate(DownloadUtil.DownloadPreferences.createFromPreferences())
                 },
             )
+        }
         }
 
         ActionButtons(

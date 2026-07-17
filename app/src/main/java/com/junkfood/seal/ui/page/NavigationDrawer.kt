@@ -211,23 +211,7 @@ fun NavigationDrawerSheetContent(
                     selectedContainerColor = MaterialTheme.colorScheme.primaryContainer
                 )
             )
-            NavigationDrawerItem(
-                label = { Text("Smart Subscriptions") },
-                icon = { Icon(Icons.Outlined.Subscriptions, null) },
-                onClick = {
-                    scope
-                        .launch { onDismissRequest() }
-                        .invokeOnCompletion { onNavigateToRoute(Route.SUBSCRIPTIONS) }
-                },
-                selected = currentRoute == Route.SUBSCRIPTIONS,
-                colors = androidx.compose.material3.NavigationDrawerItemDefaults.colors(
-                    unselectedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unselectedIconColor = MaterialTheme.colorScheme.onSurface,
-                    selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer
-                )
-            )
+
             NavigationDrawerItem(
                 label = { Text(stringResource(R.string.downloads_history)) },
                 icon = { Icon(Icons.Outlined.VideoLibrary, null) },

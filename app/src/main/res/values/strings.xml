@@ -96,6 +96,13 @@
     <string name="user_guide">User guide</string>
     <string name="first_run_language_desc">Choose the display language first. You can change it later from settings.</string>
     <string name="first_run_guide_desc">A quick tour of the main tools before you start downloading.</string>
+    <string name="onboarding_welcome_title">Welcome to V-Downloader</string>
+    <string name="onboarding_language_body">Choose your display language first. The system language is used by default.</string>
+    <string name="onboarding_features_title">Media downloads, tuned</string>
+    <string name="onboarding_features_body">Download videos, audio, subtitles, and playlists with resilient defaults and clear controls.</string>
+    <string name="onboarding_notifications_title">Background progress</string>
+    <string name="onboarding_notifications_body">Notifications are requested only when needed so download progress can continue clearly in the background.</string>
+    <string name="onboarding_get_started">Get started</string>
     <string name="open_settings">Open settings</string>
     <string name="paste_desc">Click \"Paste\" to get video link from your clipboard.</string>
     <string name="download_desc">Then click \"Download\" after adjusting its settings.
