@@ -226,15 +226,10 @@ private fun InputUrlPageImpl(
             FilledButtonWithIcon(
                 icon = Icons.AutoMirrored.Outlined.ArrowForward,
                 text = stringResource(R.string.proceed),
-                // Only enable Proceed when the text actually contains an extractable URL,
-                // not just any non-blank text (e.g. "hello world" shouldn't enable it).
-                enabled = findURLsFromString(url).isNotEmpty(),
+                enabled = url.isNotBlank(),
             ) {
-                // Fix #3: never post a blank/empty URL; validate through findURLsFromString.
-                val urls = findURLsFromString(url)
-
-                if (urls.isNotEmpty()) {
-                    onActionPost(Action.ProceedWithURLs(urls))
+                if (url.isNotBlank()) {
+                    onActionPost(Action.ProceedWithURLs(listOf(url.trim())))
                 }
             }
         }
