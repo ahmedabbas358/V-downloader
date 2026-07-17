@@ -21,8 +21,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 
-import com.junkfood.seal.ui.common.glassmorphism
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SealModalBottomSheet(
@@ -41,13 +39,19 @@ fun SealModalBottomSheet(
     properties: ModalBottomSheetProperties = ModalBottomSheetDefaults.properties,
     content: @Composable ColumnScope.() -> Unit = {},
 ) {
+    // NOTE: we intentionally do NOT apply Modifier.glassmorphism() here. That modifier can only
+    // blur its own content (this sheet's children), not whatever screen is visually behind the
+    // sheet — Android has no real backdrop-blur without a library like `haze`, which isn't wired
+    // up yet. Combining a transparent containerColor with a no-op blur let the previous screen's
+    // content show through (unblurred) inside the sheet bounds. Until real backdrop blur is
+    // added, the sheet surface must stay fully opaque so nothing bleeds through.
     ModalBottomSheet(
-        modifier = modifier.glassmorphism(blurRadius = 0f),
+        modifier = modifier,
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
         properties = properties,
         shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.85f),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         dragHandle = {
             androidx.compose.material3.BottomSheetDefaults.DragHandle(
                 modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
