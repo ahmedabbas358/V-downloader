@@ -24,6 +24,7 @@ object TaskFactory {
         newTitle: String,
         selectedSubtitles: List<String>,
         selectedAutoCaptions: List<String>,
+        skipDownload: Boolean = false,
     ): TaskWithState {
         val fileSize =
             formatList.fold(.0) { acc, format ->
@@ -39,7 +40,13 @@ object TaskFactory {
         val videoFormats = formatList.filter { it.containsVideo() }
         val audioOnly = audioOnlyFormats.isNotEmpty() && videoFormats.isEmpty()
         val mergeAudioStream = audioOnlyFormats.size > 1
-        val formatId = formatList.joinToString(separator = "+") { it.formatId.toString() }
+        val baseFormatId = formatList.joinToString(separator = "+") { it.formatId.toString() }
+        
+        val formatId = if (videoFormats.size == 1 && audioOnlyFormats.isEmpty() && videoFormats[0].isVideoOnly()) {
+            "$baseFormatId+ba/best"
+        } else {
+            baseFormatId
+        }
 
         val subtitleLanguage =
             (selectedSubtitles + selectedAutoCaptions).joinToString(separator = ",")
@@ -54,6 +61,7 @@ object TaskFactory {
                         newTitle = newTitle,
                         mergeAudioStream = mergeAudioStream,
                         extractAudio = extractAudio || audioOnly,
+                        skipDownload = skipDownload,
                     )
                 }
                 .run {

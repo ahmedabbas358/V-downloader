@@ -83,7 +83,7 @@ fun FormatVideoPreview(
         Row(modifier = modifier.fillMaxWidth()) {
             Box(modifier = Modifier) {
                 MediaImage(
-                    modifier = Modifier,
+                    modifier = Modifier.width(160.dp),
                     imageModel = thumbnailUrl,
                     isAudio = false,
                     contentDescription = stringResource(id = R.string.thumbnail),

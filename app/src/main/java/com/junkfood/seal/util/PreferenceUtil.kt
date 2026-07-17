@@ -356,6 +356,59 @@ val DEFAULT_COMMAND_TEMPLATES =
                 --embed-metadata
                 """.trimIndent(),
         ),
+        CommandTemplate(
+            id = 0,
+            name = "Play list Downloader",
+            template =
+                """
+                -f "bv*[height<=1080][height>=720]+ba/b[height<=1080]/best"
+                --merge-output-format mp4
+                -o "%(playlist_title)s/%(playlist_index)03d - %(title)s.%(ext)s"
+                """.trimIndent(),
+        ),
+        CommandTemplate(
+            id = 0,
+            name = "Video downloader",
+            template =
+                """
+                -f "bv*[height=1080]+ba/bv*[height=720]+ba/best"
+                --merge-output-format mp4
+                -o "%(title)s.%(ext)s"
+                """.trimIndent(),
+        ),
+        CommandTemplate(
+            id = 0,
+            name = "Subtitles Play list Downloader",
+            template =
+                """
+                --skip-download
+                --write-subs
+                --write-auto-subs
+                --sub-langs "ar.*"
+                --convert-subs srt
+                --no-write-thumbnail
+                --no-write-info-json
+                --no-write-comments
+                --retries infinite
+                --fragment-retries infinite
+                --retry-sleep 5
+                --ignore-errors
+                -o "%(playlist_title)s/sub/%(playlist_index)03d - %(title)s.%(ext)s"
+                """.trimIndent(),
+        ),
+        CommandTemplate(
+            id = 0,
+            name = "Video subtitle downloader",
+            template =
+                """
+                --skip-download
+                --write-subs
+                --write-auto-subs
+                --sub-langs "ar.*"
+                --convert-subs srt
+                -o "%(title)s.%(ext)s"
+                """.trimIndent(),
+        ),
     )
 
 const val TEMPLATE_SHORTCUTS = "template_shortcuts"
@@ -382,7 +435,7 @@ private val StringPreferenceDefaults =
     mapOf(
         SPONSORBLOCK_CATEGORIES to "default",
         MAX_RATE to "1000",
-        SUBTITLE_LANGUAGE to "en.*,.*-orig",
+        SUBTITLE_LANGUAGE to "ar.*,en.*,.*-orig",
         OUTPUT_TEMPLATE to DownloadUtil.OUTPUT_TEMPLATE_ID,
         CUSTOM_OUTPUT_TEMPLATE to DownloadUtil.OUTPUT_TEMPLATE_ID,
     )

@@ -238,6 +238,7 @@ object DownloadUtil {
 
     @Serializable
     data class DownloadPreferences(
+        val skipDownload: Boolean,
         val extractAudio: Boolean,
         val createThumbnail: Boolean,
         val downloadPlaylist: Boolean,
@@ -294,6 +295,7 @@ object DownloadUtil {
         companion object {
             val EMPTY =
                 DownloadPreferences(
+                    skipDownload = false,
                     extractAudio = false,
                     createThumbnail = false,
                     downloadPlaylist = false,
@@ -352,6 +354,7 @@ object DownloadUtil {
                 val downloadSubtitle = SUBTITLE.getBoolean()
                 val embedSubtitle = EMBED_SUBTITLE.getBoolean()
                 return DownloadPreferences(
+                    skipDownload = false,
                     extractAudio = EXTRACT_AUDIO.getBoolean(),
                     createThumbnail = THUMBNAIL.getBoolean(),
                     downloadPlaylist = PLAYLIST.getBoolean(),
@@ -512,6 +515,9 @@ object DownloadUtil {
                 addOption("--no-embed-info-json")
                 addOption("--ignore-no-formats-error")
                 addOption("--no-abort-on-error")
+                if (skipDownload) {
+                    addOption("--skip-download")
+                }
                 if (formatIdString.isNotEmpty()) {
                     // Fix: Add fallback to 'bestvideo+bestaudio/best' if the specific format is missing
                     addOption("-f", "$formatIdString/bestvideo+bestaudio/best")
@@ -657,6 +663,9 @@ object DownloadUtil {
                 addOption("-x")
                 addOption("--ignore-no-formats-error")
                 addOption("--no-abort-on-error")
+                if (skipDownload) {
+                    addOption("--skip-download")
+                }
                 // Subtitles: isolated so subtitle failure never blocks audio download
                 if (downloadSubtitle) {
                     try {
