@@ -261,20 +261,18 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
         val sheetValue by dialogViewModel.sheetValueFlow.collectAsStateWithLifecycle()
         val state by dialogViewModel.sheetStateFlow.collectAsStateWithLifecycle()
         val selectionState = dialogViewModel.selectionStateFlow.collectAsStateWithLifecycle().value
-        val isDialogExpanded = sheetValue == DownloadDialogViewModel.SheetValue.Expanded
         var showDialog by remember { mutableStateOf(false) }
-        
-        val dialogSheetState = com.junkfood.seal.ui.component.rememberSheetState(
-            showSheet = isDialogExpanded,
-            onVisibilityChange = { isVisible ->
-                showDialog = isVisible
-                if (!isVisible && sheetValue == DownloadDialogViewModel.SheetValue.Expanded) {
-                    dialogViewModel.postAction(Action.HideSheet)
-                }
-            }
-        )
+        val dialogSheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
     
-        if (showDialog || isDialogExpanded) {
+        LaunchedEffect(sheetValue) {
+            if (sheetValue == DownloadDialogViewModel.SheetValue.Expanded) {
+                showDialog = true
+            } else {
+                launch { dialogSheetState.hide() }.invokeOnCompletion { showDialog = false }
+            }
+        }
+    
+        if (showDialog) {
             DownloadDialog(
                 state = state,
                 sheetState = dialogSheetState,

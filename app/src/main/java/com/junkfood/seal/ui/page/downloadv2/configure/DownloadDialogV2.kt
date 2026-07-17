@@ -187,12 +187,12 @@ data class Config(
     }
 }
 
-@OptIn(androidx.compose.material.ExperimentalMaterialApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadDialog(
     modifier: Modifier = Modifier,
     config: Config,
-    sheetState: androidx.compose.material.ModalBottomSheetState,
+    sheetState: SheetState,
     preferences: DownloadUtil.DownloadPreferences,
     onPreferencesUpdate: (DownloadUtil.DownloadPreferences) -> Unit,
     state: DownloadDialogViewModel.SheetState = InputUrl,
@@ -201,9 +201,10 @@ fun DownloadDialog(
     var showVideoPresetDialog by remember { mutableStateOf(false) }
     var showAudioPresetDialog by remember { mutableStateOf(false) }
 
-    com.junkfood.seal.ui.component.SealModalBottomSheetM2Variant(
+    SealModalBottomSheet(
         sheetState = sheetState,
-        sheetGesturesEnabled = true,
+        contentPadding = PaddingValues(),
+        onDismissRequest = { onActionPost(Action.HideSheet) },
     ) {
         DownloadDialogContent(
             modifier = modifier,
