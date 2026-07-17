@@ -119,28 +119,28 @@ class QuickDownloadActivity : ComponentActivity() {
 
                     val state = viewModel.sheetStateFlow.collectAsStateWithLifecycle().value
 
-                    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
                     val selectionState =
                         viewModel.selectionStateFlow.collectAsStateWithLifecycle().value
 
+                    val isDialogExpanded = sheetValue == DownloadDialogViewModel.SheetValue.Expanded
                     var showDialog by remember { mutableStateOf(false) }
-
-                    LaunchedEffect(sheetValue, selectionState) {
-                        if (sheetValue == DownloadDialogViewModel.SheetValue.Expanded) {
-                            showDialog = true
-                        } else if (sheetValue == DownloadDialogViewModel.SheetValue.Hidden) {
-                            launch { sheetState.hide() }
-                                .invokeOnCompletion {
-                                    showDialog = false
-                                    if (selectionState == SelectionState.Idle) {
-                                        this@QuickDownloadActivity.finish()
-                                    }
+                    
+                    val sheetState = com.junkfood.seal.ui.component.rememberSheetState(
+                        showSheet = isDialogExpanded,
+                        onVisibilityChange = { isVisible ->
+                            showDialog = isVisible
+                            if (!isVisible) {
+                                if (sheetValue == DownloadDialogViewModel.SheetValue.Expanded) {
+                                    viewModel.postAction(Action.HideSheet)
                                 }
+                                if (selectionState == SelectionState.Idle) {
+                                    this@QuickDownloadActivity.finish()
+                                }
+                            }
                         }
-                    }
+                    )
 
-                    if (showDialog) {
+                    if (showDialog || isDialogExpanded) {
                         DownloadDialog(
                             state = state,
                             sheetState = sheetState,

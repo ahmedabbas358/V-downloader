@@ -296,18 +296,20 @@ fun DownloadPage(
 
         val selectionState = dialogViewModel.selectionStateFlow.collectAsStateWithLifecycle().value
 
+        val isDialogExpanded = sheetValue == DownloadDialogViewModel.SheetValue.Expanded
         var showDialog by remember { mutableStateOf(false) }
-        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-        LaunchedEffect(sheetValue) {
-            if (sheetValue == DownloadDialogViewModel.SheetValue.Expanded) {
-                showDialog = true
-            } else {
-                launch { sheetState.hide() }.invokeOnCompletion { showDialog = false }
+        
+        val sheetState = com.junkfood.seal.ui.component.rememberSheetState(
+            showSheet = isDialogExpanded,
+            onVisibilityChange = { isVisible ->
+                showDialog = isVisible
+                if (!isVisible && sheetValue == DownloadDialogViewModel.SheetValue.Expanded) {
+                    dialogViewModel.postAction(Action.HideSheet)
+                }
             }
-        }
+        )
 
-        if (showDialog) {
+        if (showDialog || isDialogExpanded) {
 
             DownloadDialog(
                 state = state,
