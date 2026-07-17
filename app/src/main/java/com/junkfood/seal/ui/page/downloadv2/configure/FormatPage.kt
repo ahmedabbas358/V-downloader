@@ -454,7 +454,7 @@ private fun FormatPageImpl(
                     FormatVideoPreview(
                         modifier = Modifier.padding(horizontal = 8.dp),
                         title = videoTitle.ifEmpty { title },
-                        author = uploader ?: channel ?: uploaderId.toString(),
+                        author = uploader ?: channel ?: uploaderId ?: extractor ?: stringResource(id = R.string.unknown),
                         thumbnailUrl = thumbnail.toHttpsUrl(),
                         duration = duration.roundToInt(),
                         isClippingVideo = isClippingVideo,

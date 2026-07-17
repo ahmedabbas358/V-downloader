@@ -217,19 +217,19 @@ fun SuggestedFormatItem(
     val containsVideo = requestedFormats.any { it.containsVideo() }
     val containsAudio = requestedFormats.any { it.containsVideo() }
 
-    val title = requestedFormats.joinToString(separator = " + ") { it.format.toString() }
+    val title = requestedFormats.joinToString(separator = " + ") { it.format ?: it.formatNote ?: it.resolution ?: it.formatId ?: "Unknown" }
 
     val totalFileSize =
         requestedFormats.fold(initial = 0.0) { acc: Double, format: Format ->
             acc +
-                (format.fileSize ?: format.fileSizeApprox ?: (duration * (format.tbr ?: 0.0) * 125))
+                (format.fileSize ?: format.fileSizeApprox ?: (duration * format.effectiveBitrate * 125))
             // kbps -> bytes 1000/8
         }
     val fileSizeText = totalFileSize.toFileSizeText()
 
     val totalTbr =
         requestedFormats.fold(initial = 0.0) { acc: Double, format: Format ->
-            acc + (format.tbr ?: 0.0)
+            acc + format.effectiveBitrate
         }
 
     val tbrText = totalTbr.toBitrateText()
@@ -277,13 +277,13 @@ fun FormatItem(
 
         val tbrText =
             when {
-                tbr == null -> "" // i don't care
-                tbr < 1024f -> "%.1f Kbps".format(tbr)
+                effectiveBitrate <= 0.0 -> "" // i don't care
+                effectiveBitrate < 1024f -> "%.1f Kbps".format(effectiveBitrate)
 
-                else -> "%.2f Mbps".format(tbr / 1024f)
+                else -> "%.2f Mbps".format(effectiveBitrate / 1024f)
             }
 
-        val fileSize = fileSize ?: fileSizeApprox ?: (tbr?.times(duration * 125))
+        val fileSize = fileSize ?: fileSizeApprox ?: (effectiveBitrate.takeIf { it > 0.0 }?.times(duration * 125))
         val fileSizeText = fileSize.toFileSizeText()
 
         val firstLineText = connectWithDelimiter(fileSizeText, tbrText, delimiter = " ")
@@ -292,7 +292,7 @@ fun FormatItem(
 
         FormatItem(
             modifier = modifier,
-            title = format.toString(),
+            title = format ?: formatNote ?: resolution ?: formatId ?: "Unknown",
             containsAudio = formatInfo.containsAudio(),
             containsVideo = formatInfo.containsVideo(),
             firstLineText = firstLineText,
