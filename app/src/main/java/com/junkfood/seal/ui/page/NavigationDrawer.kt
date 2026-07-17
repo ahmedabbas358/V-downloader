@@ -186,6 +186,13 @@ fun NavigationDrawerSheetContent(
                         .invokeOnCompletion { onNavigateToRoute(Route.HOME) }
                 },
                 selected = currentRoute == Route.HOME,
+                colors = androidx.compose.material3.NavigationDrawerItemDefaults.colors(
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurface,
+                    selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer
+                )
             )
             NavigationDrawerItem(
                 label = { Text("Social Hub") },
@@ -196,6 +203,13 @@ fun NavigationDrawerSheetContent(
                         .invokeOnCompletion { onNavigateToRoute(Route.SOCIAL_HUB) }
                 },
                 selected = currentRoute == Route.SOCIAL_HUB,
+                colors = androidx.compose.material3.NavigationDrawerItemDefaults.colors(
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurface,
+                    selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer
+                )
             )
             NavigationDrawerItem(
                 label = { Text("Smart Subscriptions") },
@@ -206,6 +220,13 @@ fun NavigationDrawerSheetContent(
                         .invokeOnCompletion { onNavigateToRoute(Route.SUBSCRIPTIONS) }
                 },
                 selected = currentRoute == Route.SUBSCRIPTIONS,
+                colors = androidx.compose.material3.NavigationDrawerItemDefaults.colors(
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurface,
+                    selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer
+                )
             )
             NavigationDrawerItem(
                 label = { Text(stringResource(R.string.downloads_history)) },
@@ -216,6 +237,13 @@ fun NavigationDrawerSheetContent(
                         .invokeOnCompletion { onNavigateToRoute(Route.DOWNLOADS) }
                 },
                 selected = currentRoute == Route.DOWNLOADS,
+                colors = androidx.compose.material3.NavigationDrawerItemDefaults.colors(
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurface,
+                    selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer
+                )
             )
             NavigationDrawerItem(
                 label = { Text(stringResource(R.string.custom_command)) },
@@ -226,6 +254,13 @@ fun NavigationDrawerSheetContent(
                         .invokeOnCompletion { onNavigateToRoute(Route.TASK_LIST) }
                 },
                 selected = currentRoute == Route.TASK_LIST,
+                colors = androidx.compose.material3.NavigationDrawerItemDefaults.colors(
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurface,
+                    selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer
+                )
             )
             NavigationDrawerItem(
                 label = { Text(stringResource(R.string.settings)) },
@@ -236,6 +271,13 @@ fun NavigationDrawerSheetContent(
                         .invokeOnCompletion { onNavigateToRoute(Route.SETTINGS) }
                 },
                 selected = currentRoute == Route.SETTINGS_PAGE,
+                colors = androidx.compose.material3.NavigationDrawerItemDefaults.colors(
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurface,
+                    selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer
+                )
             )
 
             if (showQuickSettings) {
