@@ -209,7 +209,7 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
                         onNavigateBack = { onNavigateBack() },
                         onPlayVideo = { path ->
                             val encoded = java.net.URLEncoder.encode(path, "UTF-8")
-                            navController.navigate(Route.MEDIA_PLAYER id encoded)
+                            navController.navigate("${Route.MEDIA_PLAYER}/$encoded")
                         }
                     ) 
                 }
