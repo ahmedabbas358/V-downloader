@@ -24,9 +24,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
@@ -215,9 +215,7 @@ fun DownloadDialog(
             onPresetEdit = { type ->
                 when (type) {
                     Audio -> showAudioPresetDialog = true
-
                     Video -> showVideoPresetDialog = true
-
                     else -> {}
                 }
             },
@@ -483,8 +481,6 @@ fun FormatPage(
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-/*@Preview(name = "Dark", uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Preview(name = "Light", uiMode = Configuration.UI_MODE_NIGHT_NO)*/
 @Composable
 private fun ConfigurePagePreview() {
     SealTheme() {
@@ -528,9 +524,17 @@ private fun ConfigurePage(
     onActionPost: (Action) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    var selectedType by remember(config) { mutableStateOf(config.downloadType) }
-    var useFormatSelection by remember(config) { mutableStateOf(config.useFormatSelection) }
-    val canProceed = selectedType in config.typeEntries
+    
+    // Fix: rememberSaveable للحفاظ على الحالة عند تغيير الإعدادات أو اللغة
+    var selectedType by rememberSaveable(config.downloadType) { 
+        mutableStateOf(config.downloadType) 
+    }
+    var useFormatSelection by rememberSaveable(config.useFormatSelection) { 
+        mutableStateOf(config.useFormatSelection) 
+    }
+    
+    // Fix: التأكد من أن selectedType ليس null قبل السماح بالمتابعة
+    val canProceed = selectedType != null && selectedType in config.typeEntries
 
     var showTemplateSelectionDialog by remember { mutableStateOf(false) }
     var showTemplateCreatorDialog by remember { mutableStateOf(false) }
@@ -546,10 +550,12 @@ private fun ConfigurePage(
         }
     }
 
+    // Fix: ترتيب المعدلات الصحيح + fillMaxWidth لتجنب تمدد غير متوقع
     Column(
         modifier = modifier
-            .navigationBarsPadding()
+            .fillMaxWidth()
             .imePadding()
+            .navigationBarsPadding()
     ) {
         Column(
             modifier = Modifier
@@ -558,80 +564,80 @@ private fun ConfigurePage(
         ) {
             Column(modifier = Modifier.padding(horizontal = 20.dp)) {
                 Header(
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-                title = stringResource(R.string.settings_before_download),
-                icon = Icons.Outlined.DoneAll,
-            )
-            DrawerSheetSubtitle(text = stringResource(id = R.string.download_type))
-            DownloadTypeSelectionGroup(
-                typeEntries = config.typeEntries,
-                selectedType = selectedType,
-                onSelect = { selectedType = it },
-            )
-            Column(modifier = Modifier.animateContentSize()) {
-                if (selectedType != Command) {
-                    DrawerSheetSubtitle(
-                        text = stringResource(id = R.string.format_selection),
-                        modifier = Modifier,
-                    )
-                    Preset(
-                        modifier = Modifier,
-                        preference = preferences,
-                        selected = !useFormatSelection,
-                        downloadType = selectedType,
-                        onClick = { useFormatSelection = false },
-                        showEditIcon = !useFormatSelection && selectedType != Playlist,
-                        onEdit = { onPresetEdit(selectedType) },
-                    )
-                    Custom(
-                        selected = useFormatSelection,
-                        enabled = selectedType != Playlist,
-                        onClick = { useFormatSelection = true },
-                    )
-                } else {
-                    if (showTemplateSelectionDialog) {
-                        TemplatePickerDialog { showTemplateSelectionDialog = false }
-                    }
-                    if (showTemplateCreatorDialog) {
-                        CommandTemplateDialog(
-                            onDismissRequest = { showTemplateCreatorDialog = false },
-                            confirmationCallback = { scope.launch { TEMPLATE_ID.updateInt(it) } },
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                    title = stringResource(R.string.settings_before_download),
+                    icon = Icons.Outlined.DoneAll,
+                )
+                DrawerSheetSubtitle(text = stringResource(id = R.string.download_type))
+                DownloadTypeSelectionGroup(
+                    typeEntries = config.typeEntries,
+                    selectedType = selectedType,
+                    onSelect = { selectedType = it },
+                )
+                Column(modifier = Modifier.animateContentSize()) {
+                    if (selectedType != Command) {
+                        DrawerSheetSubtitle(
+                            text = stringResource(id = R.string.format_selection),
+                            modifier = Modifier,
                         )
-                    }
-                    if (showTemplateEditorDialog) {
-                        CommandTemplateDialog(
-                            commandTemplate = template,
-                            onDismissRequest = { showTemplateEditorDialog = false },
+                        Preset(
+                            modifier = Modifier,
+                            preference = preferences,
+                            selected = !useFormatSelection,
+                            downloadType = selectedType,
+                            onClick = { useFormatSelection = false },
+                            showEditIcon = !useFormatSelection && selectedType != Playlist,
+                            onEdit = { onPresetEdit(selectedType) },
                         )
+                        Custom(
+                            selected = useFormatSelection,
+                            enabled = selectedType != Playlist,
+                            onClick = { useFormatSelection = true },
+                        )
+                    } else {
+                        if (showTemplateSelectionDialog) {
+                            TemplatePickerDialog { showTemplateSelectionDialog = false }
+                        }
+                        if (showTemplateCreatorDialog) {
+                            CommandTemplateDialog(
+                                onDismissRequest = { showTemplateCreatorDialog = false },
+                                confirmationCallback = { scope.launch { TEMPLATE_ID.updateInt(it) } },
+                            )
+                        }
+                        if (showTemplateEditorDialog) {
+                            CommandTemplateDialog(
+                                commandTemplate = template,
+                                onDismissRequest = { showTemplateEditorDialog = false },
+                            )
+                        }
+                        DrawerSheetSubtitle(
+                            text = stringResource(id = R.string.template_selection),
+                            modifier = Modifier,
+                        )
+                        LazyRow(modifier = Modifier) {
+                            item {
+                                ButtonChip(
+                                    icon = Icons.Outlined.Code,
+                                    label = template.name,
+                                    onClick = { showTemplateSelectionDialog = true },
+                                )
+                            }
+                            item {
+                                ButtonChip(
+                                    icon = Icons.Outlined.NewLabel,
+                                    label = stringResource(id = R.string.new_template),
+                                    onClick = { showTemplateCreatorDialog = true },
+                                )
+                            }
+                            item {
+                                ButtonChip(
+                                    icon = Icons.Outlined.Edit,
+                                    label = stringResource(id = R.string.edit_template, template.name),
+                                    onClick = { showTemplateEditorDialog = true },
+                                )
+                            }
+                        }
                     }
-                    DrawerSheetSubtitle(
-                        text = stringResource(id = R.string.template_selection),
-                        modifier = Modifier,
-                    )
-                    LazyRow(modifier = Modifier) {
-                        item {
-                            ButtonChip(
-                                icon = Icons.Outlined.Code,
-                                label = template.name,
-                                onClick = { showTemplateSelectionDialog = true },
-                            )
-                        }
-                        item {
-                            ButtonChip(
-                                icon = Icons.Outlined.NewLabel,
-                                label = stringResource(id = R.string.new_template),
-                                onClick = { showTemplateCreatorDialog = true },
-                            )
-                        }
-                        item {
-                            ButtonChip(
-                                icon = Icons.Outlined.Edit,
-                                label = stringResource(id = R.string.edit_template, template.name),
-                                onClick = { showTemplateEditorDialog = true },
-                            )
-                        }
-                    }
-                }
                 }
             }
             var expanded by remember { mutableStateOf(false) }
@@ -703,13 +709,14 @@ fun ConfigurePagePlaylistVariant(
     onDismissRequest: () -> Unit,
     onDownload: (DownloadType) -> Unit,
 ) {
-
     var selectedType by remember(initialDownloadType) { mutableStateOf(initialDownloadType) }
 
+    // Fix: ترتيب المعدلات الصحيح + fillMaxWidth
     Column(
         modifier = modifier
-            .navigationBarsPadding()
+            .fillMaxWidth()
             .imePadding()
+            .navigationBarsPadding()
     ) {
         Column(
             modifier = Modifier
@@ -718,29 +725,29 @@ fun ConfigurePagePlaylistVariant(
         ) {
             Column(modifier = Modifier.padding(horizontal = 20.dp)) {
                 Header(
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-                title = stringResource(R.string.settings_before_download),
-                icon = Icons.Outlined.DoneAll,
-            )
-            DrawerSheetSubtitle(text = stringResource(id = R.string.download_type))
-            DownloadTypeSelectionGroup(
-                typeEntries = listOf(Video, Audio),
-                selectedType = selectedType,
-                onSelect = { selectedType = it },
-            )
-            DrawerSheetSubtitle(
-                text = stringResource(id = R.string.format_selection),
-                modifier = Modifier,
-            )
-            Preset(
-                modifier = Modifier,
-                preference = preferences,
-                selected = true,
-                downloadType = selectedType,
-                onClick = { onPresetEdit(selectedType) },
-                showEditIcon = true,
-                onEdit = { onPresetEdit(selectedType) },
-            )
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                    title = stringResource(R.string.settings_before_download),
+                    icon = Icons.Outlined.DoneAll,
+                )
+                DrawerSheetSubtitle(text = stringResource(id = R.string.download_type))
+                DownloadTypeSelectionGroup(
+                    typeEntries = listOf(Video, Audio),
+                    selectedType = selectedType,
+                    onSelect = { selectedType = it },
+                )
+                DrawerSheetSubtitle(
+                    text = stringResource(id = R.string.format_selection),
+                    modifier = Modifier,
+                )
+                Preset(
+                    modifier = Modifier,
+                    preference = preferences,
+                    selected = true,
+                    downloadType = selectedType,
+                    onClick = { onPresetEdit(selectedType) },
+                    showEditIcon = true,
+                    onEdit = { onPresetEdit(selectedType) },
+                )
             }
             var expanded by remember { mutableStateOf(false) }
             ExpandableTitle(expanded = expanded, onClick = { expanded = true }) {
@@ -748,7 +755,8 @@ fun ConfigurePagePlaylistVariant(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     isQuickDownload = false,
                     preference = preferences,
-                    selectedType = Audio,
+                    // Fix: تمرير selectedType بدلاً من Audio الثابت
+                    selectedType = selectedType,
                     onPreferenceUpdate = {
                         onPreferencesUpdate(DownloadUtil.DownloadPreferences.createFromPreferences())
                     },
@@ -764,7 +772,8 @@ fun ConfigurePagePlaylistVariant(
             useFormatSelection = false,
             onCancel = onDismissRequest,
             onDownload = {
-                onDownload(initialDownloadType)
+                // Fix: استخدام selectedType الذي اختاره المستخدم
+                onDownload(selectedType)
                 onDismissRequest()
             },
             onFetchInfo = { throw IllegalStateException() },
