@@ -344,7 +344,9 @@ private fun DownloadDialogContent(
     onActionPost: (Action) -> Unit,
 ) {
     AnimatedContent(
-        modifier = modifier,
+        modifier = modifier.animateContentSize(
+            animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
+        ),
         targetState = state,
         label = "",
         transitionSpec = {
@@ -542,9 +544,18 @@ private fun ConfigurePage(
         }
     }
 
-    Column {
-        Column(modifier = modifier.padding(horizontal = 20.dp)) {
-            Header(
+    Column(
+        modifier = modifier
+            .navigationBarsPadding()
+            .imePadding()
+    ) {
+        Column(
+            modifier = Modifier
+                .weight(1f, fill = false)
+                .verticalScroll(rememberScrollState())
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                Header(
                 modifier = Modifier.align(Alignment.CenterHorizontally),
                 title = stringResource(R.string.settings_before_download),
                 icon = Icons.Outlined.DoneAll,
@@ -619,13 +630,15 @@ private fun ConfigurePage(
                         }
                     }
                 }
+                }
             }
+            var expanded by remember { mutableStateOf(false) }
+            ExpandableTitle(expanded = expanded, onClick = { expanded = true }) { settingChips() }
         }
-        var expanded by remember { mutableStateOf(false) }
-        ExpandableTitle(expanded = expanded, onClick = { expanded = true }) { settingChips() }
 
+        Spacer(Modifier.height(8.dp))
         ActionButtons(
-            modifier = Modifier.padding(horizontal = 20.dp),
+            modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 16.dp),
             canProceed = canProceed,
             selectedType = selectedType,
             useFormatSelection = useFormatSelection,
@@ -691,9 +704,18 @@ fun ConfigurePagePlaylistVariant(
 
     var selectedType by remember(initialDownloadType) { mutableStateOf(initialDownloadType) }
 
-    Column {
-        Column(modifier = modifier.padding(horizontal = 20.dp)) {
-            Header(
+    Column(
+        modifier = modifier
+            .navigationBarsPadding()
+            .imePadding()
+    ) {
+        Column(
+            modifier = Modifier
+                .weight(1f, fill = false)
+                .verticalScroll(rememberScrollState())
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                Header(
                 modifier = Modifier.align(Alignment.CenterHorizontally),
                 title = stringResource(R.string.settings_before_download),
                 icon = Icons.Outlined.DoneAll,
@@ -717,22 +739,24 @@ fun ConfigurePagePlaylistVariant(
                 showEditIcon = true,
                 onEdit = { onPresetEdit(selectedType) },
             )
-        }
-        var expanded by remember { mutableStateOf(false) }
-        ExpandableTitle(expanded = expanded, onClick = { expanded = true }) {
-            AdditionalSettings(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                isQuickDownload = false,
-                preference = preferences,
-                selectedType = Audio,
-                onPreferenceUpdate = {
-                    onPreferencesUpdate(DownloadUtil.DownloadPreferences.createFromPreferences())
-                },
-            )
+            }
+            var expanded by remember { mutableStateOf(false) }
+            ExpandableTitle(expanded = expanded, onClick = { expanded = true }) {
+                AdditionalSettings(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    isQuickDownload = false,
+                    preference = preferences,
+                    selectedType = Audio,
+                    onPreferenceUpdate = {
+                        onPreferencesUpdate(DownloadUtil.DownloadPreferences.createFromPreferences())
+                    },
+                )
+            }
         }
 
+        Spacer(Modifier.height(8.dp))
         ActionButtons(
-            modifier = Modifier.padding(horizontal = 20.dp),
+            modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 16.dp),
             canProceed = true,
             selectedType = selectedType,
             useFormatSelection = false,
