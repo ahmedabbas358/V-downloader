@@ -29,7 +29,6 @@ import com.junkfood.seal.database.objects.Subscription
             AutoMigration(from = 3, to = 4),
             AutoMigration(from = 4, to = 5),
             AutoMigration(from = 5, to = 6),
-            AutoMigration(from = 8, to = 9),
         ],
 )
 abstract class AppDatabase : RoomDatabase() {
