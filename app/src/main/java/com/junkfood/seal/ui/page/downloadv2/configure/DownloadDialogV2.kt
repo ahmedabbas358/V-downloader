@@ -544,9 +544,13 @@ private fun ConfigurePage(
         }
     }
 
-    Column(modifier = modifier) {
-        Column(modifier = Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
-            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+    Column(
+        modifier = modifier
+            .verticalScroll(rememberScrollState())
+            .padding(bottom = 16.dp)
+            .navigationBarsPadding()
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 20.dp)) {
             Header(
                 modifier = Modifier.align(Alignment.CenterHorizontally),
                 title = stringResource(R.string.settings_before_download),
@@ -665,7 +669,6 @@ private fun ConfigurePage(
             DrawerSheetSubtitle(text = stringResource(R.string.additional_settings))
             settingChips()
         }
-        }
 
         ActionButtons(
             modifier = Modifier.padding(horizontal = 20.dp),
@@ -734,9 +737,13 @@ fun ConfigurePagePlaylistVariant(
 
     var selectedType by remember(initialDownloadType) { mutableStateOf(initialDownloadType) }
 
-    Column(modifier = modifier) {
-        Column(modifier = Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
-            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+    Column(
+        modifier = modifier
+            .verticalScroll(rememberScrollState())
+            .padding(bottom = 16.dp)
+            .navigationBarsPadding()
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 20.dp)) {
             Header(
                 modifier = Modifier.align(Alignment.CenterHorizontally),
                 title = stringResource(R.string.settings_before_download),
@@ -796,8 +803,6 @@ fun ConfigurePagePlaylistVariant(
                 },
             )
         }
-        }
-
         ActionButtons(
             modifier = Modifier.padding(horizontal = 20.dp),
             canProceed = true,
