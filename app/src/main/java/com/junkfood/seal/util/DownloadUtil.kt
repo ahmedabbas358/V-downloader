@@ -515,6 +515,12 @@ object DownloadUtil {
                 addOption("--no-embed-info-json")
                 addOption("--ignore-no-formats-error")
                 addOption("--no-abort-on-error")
+                
+                // Add robust retry options to prevent playlist/video failures
+                addOption("--retries", "infinite")
+                addOption("--fragment-retries", "infinite")
+                addOption("--retry-sleep", "fragment:exp=1:20")
+                
                 if (skipDownload) {
                     addOption("--skip-download")
                 }
