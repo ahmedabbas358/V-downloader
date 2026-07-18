@@ -16,7 +16,7 @@ plugins {
 
 val keystorePropertiesFile: File = rootProject.file("keystore.properties")
 
-val splitApks = true // ✅ تم تفعيل split APK
+val splitApks = true
 
 val abiCodes = mapOf(
     "armeabi-v7a" to 1,
@@ -29,11 +29,13 @@ val baseVersionName = currentVersion.name
 val currentVersionCode = currentVersion.code.toInt()
 
 android {
+
     compileSdk = 35
 
     if (keystorePropertiesFile.exists()) {
         val keystoreProperties = Properties()
         keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+
         signingConfigs {
             create("githubPublish") {
                 keyAlias = keystoreProperties["keyAlias"].toString()
@@ -43,6 +45,8 @@ android {
             }
         }
     }
+
+    namespace = "com.junkfood.seal"
 
     buildFeatures {
         buildConfig = true
@@ -54,18 +58,21 @@ android {
         minSdk = 24
         targetSdk = 35
 
-        versionCode = 200_000_150
-        check(versionCode == currentVersionCode)
-
+        versionCode = currentVersionCode
         versionName = baseVersionName
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        vectorDrawables { useSupportLibrary = true }
+        testInstrumentationRunner =
+            "androidx.test.runner.AndroidJUnitRunner"
+
+        vectorDrawables {
+            useSupportLibrary = true
+        }
     }
 
     splits {
         abi {
             isEnable = splitApks
+
             reset()
 
             include(
@@ -79,51 +86,78 @@ android {
         }
     }
 
-    room { schemaDirectory("$projectDir/schemas") }
-    ksp { arg("room.incremental", "true") }
-
     androidComponents {
         onVariants { variant ->
+
             variant.outputs.forEach { output ->
 
                 val abi = output.filters
-                    .find { it.filterType == FilterConfiguration.FilterType.ABI }
-                    ?.identifier
+                    .find {
+                        it.filterType ==
+                            FilterConfiguration.FilterType.ABI
+                    }
+                    ?.identifier ?: "universal"
 
-                val abiCode = abiCodes[abi] ?: 0
+                output.versionCode.set(
+                    currentVersionCode + (abiCodes[abi] ?: 0)
+                )
 
-                output.versionCode.set(currentVersionCode + abiCode)
+                output.outputFileName.set(
+                    "V-Downloader-${variant.versionName.get()}-$abi.apk"
+                )
             }
         }
     }
 
+    room {
+        schemaDirectory("$projectDir/schemas")
+    }
+
+    ksp {
+        arg("room.incremental", "true")
+    }
+
     buildTypes {
+
         release {
+
             isMinifyEnabled = true
             isShrinkResources = true
+
             proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro",
+                getDefaultProguardFile(
+                    "proguard-android-optimize.txt"
+                ),
+                "proguard-rules.pro"
             )
-            if (keystorePropertiesFile.exists()) {
-                signingConfig = signingConfigs.getByName("githubPublish")
-            } else {
-                signingConfig = signingConfigs.getByName("debug")
-            }
+
+            signingConfig =
+                if (keystorePropertiesFile.exists()) {
+                    signingConfigs.getByName("githubPublish")
+                } else {
+                    signingConfigs.getByName("debug")
+                }
         }
 
         debug {
+
             if (keystorePropertiesFile.exists()) {
-                signingConfig = signingConfigs.getByName("githubPublish")
+                signingConfig =
+                    signingConfigs.getByName("githubPublish")
             }
-            // Removed debug application id and version suffixes to make it a unified production-like app
-            resValue("string", "app_name", "V-Downloader")
+
+            resValue(
+                "string",
+                "app_name",
+                "V-Downloader"
+            )
         }
     }
 
     flavorDimensions += "publishChannel"
 
     productFlavors {
+
         create("generic") {
             dimension = "publishChannel"
             isDefault = true
@@ -131,12 +165,19 @@ android {
 
         create("githubPreview") {
             dimension = "publishChannel"
-            resValue("string", "app_name", "V-Downloader")
+
+            resValue(
+                "string",
+                "app_name",
+                "V-Downloader"
+            )
         }
 
         create("fdroid") {
             dimension = "publishChannel"
-            versionName = "$baseVersionName-(F-Droid)"
+
+            versionName =
+                "$baseVersionName-(F-Droid)"
         }
     }
 
@@ -150,36 +191,27 @@ android {
         )
     }
 
-    applicationVariants.all {
-        outputs.all {
-
-            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-
-            val abi = output.filters
-                .find { it.filterType == FilterConfiguration.FilterType.ABI }
-                ?.identifier ?: "universal"
-
-            output.outputFileName =
-                "V-Downloader-${defaultConfig.versionName}-${abi}.apk"
-        }
-    }
-
     kotlinOptions {
-        freeCompilerArgs = freeCompilerArgs + "-opt-in=kotlin.RequiresOptIn"
+        freeCompilerArgs =
+            freeCompilerArgs +
+                "-opt-in=kotlin.RequiresOptIn"
     }
 
     packaging {
+
         resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes +=
+                "/META-INF/{AL2.0,LGPL2.1}"
         }
-        jniLibs.useLegacyPackaging = true
+
+        jniLibs {
+            useLegacyPackaging = true
+        }
     }
 
     androidResources {
         generateLocaleConfig = true
     }
-
-    namespace = "com.junkfood.seal"
 }
 
 ktfmt {
@@ -191,6 +223,7 @@ kotlin {
 }
 
 dependencies {
+
     implementation(project(":color"))
 
     implementation(libs.bundles.core)
@@ -212,15 +245,26 @@ dependencies {
 
     implementation(libs.okhttp)
     implementation(libs.bundles.youtubedlAndroid)
+
     implementation(libs.mmkv)
+
     implementation(libs.androidx.work.runtime.ktx)
+
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
 
     testImplementation(libs.junit4)
-    androidTestImplementation(libs.androidx.test.ext)
-    androidTestImplementation(libs.androidx.test.espresso.core)
 
-    implementation(libs.androidx.compose.ui.tooling)
-    implementation("androidx.core:core-splashscreen:1.0.1")
+    androidTestImplementation(libs.androidx.test.ext)
+    androidTestImplementation(
+        libs.androidx.test.espresso.core
+    )
+
+    implementation(
+        libs.androidx.compose.ui.tooling
+    )
+
+    implementation(
+        "androidx.core:core-splashscreen:1.0.1"
+    )
 }
