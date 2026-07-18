@@ -16,7 +16,7 @@ plugins {
 
 val keystorePropertiesFile: File = rootProject.file("keystore.properties")
 
-val splitApks = true  // تم تفعيل الـ split لإنشاء APK منفصل لكل معمارية
+val splitApks = true // ✅ تم تفعيل split APK لكل معمارية
 
 val abiCodes = mapOf(
     "armeabi-v7a" to 1,
@@ -63,11 +63,10 @@ android {
         vectorDrawables { useSupportLibrary = true }
     }
 
-    // تقسيم الـ APK حسب المعمارية (ABI)
     splits {
         abi {
             isEnable = splitApks
-            reset()  // مسح الإعدادات الافتراضية
+            reset()
 
             include(
                 "armeabi-v7a",
@@ -76,7 +75,7 @@ android {
                 "x86_64"
             )
 
-            isUniversalApk = true  // سيتم إنشاء APK عام أيضاً
+            isUniversalApk = true
         }
     }
 
@@ -86,15 +85,13 @@ android {
     androidComponents {
         onVariants { variant ->
             variant.outputs.forEach { output ->
-                // استخراج اسم المعمارية من الفلاتر
+
                 val abi = output.filters
                     .find { it.filterType == FilterConfiguration.FilterType.ABI }
                     ?.identifier
 
-                // الحصول على كود المعمارية أو 0 للملف العام (universal)
                 val abiCode = abiCodes[abi] ?: 0
 
-                // تعيين versionCode النهائي
                 output.versionCode.set(currentVersionCode + abiCode)
             }
         }
@@ -119,6 +116,7 @@ android {
             if (keystorePropertiesFile.exists()) {
                 signingConfig = signingConfigs.getByName("githubPublish")
             }
+            // Removed debug application id and version suffixes to make it a unified production-like app
             resValue("string", "app_name", "V-Downloader")
         }
     }
@@ -152,9 +150,9 @@ android {
         )
     }
 
-    // تسمية ملفات APK الناتجة
     applicationVariants.all {
         outputs.all {
+
             val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
 
             val abi = output.filters
