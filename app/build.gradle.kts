@@ -1,6 +1,7 @@
 @file:Suppress("UnstableApiUsage")
 
 import com.android.build.api.variant.FilterConfiguration
+import com.android.build.api.variant.ApkVariantOutput
 import java.io.FileInputStream
 import java.util.Properties
 
@@ -14,10 +15,9 @@ plugins {
     alias(libs.plugins.ktfmt.gradle)
 }
 
-val keystorePropertiesFile: File = rootProject.file("keystore.properties")
+val keystorePropertiesFile: File =
+    rootProject.file("keystore.properties")
 
-// تم تفعيل تقسيم APK حسب المعمارية
-val splitApks = true
 
 val abiCodes = mapOf(
     "armeabi-v7a" to 1,
@@ -26,63 +26,101 @@ val abiCodes = mapOf(
     "x86_64" to 4
 )
 
+
 val baseVersionName = currentVersion.name
 val currentVersionCode = currentVersion.code.toInt()
 
+
 android {
+
+    namespace = "com.junkfood.seal"
 
     compileSdk = 35
 
+
+    // ============================
+    // Signing
+    // ============================
+
     if (keystorePropertiesFile.exists()) {
+
         val keystoreProperties = Properties()
-        keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+
+        keystoreProperties.load(
+            FileInputStream(keystorePropertiesFile)
+        )
+
 
         signingConfigs {
+
             create("githubPublish") {
-                keyAlias = keystoreProperties["keyAlias"].toString()
-                keyPassword = keystoreProperties["keyPassword"].toString()
-                storeFile = file(keystoreProperties["storeFile"]!!)
-                storePassword = keystoreProperties["storePassword"].toString()
+
+                keyAlias =
+                    keystoreProperties["keyAlias"].toString()
+
+                keyPassword =
+                    keystoreProperties["keyPassword"].toString()
+
+                storeFile =
+                    file(
+                        keystoreProperties["storeFile"]!!
+                    )
+
+                storePassword =
+                    keystoreProperties["storePassword"].toString()
             }
         }
     }
 
+
     buildFeatures {
+
         buildConfig = true
     }
+
 
     defaultConfig {
 
         applicationId = "com.vdownloader.app"
 
         minSdk = 24
+
         targetSdk = 35
 
+
         versionCode = 200_000_150
-        check(versionCode == currentVersionCode)
+
+        check(
+            versionCode == currentVersionCode
+        )
+
 
         versionName = baseVersionName
+
 
         testInstrumentationRunner =
             "androidx.test.runner.AndroidJUnitRunner"
 
+
         vectorDrawables {
+
             useSupportLibrary = true
         }
     }
 
 
     // ============================
-    // Split APK حسب المعمارية
+    // Split APK ABI
     // ============================
 
     splits {
 
         abi {
 
-            isEnable = splitApks
+            isEnable = true
 
             reset()
+
 
             include(
                 "armeabi-v7a",
@@ -91,21 +129,37 @@ android {
                 "x86_64"
             )
 
-            // إنشاء ملف شامل أيضًا
+
             isUniversalApk = true
         }
     }
 
 
+    // ============================
+    // Room + KSP
+    // ============================
+
     room {
-        schemaDirectory("$projectDir/schemas")
+
+        schemaDirectory(
+            "$projectDir/schemas"
+        )
     }
 
 
     ksp {
-        arg("room.incremental", "true")
+
+        arg(
+            "room.incremental",
+            "true"
+        )
     }
 
+
+    // ============================
+    // Modern AGP 8.x API
+    // لا يوجد applicationVariants
+    // ============================
 
     androidComponents {
 
@@ -113,9 +167,10 @@ android {
 
             variant.outputs.forEach { output ->
 
+
                 val abi =
                     output.filters
-                        .find {
+                        .firstOrNull {
                             it.filterType ==
                                 FilterConfiguration.FilterType.ABI
                         }
@@ -129,10 +184,20 @@ android {
                 output.versionCode.set(
                     currentVersionCode + abiCode
                 )
+
+
+                if (output is ApkVariantOutput) {
+
+                    output.outputFileName.set(
+                        "V-Downloader-${baseVersionName}-${abi ?: "universal"}.apk"
+                    )
+                }
             }
         }
     }
-
+    // ============================
+    // Build Types
+    // ============================
 
     buildTypes {
 
@@ -142,28 +207,30 @@ android {
 
             isShrinkResources = true
 
+
             proguardFiles(
+
                 getDefaultProguardFile(
                     "proguard-android-optimize.txt"
                 ),
-                "proguard-rules.pro",
+
+                "proguard-rules.pro"
             )
 
 
-            if (keystorePropertiesFile.exists()) {
+            signingConfig =
+                if (keystorePropertiesFile.exists()) {
 
-                signingConfig =
                     signingConfigs.getByName(
                         "githubPublish"
                     )
 
-            } else {
+                } else {
 
-                signingConfig =
                     signingConfigs.getByName(
                         "debug"
                     )
-            }
+                }
         }
 
 
@@ -177,6 +244,7 @@ android {
                     )
             }
 
+
             resValue(
                 "string",
                 "app_name",
@@ -184,13 +252,22 @@ android {
             )
         }
     }
+
+
+    // ============================
+    // Product Flavors
+    // ============================
+
     flavorDimensions += "publishChannel"
+
 
     productFlavors {
 
+
         create("generic") {
 
-            dimension = "publishChannel"
+            dimension =
+                "publishChannel"
 
             isDefault = true
         }
@@ -198,7 +275,9 @@ android {
 
         create("githubPreview") {
 
-            dimension = "publishChannel"
+            dimension =
+                "publishChannel"
+
 
             resValue(
                 "string",
@@ -210,7 +289,9 @@ android {
 
         create("fdroid") {
 
-            dimension = "publishChannel"
+            dimension =
+                "publishChannel"
+
 
             versionName =
                 "$baseVersionName-(F-Droid)"
@@ -218,12 +299,20 @@ android {
     }
 
 
+    // ============================
+    // Lint
+    // ============================
+
     lint {
 
         disable.addAll(
+
             listOf(
+
                 "MissingTranslation",
+
                 "ExtraTranslation",
+
                 "MissingQuantity"
             )
         )
@@ -231,38 +320,13 @@ android {
 
 
     // ============================
-    // تسمية ملفات APK
+    // Kotlin / Compose
     // ============================
-
-    applicationVariants.all {
-
-        outputs.all {
-
-            val output =
-                this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-
-
-            val abi =
-                output.filters
-                    .find {
-                        it.filterType ==
-                            FilterConfiguration.FilterType.ABI
-                    }
-                    ?.identifier
-                    ?: "universal"
-
-
-            output.outputFileName =
-                "V-Downloader-${defaultConfig.versionName}-${abi}.apk"
-        }
-    }
-
 
     kotlinOptions {
 
-        freeCompilerArgs =
-            freeCompilerArgs +
-                    "-opt-in=kotlin.RequiresOptIn"
+        freeCompilerArgs +=
+            "-opt-in=kotlin.RequiresOptIn"
     }
 
 
@@ -275,7 +339,10 @@ android {
         }
 
 
-        jniLibs.useLegacyPackaging = true
+        jniLibs {
+
+            useLegacyPackaging = true
+        }
     }
 
 
@@ -283,9 +350,6 @@ android {
 
         generateLocaleConfig = true
     }
-
-
-    namespace = "com.junkfood.seal"
 }
 
 
@@ -299,22 +363,27 @@ kotlin {
 
     jvmToolchain(21)
 }
-
-
 dependencies {
 
     implementation(project(":color"))
 
 
-    implementation(libs.bundles.core)
+    // Core
+    implementation(
+        libs.bundles.core
+    )
+
 
     implementation(
         libs.androidx.lifecycle.runtimeCompose
     )
 
 
+    // Compose
     implementation(
-        platform(libs.androidx.compose.bom)
+        platform(
+            libs.androidx.compose.bom
+        )
     )
 
 
@@ -329,15 +398,23 @@ dependencies {
 
 
     implementation(
+        libs.androidx.compose.ui.tooling
+    )
+
+
+    // UI / Images
+    implementation(
         libs.coil.kt.compose
     )
 
 
+    // Serialization
     implementation(
         libs.kotlinx.serialization.json
     )
 
 
+    // Dependency Injection
     implementation(
         libs.koin.android
     )
@@ -348,6 +425,7 @@ dependencies {
     )
 
 
+    // Database
     implementation(
         libs.room.runtime
     )
@@ -363,26 +441,31 @@ dependencies {
     )
 
 
+    // Network
     implementation(
         libs.okhttp
     )
 
 
+    // Downloader
     implementation(
         libs.bundles.youtubedlAndroid
     )
 
 
+    // Storage
     implementation(
         libs.mmkv
     )
 
 
+    // Background jobs
     implementation(
         libs.androidx.work.runtime.ktx
     )
 
 
+    // Media
     implementation(
         libs.androidx.media3.exoplayer
     )
@@ -393,6 +476,13 @@ dependencies {
     )
 
 
+    // Splash Screen
+    implementation(
+        "androidx.core:core-splashscreen:1.0.1"
+    )
+
+
+    // Tests
     testImplementation(
         libs.junit4
     )
@@ -405,15 +495,5 @@ dependencies {
 
     androidTestImplementation(
         libs.androidx.test.espresso.core
-    )
-
-
-    implementation(
-        libs.androidx.compose.ui.tooling
-    )
-
-
-    implementation(
-        "androidx.core:core-splashscreen:1.0.1"
     )
 }
