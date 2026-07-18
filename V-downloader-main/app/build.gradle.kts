@@ -56,7 +56,7 @@ android {
         minSdk = 24
         targetSdk = 35
 
-        versionCode = 205_000_400
+        versionCode = 205_010_400
         check(versionCode == currentVersionCode)
 
         versionName = baseVersionName
@@ -75,14 +75,9 @@ android {
     androidComponents {
         onVariants { variant ->
             variant.outputs.forEach { output ->
-                val name =
-                    abiFilterList.firstOrNull()
-
-                val baseAbiCode = abiCodes[name]
-
-                if (baseAbiCode != null) {
-                    output.versionCode.set(baseAbiCode + (output.versionCode.get() ?: 0))
-                }
+                val abiName = output.filters.find { it.filterType == FilterConfiguration.FilterType.ABI.name }?.identifier
+                val baseAbiCode = abiCodes[abiName] ?: 0
+                output.versionCode.set((output.versionCode.get() ?: 0) + baseAbiCode)
             }
         }
     }
