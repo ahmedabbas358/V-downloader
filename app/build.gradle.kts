@@ -47,20 +47,15 @@ android {
 
     defaultConfig {
         applicationId = "com.vdownloader.app"
-
         minSdk = 24
         targetSdk = 35
-
         versionCode = 200_000_150
         check(versionCode == currentVersionCode)
-
         versionName = baseVersionName
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
     }
 
-    // ✅ تفعيل بناء APK منفصل لكل معمارية + APK عام
     splits {
         abi {
             isEnable = true
@@ -87,7 +82,6 @@ android {
                 signingConfig = signingConfigs.getByName("debug")
             }
         }
-
         debug {
             if (keystorePropertiesFile.exists()) {
                 signingConfig = signingConfigs.getByName("githubPublish")
@@ -97,18 +91,15 @@ android {
     }
 
     flavorDimensions += "publishChannel"
-
     productFlavors {
         create("generic") {
             dimension = "publishChannel"
             isDefault = true
         }
-
         create("githubPreview") {
             dimension = "publishChannel"
             resValue("string", "app_name", "V-Downloader")
         }
-
         create("fdroid") {
             dimension = "publishChannel"
             versionName = "$baseVersionName-(F-Droid)"
@@ -125,11 +116,11 @@ android {
         )
     }
 
-    // ✅ تسمية الملفات + versionCode لكل ABI باستخدام الـ API القديم المضمون
+    // ✅ إصلاح: استخدام versionCodeOverride + getFilter بطريقة آمنة
     applicationVariants.all {
         outputs.all {
             val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-            val abi = output.getFilter("ABI") ?: "universal"
+            val abi = output.filters.find { it.filterType == com.android.build.OutputFile.ABI }?.identifier ?: "universal"
             
             output.versionCodeOverride = currentVersionCode + (abiCodes[abi] ?: 0)
             output.outputFileName = "V-Downloader-${defaultConfig.versionName}-${abi}.apk"
@@ -164,35 +155,27 @@ kotlin {
 
 dependencies {
     implementation(project(":color"))
-
     implementation(libs.bundles.core)
     implementation(libs.androidx.lifecycle.runtimeCompose)
-
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.bundles.androidxCompose)
     implementation(libs.bundles.accompanist)
-
     implementation(libs.coil.kt.compose)
     implementation(libs.kotlinx.serialization.json)
-
     implementation(libs.koin.android)
     implementation(libs.koin.compose)
-
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
-
     implementation(libs.okhttp)
     implementation(libs.bundles.youtubedlAndroid)
     implementation(libs.mmkv)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
-
     testImplementation(libs.junit4)
     androidTestImplementation(libs.androidx.test.ext)
     androidTestImplementation(libs.androidx.test.espresso.core)
-
     implementation(libs.androidx.compose.ui.tooling)
     implementation("androidx.core:core-splashscreen:1.0.1")
 }
