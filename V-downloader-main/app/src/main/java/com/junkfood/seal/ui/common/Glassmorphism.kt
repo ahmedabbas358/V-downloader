@@ -1,0 +1,57 @@
+package com.junkfood.seal.ui.common
+
+import android.graphics.RenderEffect
+import android.graphics.Shader
+import android.os.Build
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asComposeRenderEffect
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+
+fun Modifier.glassmorphism(
+    cornerRadius: Dp = 24.dp,
+    blurRadius: Float = 60f,
+    backgroundColor: Color? = null,
+    borderColor: Color? = null
+): Modifier = composed {
+    val fallbackBackgroundColor = backgroundColor ?: if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        Color.White.copy(alpha = 0.1f)
+    } else {
+        androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.85f)
+    }
+    
+    val fallbackBorderColor = borderColor ?: if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        Color.White.copy(alpha = 0.2f)
+    } else {
+        androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+    }
+
+    this.then(
+        Modifier
+            .clip(RoundedCornerShape(cornerRadius))
+            .background(fallbackBackgroundColor)
+            .graphicsLayer {
+                // NOTE: this blur is applied to this layer's own contents (including any
+                // children passed into the composable using this modifier), not to whatever
+                // is visually behind it. Only pass blurRadius > 0f when this modifier is
+                // applied to a purely decorative background element with no readable content
+                // of its own (e.g. see OnboardingScreen's LanguageSelectionPage), otherwise
+                // that content will be blurred into unreadable/invisible state.
+                if (blurRadius > 0f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    renderEffect = RenderEffect.createBlurEffect(
+                        blurRadius,
+                        blurRadius,
+                        Shader.TileMode.DECAL
+                    ).asComposeRenderEffect()
+                }
+            }
+            .border(1.dp, fallbackBorderColor, RoundedCornerShape(cornerRadius))
+    )
+}
