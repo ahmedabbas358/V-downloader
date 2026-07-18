@@ -1,5 +1,6 @@
 @file:Suppress("UnstableApiUsage")
 
+import com.android.build.api.variant.FilterConfiguration
 import java.io.FileInputStream
 import java.util.Properties
 
@@ -116,17 +117,6 @@ android {
         )
     }
 
-    // ✅ إصلاح: استخدام versionCodeOverride + getFilter بطريقة آمنة
-    applicationVariants.all {
-        outputs.all {
-            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-            val abi = output.filters.find { it.filterType == com.android.build.OutputFile.ABI }?.identifier ?: "universal"
-            
-            output.versionCodeOverride = currentVersionCode + (abiCodes[abi] ?: 0)
-            output.outputFileName = "V-Downloader-${defaultConfig.versionName}-${abi}.apk"
-        }
-    }
-
     kotlinOptions {
         freeCompilerArgs = freeCompilerArgs + "-opt-in=kotlin.RequiresOptIn"
     }
@@ -143,6 +133,21 @@ android {
     }
 
     namespace = "com.junkfood.seal"
+}
+
+// ✅ خارج بلوك android تماماً — هذا هو الإصلاح الأساسي
+androidComponents {
+    onVariants { variant ->
+        variant.outputs.forEach { output ->
+            val abi = output.filters
+                .find { it.filterType == FilterConfiguration.FilterType.ABI }
+                ?.identifier ?: "universal"
+
+            val abiCode = abiCodes[abi] ?: 0
+            output.versionCode.set(currentVersionCode + abiCode)
+            output.outputFileName.set("V-Downloader-${baseVersionName}-${abi}.apk")
+        }
+    }
 }
 
 ktfmt {
@@ -177,5 +182,5 @@ dependencies {
     androidTestImplementation(libs.androidx.test.ext)
     androidTestImplementation(libs.androidx.test.espresso.core)
     implementation(libs.androidx.compose.ui.tooling)
-    implementation("androidx.core:core-splashscreen:1.0.1")
+    implementation("android.core:core-splashscreen:1.0.1")
 }
