@@ -56,7 +56,7 @@ android {
         minSdk = 24
         targetSdk = 35
 
-        versionCode = 205_010_400
+        versionCode = 205_020_400
         check(versionCode == currentVersionCode)
 
         versionName = baseVersionName
@@ -66,6 +66,15 @@ android {
 
         ndk {
             abiFilters.addAll(abiFilterList)
+        }
+    }
+
+    splits {
+        abi {
+            isEnable = splitApks
+            reset()
+            include(*abiFilterList.toTypedArray())
+            isUniversalApk = false
         }
     }
 
