@@ -16,6 +16,8 @@ plugins {
 
 val keystorePropertiesFile: File = rootProject.file("keystore.properties")
 
+val splitApks = true // ✅ تم تفعيل split APK
+
 val abiCodes = mapOf(
     "armeabi-v7a" to 1,
     "arm64-v8a" to 2,
@@ -48,26 +50,52 @@ android {
 
     defaultConfig {
         applicationId = "com.vdownloader.app"
+
         minSdk = 24
         targetSdk = 35
+
         versionCode = 200_000_150
         check(versionCode == currentVersionCode)
+
         versionName = baseVersionName
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
     }
 
     splits {
         abi {
-            isEnable = true
+            isEnable = splitApks
             reset()
-            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+
+            include(
+                "armeabi-v7a",
+                "arm64-v8a",
+                "x86",
+                "x86_64"
+            )
+
             isUniversalApk = true
         }
     }
 
     room { schemaDirectory("$projectDir/schemas") }
     ksp { arg("room.incremental", "true") }
+
+    androidComponents {
+        onVariants { variant ->
+            variant.outputs.forEach { output ->
+
+                val abi = output.filters
+                    .find { it.filterType == FilterConfiguration.FilterType.ABI }
+                    ?.identifier
+
+                val abiCode = abiCodes[abi] ?: 0
+
+                output.versionCode.set(currentVersionCode + abiCode)
+            }
+        }
+    }
 
     buildTypes {
         release {
@@ -83,24 +111,29 @@ android {
                 signingConfig = signingConfigs.getByName("debug")
             }
         }
+
         debug {
             if (keystorePropertiesFile.exists()) {
                 signingConfig = signingConfigs.getByName("githubPublish")
             }
+            // Removed debug application id and version suffixes to make it a unified production-like app
             resValue("string", "app_name", "V-Downloader")
         }
     }
 
     flavorDimensions += "publishChannel"
+
     productFlavors {
         create("generic") {
             dimension = "publishChannel"
             isDefault = true
         }
+
         create("githubPreview") {
             dimension = "publishChannel"
             resValue("string", "app_name", "V-Downloader")
         }
+
         create("fdroid") {
             dimension = "publishChannel"
             versionName = "$baseVersionName-(F-Droid)"
@@ -115,6 +148,20 @@ android {
                 "MissingQuantity"
             )
         )
+    }
+
+    applicationVariants.all {
+        outputs.all {
+
+            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+
+            val abi = output.filters
+                .find { it.filterType == FilterConfiguration.FilterType.ABI }
+                ?.identifier ?: "universal"
+
+            output.outputFileName =
+                "V-Downloader-${defaultConfig.versionName}-${abi}.apk"
+        }
     }
 
     kotlinOptions {
@@ -135,21 +182,6 @@ android {
     namespace = "com.junkfood.seal"
 }
 
-// ✅ خارج بلوك android تماماً — هذا هو الإصلاح الأساسي
-androidComponents {
-    onVariants { variant ->
-        variant.outputs.forEach { output ->
-            val abi = output.filters
-                .find { it.filterType == FilterConfiguration.FilterType.ABI }
-                ?.identifier ?: "universal"
-
-            val abiCode = abiCodes[abi] ?: 0
-            output.versionCode.set(currentVersionCode + abiCode)
-            output.outputFileName.set("V-Downloader-${baseVersionName}-${abi}.apk")
-        }
-    }
-}
-
 ktfmt {
     kotlinLangStyle()
 }
@@ -160,27 +192,35 @@ kotlin {
 
 dependencies {
     implementation(project(":color"))
+
     implementation(libs.bundles.core)
     implementation(libs.androidx.lifecycle.runtimeCompose)
+
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.bundles.androidxCompose)
     implementation(libs.bundles.accompanist)
+
     implementation(libs.coil.kt.compose)
     implementation(libs.kotlinx.serialization.json)
+
     implementation(libs.koin.android)
     implementation(libs.koin.compose)
+
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
+
     implementation(libs.okhttp)
     implementation(libs.bundles.youtubedlAndroid)
     implementation(libs.mmkv)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
+
     testImplementation(libs.junit4)
     androidTestImplementation(libs.androidx.test.ext)
     androidTestImplementation(libs.androidx.test.espresso.core)
+
     implementation(libs.androidx.compose.ui.tooling)
-    implementation("android.core:core-splashscreen:1.0.1")
+    implementation("androidx.core:core-splashscreen:1.0.1")
 }
