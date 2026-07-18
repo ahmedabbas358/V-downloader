@@ -56,7 +56,7 @@ android {
         minSdk = 24
         targetSdk = 35
 
-        versionCode = 205_040_400
+        versionCode = 205_050_400
         check(versionCode == currentVersionCode)
 
         versionName = baseVersionName
@@ -64,8 +64,10 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
-        ndk {
-            abiFilters.addAll(abiFilterList)
+        if (!splitApks) {
+            ndk {
+                abiFilters.addAll(abiFilterList)
+            }
         }
     }
 
