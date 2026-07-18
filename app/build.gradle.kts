@@ -1,6 +1,5 @@
 @file:Suppress("UnstableApiUsage")
 
-import com.android.build.api.variant.FilterConfiguration
 import java.io.FileInputStream
 import java.util.Properties
 
@@ -15,8 +14,6 @@ plugins {
 }
 
 val keystorePropertiesFile: File = rootProject.file("keystore.properties")
-
-val splitApks = true // ✅ تم تفعيل split APK لكل معمارية
 
 val abiCodes = mapOf(
     "armeabi-v7a" to 1,
@@ -63,39 +60,18 @@ android {
         vectorDrawables { useSupportLibrary = true }
     }
 
+    // ✅ تفعيل بناء APK منفصل لكل معمارية + APK عام
     splits {
         abi {
-            isEnable = splitApks
+            isEnable = true
             reset()
-
-            include(
-                "armeabi-v7a",
-                "arm64-v8a",
-                "x86",
-                "x86_64"
-            )
-
+            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
             isUniversalApk = true
         }
     }
 
     room { schemaDirectory("$projectDir/schemas") }
     ksp { arg("room.incremental", "true") }
-
-    androidComponents {
-        onVariants { variant ->
-            variant.outputs.forEach { output ->
-
-                val abi = output.filters
-                    .find { it.filterType == FilterConfiguration.FilterType.ABI }
-                    ?.identifier
-
-                val abiCode = abiCodes[abi] ?: 0
-
-                output.versionCode.set(currentVersionCode + abiCode)
-            }
-        }
-    }
 
     buildTypes {
         release {
@@ -116,7 +92,6 @@ android {
             if (keystorePropertiesFile.exists()) {
                 signingConfig = signingConfigs.getByName("githubPublish")
             }
-            // Removed debug application id and version suffixes to make it a unified production-like app
             resValue("string", "app_name", "V-Downloader")
         }
     }
@@ -150,17 +125,14 @@ android {
         )
     }
 
+    // ✅ تسمية الملفات + versionCode لكل ABI باستخدام الـ API القديم المضمون
     applicationVariants.all {
         outputs.all {
-
             val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-
-            val abi = output.filters
-                .find { it.filterType == FilterConfiguration.FilterType.ABI }
-                ?.identifier ?: "universal"
-
-            output.outputFileName =
-                "V-Downloader-${defaultConfig.versionName}-${abi}.apk"
+            val abi = output.getFilter("ABI") ?: "universal"
+            
+            output.versionCodeOverride = currentVersionCode + (abiCodes[abi] ?: 0)
+            output.outputFileName = "V-Downloader-${defaultConfig.versionName}-${abi}.apk"
         }
     }
 
