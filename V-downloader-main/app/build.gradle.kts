@@ -56,7 +56,7 @@ android {
         minSdk = 24
         targetSdk = 35
 
-        versionCode = 205_020_400
+        versionCode = 205_030_400
         check(versionCode == currentVersionCode)
 
         versionName = baseVersionName
@@ -146,8 +146,9 @@ android {
 
     applicationVariants.all {
         outputs.all {
-            (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName =
-                "V-Downloader-${defaultConfig.versionName}-${name}.apk"
+            val outputImpl = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            val abiName = outputImpl.filters.find { it.filterType == FilterConfiguration.FilterType.ABI.name }?.identifier ?: "universal"
+            outputImpl.outputFileName = "V-Downloader-${defaultConfig.versionName}-${name}-${abiName}.apk"
         }
     }
 
