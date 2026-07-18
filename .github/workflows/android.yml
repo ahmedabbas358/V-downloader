@@ -9,6 +9,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     permissions:
       contents: read
 
@@ -19,8 +20,8 @@ jobs:
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
+          distribution: temurin
           java-version: '21'
-          distribution: 'temurin'
           cache: gradle
 
       - name: Setup Android SDK
@@ -30,18 +31,66 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Grant execute permission
-        run: chmod +x ./gradlew
+        run: chmod +x gradlew
 
       - name: Build APK
         run: ./gradlew --no-daemon clean assembleGenericRelease --stacktrace
 
-      - name: Find APK
-        run: find . -name "*.apk"
+      - name: List generated APKs
+        run: |
+          echo "Generated APKs:"
+          find app/build/outputs -type f -name "*.apk"
 
-      - name: Upload APK
+      # ARM64
+      - name: Upload ARM64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: V-Downloader-Latest
+          name: V-Downloader-arm64-v8a
+          path: app/build/outputs/apk/generic/release/*arm64-v8a*.apk
+          if-no-files-found: ignore
+          retention-days: 20
+
+      # ARMv7
+      - name: Upload ARMv7 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: V-Downloader-armeabi-v7a
+          path: app/build/outputs/apk/generic/release/*armeabi-v7a*.apk
+          if-no-files-found: ignore
+          retention-days: 20
+
+      # x86
+      - name: Upload x86 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: V-Downloader-x86
+          path: app/build/outputs/apk/generic/release/*x86*.apk
+          if-no-files-found: ignore
+          retention-days: 20
+
+      # x86_64
+      - name: Upload x86_64 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: V-Downloader-x86_64
+          path: app/build/outputs/apk/generic/release/*x86_64*.apk
+          if-no-files-found: ignore
+          retention-days: 20
+
+      # Universal
+      - name: Upload Universal APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: V-Downloader-universal
+          path: app/build/outputs/apk/generic/release/*universal*.apk
+          if-no-files-found: ignore
+          retention-days: 20
+
+      # أي APK لم يتم التقاطه بالخطوات السابقة
+      - name: Upload Remaining APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: V-Downloader-Other
           path: app/build/outputs/apk/generic/release/*.apk
-          if-no-files-found: error
+          if-no-files-found: ignore
           retention-days: 20
