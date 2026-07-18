@@ -30,35 +30,52 @@ val currentVersionCode = currentVersion.code.toInt()
 
 android {
 
+    namespace = "com.junkfood.seal"
+
     compileSdk = 35
 
     if (keystorePropertiesFile.exists()) {
+
         val keystoreProperties = Properties()
-        keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+
+        keystoreProperties.load(
+            FileInputStream(keystorePropertiesFile)
+        )
 
         signingConfigs {
             create("githubPublish") {
-                keyAlias = keystoreProperties["keyAlias"].toString()
-                keyPassword = keystoreProperties["keyPassword"].toString()
-                storeFile = file(keystoreProperties["storeFile"]!!)
-                storePassword = keystoreProperties["storePassword"].toString()
+
+                keyAlias =
+                    keystoreProperties["keyAlias"].toString()
+
+                keyPassword =
+                    keystoreProperties["keyPassword"].toString()
+
+                storeFile =
+                    file(keystoreProperties["storeFile"]!!)
+
+                storePassword =
+                    keystoreProperties["storePassword"].toString()
             }
         }
     }
 
-    namespace = "com.junkfood.seal"
 
     buildFeatures {
         buildConfig = true
     }
 
+
     defaultConfig {
+
         applicationId = "com.vdownloader.app"
 
         minSdk = 24
+
         targetSdk = 35
 
         versionCode = currentVersionCode
+
         versionName = baseVersionName
 
         testInstrumentationRunner =
@@ -69,8 +86,11 @@ android {
         }
     }
 
+
     splits {
+
         abi {
+
             isEnable = splitApks
 
             reset()
@@ -86,42 +106,52 @@ android {
         }
     }
 
+
     androidComponents {
+
         onVariants { variant ->
 
             variant.outputs.forEach { output ->
 
-                val abi = output.filters
-                    .find {
-                        it.filterType ==
-                            FilterConfiguration.FilterType.ABI
-                    }
-                    ?.identifier ?: "universal"
+                val abi =
+                    output.filters
+                        .find {
+                            it.filterType ==
+                                FilterConfiguration.FilterType.ABI
+                        }
+                        ?.identifier
+
 
                 output.versionCode.set(
-                    currentVersionCode + (abiCodes[abi] ?: 0)
-                )
-
-                output.outputFileName.set(
-                    "V-Downloader-${variant.versionName.get()}-$abi.apk"
+                    currentVersionCode +
+                        (abiCodes[abi] ?: 0)
                 )
             }
         }
     }
 
+
     room {
-        schemaDirectory("$projectDir/schemas")
+        schemaDirectory(
+            "$projectDir/schemas"
+        )
     }
 
+
     ksp {
-        arg("room.incremental", "true")
+        arg(
+            "room.incremental",
+            "true"
+        )
     }
+
 
     buildTypes {
 
         release {
 
             isMinifyEnabled = true
+
             isShrinkResources = true
 
             proguardFiles(
@@ -131,20 +161,34 @@ android {
                 "proguard-rules.pro"
             )
 
-            signingConfig =
-                if (keystorePropertiesFile.exists()) {
-                    signingConfigs.getByName("githubPublish")
-                } else {
-                    signingConfigs.getByName("debug")
-                }
+
+            if (keystorePropertiesFile.exists()) {
+
+                signingConfig =
+                    signingConfigs.getByName(
+                        "githubPublish"
+                    )
+
+            } else {
+
+                signingConfig =
+                    signingConfigs.getByName(
+                        "debug"
+                    )
+            }
         }
+
 
         debug {
 
             if (keystorePropertiesFile.exists()) {
+
                 signingConfig =
-                    signingConfigs.getByName("githubPublish")
+                    signingConfigs.getByName(
+                        "githubPublish"
+                    )
             }
+
 
             resValue(
                 "string",
@@ -154,17 +198,25 @@ android {
         }
     }
 
+
     flavorDimensions += "publishChannel"
+
 
     productFlavors {
 
         create("generic") {
-            dimension = "publishChannel"
+
+            dimension =
+                "publishChannel"
+
             isDefault = true
         }
 
+
         create("githubPreview") {
-            dimension = "publishChannel"
+
+            dimension =
+                "publishChannel"
 
             resValue(
                 "string",
@@ -173,15 +225,20 @@ android {
             )
         }
 
+
         create("fdroid") {
-            dimension = "publishChannel"
+
+            dimension =
+                "publishChannel"
 
             versionName =
                 "$baseVersionName-(F-Droid)"
         }
     }
 
+
     lint {
+
         disable.addAll(
             listOf(
                 "MissingTranslation",
@@ -191,78 +248,158 @@ android {
         )
     }
 
+
     kotlinOptions {
+
         freeCompilerArgs =
             freeCompilerArgs +
                 "-opt-in=kotlin.RequiresOptIn"
     }
 
+
     packaging {
 
         resources {
+
             excludes +=
                 "/META-INF/{AL2.0,LGPL2.1}"
         }
 
+
         jniLibs {
+
             useLegacyPackaging = true
         }
     }
 
+
     androidResources {
+
         generateLocaleConfig = true
     }
 }
 
+
 ktfmt {
+
     kotlinLangStyle()
 }
 
+
 kotlin {
+
     jvmToolchain(21)
 }
+
 
 dependencies {
 
     implementation(project(":color"))
 
     implementation(libs.bundles.core)
-    implementation(libs.androidx.lifecycle.runtimeCompose)
 
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.bundles.androidxCompose)
-    implementation(libs.bundles.accompanist)
+    implementation(
+        libs.androidx.lifecycle.runtimeCompose
+    )
 
-    implementation(libs.coil.kt.compose)
-    implementation(libs.kotlinx.serialization.json)
 
-    implementation(libs.koin.android)
-    implementation(libs.koin.compose)
+    implementation(
+        platform(
+            libs.androidx.compose.bom
+        )
+    )
 
-    implementation(libs.room.runtime)
-    implementation(libs.room.ktx)
-    ksp(libs.room.compiler)
+    implementation(
+        libs.bundles.androidxCompose
+    )
 
-    implementation(libs.okhttp)
-    implementation(libs.bundles.youtubedlAndroid)
+    implementation(
+        libs.bundles.accompanist
+    )
 
-    implementation(libs.mmkv)
 
-    implementation(libs.androidx.work.runtime.ktx)
+    implementation(
+        libs.coil.kt.compose
+    )
 
-    implementation(libs.androidx.media3.exoplayer)
-    implementation(libs.androidx.media3.ui)
 
-    testImplementation(libs.junit4)
+    implementation(
+        libs.kotlinx.serialization.json
+    )
 
-    androidTestImplementation(libs.androidx.test.ext)
+
+    implementation(
+        libs.koin.android
+    )
+
+
+    implementation(
+        libs.koin.compose
+    )
+
+
+    implementation(
+        libs.room.runtime
+    )
+
+    implementation(
+        libs.room.ktx
+    )
+
+    ksp(
+        libs.room.compiler
+    )
+
+
+    implementation(
+        libs.okhttp
+    )
+
+
+    implementation(
+        libs.bundles.youtubedlAndroid
+    )
+
+
+    implementation(
+        libs.mmkv
+    )
+
+
+    implementation(
+        libs.androidx.work.runtime.ktx
+    )
+
+
+    implementation(
+        libs.androidx.media3.exoplayer
+    )
+
+
+    implementation(
+        libs.androidx.media3.ui
+    )
+
+
+    testImplementation(
+        libs.junit4
+    )
+
+
+    androidTestImplementation(
+        libs.androidx.test.ext
+    )
+
+
     androidTestImplementation(
         libs.androidx.test.espresso.core
     )
 
+
     implementation(
         libs.androidx.compose.ui.tooling
     )
+
 
     implementation(
         "androidx.core:core-splashscreen:1.0.1"
