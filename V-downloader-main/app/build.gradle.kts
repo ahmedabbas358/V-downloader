@@ -16,7 +16,7 @@ plugins {
 
 val keystorePropertiesFile: File = rootProject.file("keystore.properties")
 
-val splitApks = false // ✅ تم تعطيل split APK نهائياً (حل مشكلة التثبيت)
+val splitApks = true // ✅ تم تفعيل split APK لتقليل الحجم
 
 val abiFilterList = (properties["ABI_FILTERS"] as String).split(';')
 

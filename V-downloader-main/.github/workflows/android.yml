@@ -52,22 +52,27 @@ jobs:
           BUILD_TOOLS_VERSION=$(ls $ANDROID_HOME/build-tools | sort -n | tail -1)
           echo "BUILD_TOOLS_PATH=$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION" >> $GITHUB_ENV
 
-      - name: Zipalign and Sign APK
+      - name: Zipalign and Sign APKs
         run: |
-          APK_PATH=$(find app/build/outputs/apk/generic/release/ -name "*.apk" | head -n 1)
-          $BUILD_TOOLS_PATH/zipalign -v -p 4 $APK_PATH aligned.apk
-          $BUILD_TOOLS_PATH/apksigner sign --ks keystore.jks --ks-pass pass:${{ secrets.STORE_PASSWORD }} --ks-key-alias ${{ secrets.KEY_ALIAS }} --key-pass pass:${{ secrets.KEY_PASSWORD }} --out app-release.apk aligned.apk
+          mkdir -p signed_apks
+          for APK_PATH in $(find app/build/outputs/apk/generic/release/ -name "*.apk"); do
+            APK_NAME=$(basename $APK_PATH)
+            ALIGNED_APK="aligned_$APK_NAME"
+            SIGNED_APK="signed_apks/$APK_NAME"
+            $BUILD_TOOLS_PATH/zipalign -v -p 4 "$APK_PATH" "$ALIGNED_APK"
+            $BUILD_TOOLS_PATH/apksigner sign --ks keystore.jks --ks-pass pass:${{ secrets.STORE_PASSWORD }} --ks-key-alias ${{ secrets.KEY_ALIAS }} --key-pass pass:${{ secrets.KEY_PASSWORD }} --out "$SIGNED_APK" "$ALIGNED_APK"
+          done
 
-      - name: Upload APK Artifact
+      - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: V-Downloader-Release
-          path: app-release.apk
+          path: signed_apks/*.apk
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: app-release.apk
+          files: signed_apks/*.apk
           draft: false
           prerelease: false
