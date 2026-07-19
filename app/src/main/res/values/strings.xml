@@ -470,7 +470,6 @@
     <string name="sponsor_msg2">Thank you very much!</string>
     <string name="exit">Exit</string>
     <string name="management">Management</string>
-    <string name="select_all">Select All</string>
     <string name="delete_selected">Delete Selected</string>
     <string name="delete_completed">Delete Completed</string>
     <string name="delete_failed">Delete Failed</string>

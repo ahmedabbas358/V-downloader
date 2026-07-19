@@ -460,7 +460,6 @@
     <string name="issue_tracker_hint">هل واجهت خطًأ؟ قبل الإبلاغ عن مشكلة جديدة، يرجى البحث في أداة تتبع المشاكل لدينا. لقد عولجت العديد من المشاكل الشائعة وتوثيقها بالفعل هناك.</string>
     <string name="media_info">معلومات الوسائط</string>
     <string name="management">إدارة</string>
-    <string name="select_all">تحديد الكل</string>
     <string name="delete_selected">حذف المحدد</string>
     <string name="delete_completed">حذف المكتمل</string>
     <string name="delete_failed">حذف الفاشل</string>
