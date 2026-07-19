@@ -174,14 +174,6 @@ object DownloadUtil {
         with(preferences) {
             val request =
                 YoutubeDLRequest(url).apply {
-                    addOption("-o", BASENAME)
-                    if (restrictFilenames) {
-                        addOption("--restrict-filenames")
-                    }
-                    if (extractAudio) {
-                        addOption("-x")
-                    }
-                    applyFormatSorter(this@with, toFormatSorter())
                     if (cookies) {
                         enableCookies(userAgentString)
                     }
@@ -190,15 +182,6 @@ object DownloadUtil {
                     }
                     if (forceIpv4) {
                         addOption("-4")
-                    }
-                    /*            if (debug) {
-                        addOption("-v")
-                    }*/
-                    if (autoSubtitle) {
-                        addOption("--write-auto-subs")
-                        if (!autoTranslatedSubtitles) {
-                            addOption("--extractor-args", "youtube:skip=translated_subs")
-                        }
                     }
                     if (playlistIndex != null) {
                         addOption("--playlist-items", playlistIndex)
@@ -211,28 +194,8 @@ object DownloadUtil {
                     if (playlistIndex == null) {
                         addOption("--no-playlist")
                     }
-                    addOption("--socket-timeout", "15")
                 }
-            val result = getVideoInfo(request, taskKey)
-            
-            if (result.isFailure) {
-                if (url.contains("instagram.com", ignoreCase = true) || url.contains("tiktok.com", ignoreCase = true)) {
-                    val cobaltUrl = kotlinx.coroutines.runBlocking { com.junkfood.seal.util.CobaltEngine.fetchVideoUrl(url) }
-                    if (cobaltUrl != null) {
-                        val fakeVideoInfo = VideoInfo(
-                            id = url.hashCode().toString(),
-                            title = "Video_${System.currentTimeMillis()}",
-                            webpageUrl = cobaltUrl,
-                            originalUrl = cobaltUrl,
-                            uploader = "Cobalt API",
-                            extractor = "Cobalt",
-                            extractorKey = "Cobalt"
-                        )
-                        return Result.success(fakeVideoInfo)
-                    }
-                }
-            }
-            return result
+            return getVideoInfo(request, taskKey)
         }
     }
 

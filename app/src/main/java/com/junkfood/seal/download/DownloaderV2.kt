@@ -342,9 +342,18 @@ class DownloaderV2Impl(
         val task = this
         val taskInfo = task.type
 
+        val isPlaylist = taskInfo is TypeInfo.Playlist && !taskInfo.isFallback
+        val hasIndividualUrl = viewState.url.isNotEmpty() && viewState.url != url
+
+        val fetchUrl = if (isPlaylist && hasIndividualUrl) {
+            viewState.url
+        } else {
+            task.url
+        }
+
         val playlistIndex =
-            if (taskInfo is TypeInfo.Playlist && !taskInfo.isFallback) {
-                taskInfo.index
+            if (isPlaylist && fetchUrl == task.url) {
+                (taskInfo as TypeInfo.Playlist).index
             } else {
                 null
             }
@@ -353,7 +362,7 @@ class DownloaderV2Impl(
             .launch(Dispatchers.Default) {
                 DownloadUtil
                     .fetchVideoInfoFromUrl(
-                        url = task.url,
+                        url = fetchUrl,
                         playlistIndex = playlistIndex,
                         preferences = task.preferences,
                         taskKey = task.id
@@ -465,6 +474,18 @@ class DownloaderV2Impl(
                             }
                         }
                     )
+                    .mapCatching { pathList ->
+                        if (!task.preferences.skipDownload) {
+                            if (pathList.isEmpty()) {
+                                throw Exception("No files were downloaded. yt-dlp may have skipped or failed.")
+                            }
+                            val firstFile = java.io.File(pathList.first())
+                            if (!firstFile.exists() || firstFile.length() == 0L) {
+                                throw Exception("Downloaded file is empty or does not exist (0 bytes).")
+                            }
+                        }
+                        pathList
+                    }
                     .onSuccess { pathList ->
                         val path =
                             pathList.firstOrNull()

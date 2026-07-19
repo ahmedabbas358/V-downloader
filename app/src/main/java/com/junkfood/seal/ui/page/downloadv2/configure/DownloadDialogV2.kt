@@ -155,6 +155,7 @@ private fun DownloadType.label(): String =
             Video -> R.string.video
             Command -> R.string.commands
             Playlist -> R.string.playlist
+            DownloadType.Subtitle -> R.string.subtitle
         }
     )
 
@@ -391,7 +392,11 @@ private fun DownloadDialogContent(
                         onActionPost(
                             Action.DownloadWithPreset(
                                 urlList = state.urlList,
-                                preferences = preferences.copy(extractAudio = it == Audio),
+                                preferences = preferences.copy(
+                                    extractAudio = it == Audio,
+                                    skipDownload = it == DownloadType.Subtitle,
+                                    downloadSubtitle = if (it == DownloadType.Subtitle) true else preferences.downloadSubtitle
+                                ),
                             )
                         )
                     }
@@ -545,7 +550,7 @@ private fun ConfigurePage(
         }
 
     LaunchedEffect(selectedType) {
-        if (selectedType == Playlist) {
+        if (selectedType == Playlist || selectedType == DownloadType.Subtitle) {
             useFormatSelection = false
         }
     }
@@ -586,12 +591,12 @@ private fun ConfigurePage(
                             selected = !useFormatSelection,
                             downloadType = selectedType,
                             onClick = { useFormatSelection = false },
-                            showEditIcon = !useFormatSelection && selectedType != Playlist,
+                            showEditIcon = !useFormatSelection && selectedType != Playlist && selectedType != DownloadType.Subtitle,
                             onEdit = { onPresetEdit(selectedType) },
                         )
                         Custom(
                             selected = useFormatSelection,
-                            enabled = selectedType != Playlist,
+                            enabled = selectedType != Playlist && selectedType != DownloadType.Subtitle,
                             onClick = { useFormatSelection = true },
                         )
                     } else {
@@ -661,7 +666,11 @@ private fun ConfigurePage(
                 onActionPost(
                     Action.DownloadWithPreset(
                         urlList = listOf(url),
-                        preferences = preferences.copy(extractAudio = selectedType == Audio),
+                        preferences = preferences.copy(
+                            extractAudio = selectedType == Audio,
+                            skipDownload = selectedType == DownloadType.Subtitle,
+                            downloadSubtitle = if (selectedType == DownloadType.Subtitle) true else preferences.downloadSubtitle
+                        ),
                     )
                 )
             },
@@ -731,7 +740,7 @@ fun ConfigurePagePlaylistVariant(
                 )
                 DrawerSheetSubtitle(text = stringResource(id = R.string.download_type))
                 DownloadTypeSelectionGroup(
-                    typeEntries = listOf(Video, Audio),
+                    typeEntries = listOf(Video, Audio, DownloadType.Subtitle),
                     selectedType = selectedType,
                     onSelect = { selectedType = it },
                 )

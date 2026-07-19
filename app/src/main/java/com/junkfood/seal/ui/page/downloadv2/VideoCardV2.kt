@@ -3,8 +3,10 @@ package com.junkfood.seal.ui.page.downloadv2
 import android.content.res.Configuration
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -94,8 +96,13 @@ private val LabelContainerColor: Color = Color.Black.copy(alpha = 0.68f)
 fun VideoCardV2(
     modifier: Modifier = Modifier,
     viewState: Task.ViewState,
+    isSelected: Boolean = false,
+    showSize: Boolean = true,
+    showDuration: Boolean = true,
+    showSource: Boolean = true,
     stateIndicator: @Composable (BoxScope.() -> Unit)? = null,
     actionButton: @Composable (BoxScope.() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
     onButtonClick: () -> Unit,
 ) {
     with(viewState) {
@@ -106,18 +113,29 @@ fun VideoCardV2(
             uploader = uploader,
             duration = duration,
             fileSizeApprox = fileSizeApprox,
+            isSelected = isSelected,
+            showSize = showSize,
+            showDuration = showDuration,
+            showSource = showSource,
             stateIndicator = stateIndicator,
             actionButton = actionButton,
+            onLongClick = onLongClick,
             onButtonClick = onButtonClick,
         )
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun VideoListItem(
     modifier: Modifier = Modifier,
     viewState: Task.ViewState,
+    isSelected: Boolean = false,
+    showSize: Boolean = true,
+    showDuration: Boolean = true,
+    showSource: Boolean = true,
     stateIndicator: @Composable (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
     onButtonClick: () -> Unit,
 ) {
     with(viewState) {
@@ -128,12 +146,18 @@ fun VideoListItem(
             uploader = uploader,
             duration = duration,
             fileSizeApprox = fileSizeApprox,
+            isSelected = isSelected,
+            showSize = showSize,
+            showDuration = showDuration,
+            showSource = showSource,
             stateIndicator = stateIndicator,
+            onLongClick = onLongClick,
             onButtonClick = onButtonClick,
         )
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun VideoListItem(
     modifier: Modifier = Modifier,
@@ -142,11 +166,21 @@ fun VideoListItem(
     uploader: String = "",
     duration: Int = 0,
     fileSizeApprox: Double = .0,
+    isSelected: Boolean = false,
+    showSize: Boolean = true,
+    showDuration: Boolean = true,
+    showSource: Boolean = true,
     stateIndicator: @Composable (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
     onButtonClick: () -> Unit,
 ) {
+    val backgroundColor = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
+
     Row(
-        modifier = modifier.height(IntrinsicSize.Min).clickable { onButtonClick() },
+        modifier = modifier.height(IntrinsicSize.Min).background(backgroundColor).combinedClickable(
+            onClick = onButtonClick,
+            onLongClick = onLongClick
+        ),
         verticalAlignment = Alignment.Top
     ) {
         Box(modifier = Modifier) {
@@ -155,6 +189,8 @@ fun VideoListItem(
                 modifier = Modifier.align(Alignment.BottomEnd),
                 duration = duration,
                 fileSizeApprox = fileSizeApprox,
+                showSize = showSize,
+                showDuration = showDuration
             )
         }
         Box {
@@ -164,6 +200,7 @@ fun VideoListItem(
                     title = title,
                     uploader = uploader,
                     contentPadding = PaddingValues(),
+                    showSource = showSource
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 stateIndicator?.invoke()
@@ -224,6 +261,7 @@ private fun VideoListItemPreview() {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun VideoCardV2(
     modifier: Modifier = Modifier,
@@ -232,17 +270,26 @@ fun VideoCardV2(
     uploader: String = "",
     duration: Int = 0,
     fileSizeApprox: Double = .0,
+    isSelected: Boolean = false,
+    showSize: Boolean = true,
+    showDuration: Boolean = true,
+    showSource: Boolean = true,
     stateIndicator: @Composable (BoxScope.() -> Unit)? = null,
     actionButton: @Composable (BoxScope.() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
     onButtonClick: () -> Unit,
 ) {
     val containerColor =
-        MaterialTheme.colorScheme.run {
+        if (isSelected) MaterialTheme.colorScheme.secondaryContainer
+        else MaterialTheme.colorScheme.run {
             if (LocalDarkTheme.current.isDarkTheme()) surfaceContainer else surfaceContainerLowest
         }
 
     Card(
-        modifier = modifier.fillMaxWidth().clickable { onButtonClick() },
+        modifier = modifier.fillMaxWidth().combinedClickable(
+            onClick = onButtonClick,
+            onLongClick = onLongClick
+        ),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = containerColor),
     ) {
@@ -255,10 +302,12 @@ fun VideoCardV2(
                     modifier = Modifier.align(Alignment.BottomEnd),
                     duration = duration,
                     fileSizeApprox = fileSizeApprox,
+                    showSize = showSize,
+                    showDuration = showDuration
                 )
             }
             Row(modifier = Modifier.fillMaxWidth()) {
-                TitleText(modifier = Modifier.weight(1f), title = title, uploader = uploader)
+                TitleText(modifier = Modifier.weight(1f), title = title, uploader = uploader, showSource = showSource)
                 IconButton(onButtonClick, modifier = Modifier.align(Alignment.CenterVertically)) {
                     Icon(
                         imageVector = Icons.Outlined.MoreVert,
@@ -344,6 +393,7 @@ private fun TitleText(
     title: String,
     uploader: String,
     contentPadding: PaddingValues = PaddingValues(12.dp),
+    showSource: Boolean = true
 ) {
     Column(
         modifier = modifier.padding(contentPadding),
@@ -356,32 +406,42 @@ private fun TitleText(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
-        Text(
-            modifier = Modifier.padding(top = 3.dp),
-            text = uploader,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        if (showSource && uploader.isNotEmpty()) {
+            Text(
+                modifier = Modifier.padding(top = 3.dp),
+                text = uploader,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 
 @Composable
-private fun VideoInfoLabel(modifier: Modifier = Modifier, duration: Int, fileSizeApprox: Double) {
+private fun VideoInfoLabel(modifier: Modifier = Modifier, duration: Int, fileSizeApprox: Double, showSize: Boolean = true, showDuration: Boolean = true) {
+    if (!showSize && !showDuration) return
     Surface(
         modifier = modifier.padding(4.dp),
         color = LabelContainerColor,
         shape = MaterialTheme.shapes.extraSmall,
     ) {
-        val fileSizeText = fileSizeApprox.toFileSizeText()
-        val durationText = duration.toDurationText()
-        Text(
-            modifier = Modifier.padding(horizontal = 4.dp),
-            text = "$fileSizeText  $durationText",
-            style = MaterialTheme.typography.labelSmall,
-            color = Color.White,
-        )
+        val fileSizeText = if (showSize) fileSizeApprox.toFileSizeText() else ""
+        val durationText = if (showDuration) duration.toDurationText() else ""
+        val text = buildString {
+            if (showSize) append(fileSizeText)
+            if (showSize && showDuration && fileSizeText.isNotBlank() && durationText.isNotBlank()) append("  ")
+            if (showDuration) append(durationText)
+        }
+        if (text.isNotBlank()) {
+            Text(
+                modifier = Modifier.padding(horizontal = 4.dp),
+                text = text,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White,
+            )
+        }
     }
 }
 

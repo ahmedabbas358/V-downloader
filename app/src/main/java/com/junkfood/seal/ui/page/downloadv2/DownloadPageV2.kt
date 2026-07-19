@@ -117,6 +117,9 @@ import com.junkfood.seal.ui.page.downloadv2.configure.DownloadDialogViewModel
 import com.junkfood.seal.ui.page.downloadv2.configure.FormatPage
 import com.junkfood.seal.ui.page.downloadv2.configure.PlaylistSelectionPage
 import com.junkfood.seal.ui.page.downloadv2.configure.PreferencesMock
+import com.junkfood.seal.ui.page.downloadv2.menu.DownloadPageMenuSheet
+import com.junkfood.seal.ui.page.downloadv2.menu.SortOption
+import com.junkfood.seal.ui.page.downloadv2.menu.ViewOptionsState
 import com.junkfood.seal.ui.svg.DynamicColorImageVectors
 import com.junkfood.seal.ui.svg.drawablevectors.download
 import com.junkfood.seal.ui.theme.SealTheme
@@ -283,12 +286,36 @@ fun DownloadPageImplV2(
     onActionPost: (Task, UiAction) -> Unit,
 ) {
     var activeFilter by remember { mutableStateOf(Filter.All) }
-    val filteredMap by
-        remember(activeFilter) {
-            derivedStateOf { taskDownloadStateMap.filter { activeFilter.predict(it.toPair()) } }
-        }
+    var sortOption by remember { mutableStateOf(SortOption.DateNewest) }
+    var viewOptions by remember { mutableStateOf(ViewOptionsState()) }
+    var isMenuSheetOpen by remember { mutableStateOf(false) }
+    var selectedTasks by remember { mutableStateOf<Set<Task>>(emptySet()) }
+    val isSelectionMode = selectedTasks.isNotEmpty()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val menuSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+
+    val filteredMap by
+        remember(activeFilter, sortOption, taskDownloadStateMap) {
+            derivedStateOf { 
+                val filtered = taskDownloadStateMap.filter { activeFilter.predict(it.toPair()) }
+                filtered.toList().sortedWith(Comparator { a, b ->
+                    when (sortOption) {
+                        SortOption.DateNewest -> b.first.timeCreated.compareTo(a.first.timeCreated)
+                        SortOption.DateOldest -> a.first.timeCreated.compareTo(b.first.timeCreated)
+                        SortOption.NameAZ -> a.second.viewState.title.compareTo(b.second.viewState.title, ignoreCase = true)
+                        SortOption.NameZA -> b.second.viewState.title.compareTo(a.second.viewState.title, ignoreCase = true)
+                        SortOption.SizeLargest -> b.second.viewState.fileSizeApprox.compareTo(a.second.viewState.fileSizeApprox)
+                        SortOption.SizeSmallest -> a.second.viewState.fileSizeApprox.compareTo(b.second.viewState.fileSizeApprox)
+                        SortOption.Status -> {
+                            val stateA = a.second.downloadState::class.java.simpleName
+                            val stateB = b.second.downloadState::class.java.simpleName
+                            stateA.compareTo(stateB)
+                        }
+                    }
+                })
+            }
+        }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
     var selectedTask by remember { mutableStateOf<Task?>(null) }
@@ -300,6 +327,14 @@ fun DownloadPageImplV2(
             selectedTask = task
             delay(50)
             sheetState.show()
+        }
+    }
+    
+    fun toggleSelection(task: Task) {
+        selectedTasks = if (selectedTasks.contains(task)) {
+            selectedTasks - task
+        } else {
+            selectedTasks + task
         }
     }
 
@@ -322,7 +357,6 @@ fun DownloadPageImplV2(
                 else HeaderSpacingDp.dp.toPx()
             }
         var headerOffset by remember { mutableFloatStateOf(spacerHeight) }
-        var isGridView by rememberSaveable { mutableStateOf(true) }
 
         Column(
             modifier =
@@ -399,23 +433,22 @@ fun DownloadPageImplV2(
                         item(span = { GridItemSpan(maxLineSpan) }) {
                             val videoCount =
                                 filteredMap.count {
-                                    !it.value.viewState.videoFormats.isNullOrEmpty()
+                                    !it.second.viewState.videoFormats.isNullOrEmpty()
                                 }
                             SubHeader(
                                 modifier = Modifier,
                                 videoCount = videoCount,
                                 audioCount = filteredMap.size - videoCount,
-                                isGridView = isGridView,
-                                onToggleView = { isGridView = !isGridView },
-                                onShowMenu = { context.makeToast("Not implemented yet!") },
+                                isGridView = viewOptions.isGridView,
+                                onToggleView = { viewOptions = viewOptions.copy(isGridView = !viewOptions.isGridView) },
+                                onShowMenu = { isMenuSheetOpen = true },
                             )
                         }
                     }
 
-                    if (isGridView) {
+                    if (viewOptions.isGridView) {
                         itemsIndexed(
-                            items =
-                                filteredMap.toList().sortedBy { (_, state) -> state.downloadState },
+                            items = filteredMap,
                             key = { _, (task, _) -> task.id },
                         ) { _, item ->
                             val task = item.first
@@ -424,6 +457,10 @@ fun DownloadPageImplV2(
                                 VideoCardV2(
                                     modifier = Modifier.padding(bottom = 20.dp),
                                     viewState = this,
+                                    isSelected = selectedTasks.contains(task),
+                                    showSize = viewOptions.showSize,
+                                    showDuration = viewOptions.showDuration,
+                                    showSource = viewOptions.showSource,
                                     actionButton = {
                                         ActionButton(
                                             modifier = Modifier,
@@ -439,14 +476,19 @@ fun DownloadPageImplV2(
                                             downloadState = state.downloadState,
                                         )
                                     },
-                                    onButtonClick = { showActionSheet(task) },
+                                    onLongClick = {
+                                        view.slightHapticFeedback()
+                                        toggleSelection(task)
+                                    },
+                                    onButtonClick = {
+                                        if (isSelectionMode) toggleSelection(task) else showActionSheet(task)
+                                    },
                                 )
                             }
                         }
                     } else {
                         itemsIndexed(
-                            items =
-                                filteredMap.toList().sortedBy { (_, state) -> state.downloadState },
+                            items = filteredMap,
                             key = { _, (task, _) -> task.id },
                             span = { _, _ -> GridItemSpan(maxLineSpan) },
                         ) { _, item ->
@@ -455,13 +497,23 @@ fun DownloadPageImplV2(
                             VideoListItem(
                                 modifier = Modifier.padding(bottom = 16.dp),
                                 viewState = state.viewState,
+                                isSelected = selectedTasks.contains(task),
+                                showSize = viewOptions.showSize,
+                                showDuration = viewOptions.showDuration,
+                                showSource = viewOptions.showSource,
                                 stateIndicator = {
                                     ListItemStateText(
                                         modifier = Modifier.padding(top = 3.dp),
                                         downloadState = state.downloadState,
                                     )
                                 },
-                                onButtonClick = { showActionSheet(task) },
+                                onLongClick = {
+                                    view.slightHapticFeedback()
+                                    toggleSelection(task)
+                                },
+                                onButtonClick = {
+                                    if (isSelectionMode) toggleSelection(task) else showActionSheet(task)
+                                },
                             )
                         }
                     }
@@ -477,6 +529,85 @@ fun DownloadPageImplV2(
             }
         }
     }
+    
+    if (isMenuSheetOpen) {
+        SealModalBottomSheet(
+            sheetState = menuSheetState,
+            contentPadding = PaddingValues(),
+            onDismissRequest = {
+                scope.launch { menuSheetState.hide() }.invokeOnCompletion { isMenuSheetOpen = false }
+            }
+        ) {
+            val closeMenu = { scope.launch { menuSheetState.hide() }.invokeOnCompletion { isMenuSheetOpen = false } }
+            DownloadPageMenuSheet(
+                activeFilter = activeFilter,
+                sortOption = sortOption,
+                onSortOptionChange = { sortOption = it },
+                viewOptions = viewOptions,
+                onViewOptionsChange = { viewOptions = it },
+                onSelectAll = {
+                    selectedTasks = filteredMap.map { it.first }.toSet()
+                    closeMenu()
+                },
+                onDeleteSelected = {
+                    selectedTasks.forEach { onActionPost(it, UiAction.Delete) }
+                    selectedTasks = emptySet()
+                    closeMenu()
+                },
+                onDeleteCompleted = {
+                    filteredMap.filter { it.second.downloadState is Completed }.forEach { onActionPost(it.first, UiAction.Delete) }
+                    closeMenu()
+                },
+                onDeleteFailed = {
+                    filteredMap.filter { it.second.downloadState is Error || it.second.downloadState is Canceled }.forEach { onActionPost(it.first, UiAction.Delete) }
+                    closeMenu()
+                },
+                onClearHistory = {
+                    filteredMap.forEach { onActionPost(it.first, UiAction.Delete) }
+                    closeMenu()
+                },
+                onPauseAll = {
+                    filteredMap.forEach { onActionPost(it.first, UiAction.Pause) }
+                    closeMenu()
+                },
+                onResumeAll = {
+                    filteredMap.forEach { onActionPost(it.first, UiAction.Resume) }
+                    closeMenu()
+                },
+                onRetryFailed = {
+                    filteredMap.filter { it.second.downloadState is Error || it.second.downloadState is Canceled }.forEach { onActionPost(it.first, UiAction.Resume) }
+                    closeMenu()
+                },
+                onCancelSelected = {
+                    selectedTasks.forEach { onActionPost(it, UiAction.Cancel) }
+                    selectedTasks = emptySet()
+                    closeMenu()
+                },
+                onRetryAll = {
+                    filteredMap.forEach { onActionPost(it.first, UiAction.Resume) }
+                    closeMenu()
+                },
+                onDeleteAll = {
+                    filteredMap.forEach { onActionPost(it.first, UiAction.Delete) }
+                    closeMenu()
+                },
+                onRedownloadAll = {
+                    filteredMap.forEach { onActionPost(it.first, UiAction.Resume) }
+                    closeMenu()
+                },
+                onDeleteHistory = {
+                    filteredMap.forEach { onActionPost(it.first, UiAction.Delete) }
+                    closeMenu()
+                },
+                onDeleteFiles = {
+                    // Requires additional access, this is simplified for now
+                    filteredMap.forEach { onActionPost(it.first, UiAction.Delete) }
+                    closeMenu()
+                }
+            )
+        }
+    }
+
     if (selectedTask != null) {
         val task = selectedTask!!
         val (downloadState, _, viewState) = taskDownloadStateMap[task] ?: return
