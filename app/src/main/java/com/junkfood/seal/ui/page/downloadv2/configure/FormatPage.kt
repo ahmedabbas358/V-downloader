@@ -149,7 +149,7 @@ fun FormatPage(
 
     var diffSubtitleLanguages by remember { mutableStateOf(emptySet<String>()) }
 
-    val isSubtitleOnly = com.junkfood.seal.util.PreferenceUtil.getDownloadType() == com.junkfood.seal.download.DownloadType.Subtitle
+    val isSubtitleOnly = com.junkfood.seal.util.PreferenceUtil.getDownloadType() == com.junkfood.seal.util.DownloadType.Subtitle
 
     FormatPageImpl(
         modifier = modifier,
