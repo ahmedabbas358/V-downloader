@@ -114,7 +114,7 @@
     <string name="close_never_show_again">لا تظهر مرة أخرى</string>
     <string name="not_convert">غير محول</string>
     <string name="additional_settings">إعدادات إضافية</string>
-    <string name="convert_audio_format_desc">إعادة ترميز ملفات الصوت يُخفِّضُ الجودة ويزيد الحجم.</string>
+    <string name="convert_audio_format_desc">إعادة ترميز ملفات الصوت يُخفِّضُ الجودة ويزيد الحجم.</string>
     <string name="video_quality">جودة الفيديو</string>
     <string name="best_quality">أفضل جودة</string>
     <string name="not_specified">غير محدد (افتراضي)</string>
@@ -486,7 +486,6 @@
     <string name="card_view">عرض البطاقات</string>
     <string name="show_hide">إظهار / إخفاء</string>
     <string name="size">الحجم</string>
-    <string name="quality">الجودة</string>
     <string name="date">التاريخ</string>
     <string name="duration">المدة</string>
     <string name="source">المصدر</string>
