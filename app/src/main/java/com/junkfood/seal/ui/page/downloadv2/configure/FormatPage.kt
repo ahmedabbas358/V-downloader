@@ -149,11 +149,14 @@ fun FormatPage(
 
     var diffSubtitleLanguages by remember { mutableStateOf(emptySet<String>()) }
 
+    val isSubtitleOnly = com.junkfood.seal.util.PreferenceUtil.getDownloadType() == com.junkfood.seal.download.DownloadType.Subtitle
+
     FormatPageImpl(
         modifier = modifier,
         videoInfo = videoInfo,
         onNavigateBack = onNavigateBack,
         audioOnly = audioOnly,
+        isSubtitleOnly = isSubtitleOnly,
         mergeAudioStream = !audioOnly && mergeAudioStream,
         selectedSubtitleCodes = initialSelectedSubtitles,
         isClippingAvailable = VIDEO_CLIP.getBoolean() && (videoInfo.duration ?: .0) >= 0,
@@ -288,6 +291,7 @@ private fun FormatPageImpl(
     modifier: Modifier = Modifier,
     videoInfo: VideoInfo = VideoInfo(),
     audioOnly: Boolean = false,
+    isSubtitleOnly: Boolean = false,
     mergeAudioStream: Boolean = false,
     isClippingAvailable: Boolean = false,
     selectedSubtitleCodes: Set<String>,
@@ -296,9 +300,9 @@ private fun FormatPageImpl(
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
-    if (videoInfo.formats.isNullOrEmpty()) return
-    val videoFormats = videoInfo.formats.filter { it.containsVideo() }.reversed()
-    val audioOnlyFormats = videoInfo.formats.filter { it.isAudioOnly() && it.containsAudio() }.reversed()
+    if (videoInfo.availableFormats().isEmpty()) return
+    val videoFormats = videoInfo.availableFormats().filter { it.containsVideo() }.reversed()
+    val audioOnlyFormats = videoInfo.availableFormats().filter { it.isAudioOnly() && it.containsAudio() }.reversed()
 
     val duration = videoInfo.duration ?: 0.0
 
@@ -597,7 +601,7 @@ private fun FormatPageImpl(
                 }
             }
 
-            if (isSuggestedFormatAvailable) {
+            if (isSuggestedFormatAvailable && !isSubtitleOnly) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -628,7 +632,7 @@ private fun FormatPageImpl(
                 }
             }
 
-            if (audioOnlyFormats.isNotEmpty())
+            if (audioOnlyFormats.isNotEmpty() && !isSubtitleOnly)
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -676,7 +680,7 @@ private fun FormatPageImpl(
                 }
             }
 
-            if (!audioOnly && videoFormats.isNotEmpty()) {
+            if (!audioOnly && videoFormats.isNotEmpty() && !isSubtitleOnly) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -714,7 +718,7 @@ private fun FormatPageImpl(
                 }
             }
 
-            if (!audioOnly && audioOnlyFormats.isNotEmpty() && videoFormats.isNotEmpty())
+            if (!audioOnly && audioOnlyFormats.isNotEmpty() && videoFormats.isNotEmpty() && !isSubtitleOnly)
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     PreferenceInfo(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),

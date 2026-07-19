@@ -550,7 +550,7 @@ private fun ConfigurePage(
         }
 
     LaunchedEffect(selectedType) {
-        if (selectedType == Playlist || selectedType == DownloadType.Subtitle) {
+        if (selectedType == Playlist) {
             useFormatSelection = false
         }
     }
@@ -596,7 +596,7 @@ private fun ConfigurePage(
                         )
                         Custom(
                             selected = useFormatSelection,
-                            enabled = selectedType != Playlist && selectedType != DownloadType.Subtitle,
+                            enabled = selectedType != Playlist,
                             onClick = { useFormatSelection = true },
                         )
                     } else {

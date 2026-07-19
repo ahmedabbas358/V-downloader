@@ -67,7 +67,7 @@ fun DownloadPageMenuSheet(
     ) {
         // Management Options based on current section
         Text(
-            text = "Management",
+            text = stringResource(R.string.management),
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
@@ -75,27 +75,27 @@ fun DownloadPageMenuSheet(
 
         when (activeFilter) {
             Filter.All -> {
-                MenuActionItem(icon = Icons.Outlined.SelectAll, text = "Select All", onClick = onSelectAll)
-                MenuActionItem(icon = Icons.Outlined.Delete, text = "Delete Selected", onClick = onDeleteSelected)
-                MenuActionItem(icon = Icons.Outlined.DeleteSweep, text = "Delete Completed", onClick = onDeleteCompleted)
-                MenuActionItem(icon = Icons.Outlined.ErrorOutline, text = "Delete Failed", onClick = onDeleteFailed)
-                MenuActionItem(icon = Icons.Outlined.ClearAll, text = "Clear History", onClick = onClearHistory)
+                MenuActionItem(icon = Icons.Outlined.SelectAll, text = stringResource(R.string.select_all), onClick = onSelectAll)
+                MenuActionItem(icon = Icons.Outlined.Delete, text = stringResource(R.string.delete_selected), onClick = onDeleteSelected)
+                MenuActionItem(icon = Icons.Outlined.DeleteSweep, text = stringResource(R.string.delete_completed), onClick = onDeleteCompleted)
+                MenuActionItem(icon = Icons.Outlined.ErrorOutline, text = stringResource(R.string.delete_failed), onClick = onDeleteFailed)
+                MenuActionItem(icon = Icons.Outlined.ClearAll, text = stringResource(R.string.clear_history), onClick = onClearHistory)
             }
             Filter.Downloading -> {
-                MenuActionItem(icon = Icons.Outlined.SelectAll, text = "Select All", onClick = onSelectAll)
-                MenuActionItem(icon = Icons.Outlined.Pause, text = "Pause All", onClick = onPauseAll)
-                MenuActionItem(icon = Icons.Outlined.PlayArrow, text = "Resume All", onClick = onResumeAll)
-                MenuActionItem(icon = Icons.Outlined.Refresh, text = "Retry Failed", onClick = onRetryFailed)
-                MenuActionItem(icon = Icons.Outlined.Cancel, text = "Cancel Selected", onClick = onCancelSelected)
+                MenuActionItem(icon = Icons.Outlined.SelectAll, text = stringResource(R.string.select_all), onClick = onSelectAll)
+                MenuActionItem(icon = Icons.Outlined.Pause, text = stringResource(R.string.pause_all), onClick = onPauseAll)
+                MenuActionItem(icon = Icons.Outlined.PlayArrow, text = stringResource(R.string.resume_all), onClick = onResumeAll)
+                MenuActionItem(icon = Icons.Outlined.Refresh, text = stringResource(R.string.retry_failed), onClick = onRetryFailed)
+                MenuActionItem(icon = Icons.Outlined.Cancel, text = stringResource(R.string.cancel_selected), onClick = onCancelSelected)
             }
             Filter.Canceled -> {
-                MenuActionItem(icon = Icons.Outlined.Refresh, text = "Retry All", onClick = onRetryAll)
-                MenuActionItem(icon = Icons.Outlined.DeleteForever, text = "Delete All", onClick = onDeleteAll)
+                MenuActionItem(icon = Icons.Outlined.Refresh, text = stringResource(R.string.retry_all), onClick = onRetryAll)
+                MenuActionItem(icon = Icons.Outlined.DeleteForever, text = stringResource(R.string.delete_all), onClick = onDeleteAll)
             }
             Filter.Finished -> {
-                MenuActionItem(icon = Icons.Outlined.Refresh, text = "Redownload All", onClick = onRedownloadAll)
-                MenuActionItem(icon = Icons.Outlined.ClearAll, text = "Delete History", onClick = onDeleteHistory)
-                MenuActionItem(icon = Icons.Outlined.DeleteForever, text = "Delete Files", onClick = onDeleteFiles)
+                MenuActionItem(icon = Icons.Outlined.Refresh, text = stringResource(R.string.redownload_all), onClick = onRedownloadAll)
+                MenuActionItem(icon = Icons.Outlined.ClearAll, text = stringResource(R.string.delete_history), onClick = onDeleteHistory)
+                MenuActionItem(icon = Icons.Outlined.DeleteForever, text = stringResource(R.string.delete_files), onClick = onDeleteFiles)
             }
         }
 
@@ -103,19 +103,19 @@ fun DownloadPageMenuSheet(
 
         // Sort Options
         Text(
-            text = "Sort By",
+            text = stringResource(R.string.sort_by),
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
         )
         val sortOptions = listOf(
-            SortOption.DateNewest to "Date Added (Newest)",
-            SortOption.DateOldest to "Date Added (Oldest)",
-            SortOption.NameAZ to "Name (A-Z)",
-            SortOption.NameZA to "Name (Z-A)",
-            SortOption.SizeLargest to "Size (Largest)",
-            SortOption.SizeSmallest to "Size (Smallest)",
-            SortOption.Status to "Status"
+            SortOption.DateNewest to stringResource(R.string.date_added_newest),
+            SortOption.DateOldest to stringResource(R.string.date_added_oldest),
+            SortOption.NameAZ to stringResource(R.string.name_a_z),
+            SortOption.NameZA to stringResource(R.string.name_z_a),
+            SortOption.SizeLargest to stringResource(R.string.size_largest),
+            SortOption.SizeSmallest to stringResource(R.string.size_smallest),
+            SortOption.Status to stringResource(R.string.status)
         )
         sortOptions.forEach { (option, label) ->
             MenuRadioItem(
@@ -129,36 +129,36 @@ fun DownloadPageMenuSheet(
 
         // View Options
         Text(
-            text = "View Options",
+            text = stringResource(R.string.view_options),
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
         )
         
         MenuRadioItem(
-            text = "List View",
+            text = stringResource(R.string.list_view),
             selected = !viewOptions.isGridView,
             onClick = { onViewOptionsChange(viewOptions.copy(isGridView = false)) }
         )
         MenuRadioItem(
-            text = "Card View",
+            text = stringResource(R.string.card_view),
             selected = viewOptions.isGridView,
             onClick = { onViewOptionsChange(viewOptions.copy(isGridView = true)) }
         )
 
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Show / Hide",
+            text = stringResource(R.string.show_hide),
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
         )
 
-        MenuSwitchItem(text = "Size", checked = viewOptions.showSize, onCheckedChange = { onViewOptionsChange(viewOptions.copy(showSize = it)) })
-        MenuSwitchItem(text = "Quality", checked = viewOptions.showQuality, onCheckedChange = { onViewOptionsChange(viewOptions.copy(showQuality = it)) })
-        MenuSwitchItem(text = "Date", checked = viewOptions.showDate, onCheckedChange = { onViewOptionsChange(viewOptions.copy(showDate = it)) })
-        MenuSwitchItem(text = "Duration", checked = viewOptions.showDuration, onCheckedChange = { onViewOptionsChange(viewOptions.copy(showDuration = it)) })
-        MenuSwitchItem(text = "Source", checked = viewOptions.showSource, onCheckedChange = { onViewOptionsChange(viewOptions.copy(showSource = it)) })
+        MenuSwitchItem(text = stringResource(R.string.size), checked = viewOptions.showSize, onCheckedChange = { onViewOptionsChange(viewOptions.copy(showSize = it)) })
+        MenuSwitchItem(text = stringResource(R.string.quality), checked = viewOptions.showQuality, onCheckedChange = { onViewOptionsChange(viewOptions.copy(showQuality = it)) })
+        MenuSwitchItem(text = stringResource(R.string.date), checked = viewOptions.showDate, onCheckedChange = { onViewOptionsChange(viewOptions.copy(showDate = it)) })
+        MenuSwitchItem(text = stringResource(R.string.duration), checked = viewOptions.showDuration, onCheckedChange = { onViewOptionsChange(viewOptions.copy(showDuration = it)) })
+        MenuSwitchItem(text = stringResource(R.string.source), checked = viewOptions.showSource, onCheckedChange = { onViewOptionsChange(viewOptions.copy(showSource = it)) })
     }
 }
 

@@ -817,6 +817,9 @@ object DownloadUtil {
                         if (!isFallback) {
                             addOption("--playlist-items", playlistItem)
                             if (subdirectoryPlaylistTitle && !videoInfo.playlist.isNullOrEmpty()) {
+                                if (skipDownload && downloadSubtitle) {
+                                    outputBuilder.append("Sub ")
+                                }
                                 outputBuilder.append(PLAYLIST_TITLE_SUBDIRECTORY_PREFIX)
                             }
                         } else {
@@ -826,6 +829,9 @@ object DownloadUtil {
                             }
                             addOption("--parse-metadata", "$playlistItem:%(playlist_index)s")
                             if (subdirectoryPlaylistTitle && fallbackPlaylistTitle.isNotEmpty()) {
+                                if (skipDownload && downloadSubtitle) {
+                                    outputBuilder.append("Sub ")
+                                }
                                 outputBuilder.append(PLAYLIST_TITLE_SUBDIRECTORY_PREFIX)
                             }
                         }
@@ -890,7 +896,7 @@ object DownloadUtil {
                         if (splitByChapter) {
                             OUTPUT_TEMPLATE_SPLIT
                         } else if (videoClips.isEmpty()) {
-                            if (downloadPlaylist && playlistNumbering && playlistItem != 0)
+                            if (downloadPlaylist && (playlistNumbering || (skipDownload && downloadSubtitle)) && playlistItem != 0)
                                 outputTemplate.withPlaylistNumbering()
                             else outputTemplate
                         } else {
