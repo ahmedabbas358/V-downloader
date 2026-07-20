@@ -273,7 +273,6 @@ fun FormatPagePreview() {
                         )
                     )
                 },
-            duration = 180.0,
         )
     SealTheme {
         FormatPageImpl(
