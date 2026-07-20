@@ -828,8 +828,10 @@ object DownloadUtil {
                     if (newTitle.isNotEmpty()) {
                         addCommands(listOf("--replace-in-metadata", "title", ".+", newTitle))
                     }
-                    if (Build.VERSION.SDK_INT > 23 && !sdcard)
-                        addOption("-P", "temp:" + getExternalTempDir())
+                    if (Build.VERSION.SDK_INT > 23 && !sdcard) {
+                        // Removed temp: directory configuration to prevent Errno 2 with subtitles and subdirectories
+                        // addOption("-P", "temp:" + getExternalTempDir())
+                    }
 
                     if (splitByChapter) {
                         addOption("-o", OUTPUT_TEMPLATE_CHAPTERS)

@@ -146,7 +146,7 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
                 androidx.compose.material3.TextButton(
                     onClick = {
                         showYtDlpWarning = false
-                        navController.navigate(Route.AUTO_UPDATE)
+                        navController.navigate(Route.TROUBLESHOOTING)
                     }
                 ) {
                     Text(stringResource(R.string.ytdlp_update_action))
