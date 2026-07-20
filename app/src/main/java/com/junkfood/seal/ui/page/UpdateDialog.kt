@@ -10,6 +10,11 @@ import androidx.compose.material.icons.outlined.NewReleases
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -70,6 +75,63 @@ fun UpdateDialog(onDismissRequest: () -> Unit, release: UpdateUtil.Release) {
 }
 
 @Composable
+fun MarkdownText(text: String) {
+    val lines = text.split('\n')
+    Column {
+        lines.forEach { line ->
+            val trimmedLine = line.trim()
+            when {
+                trimmedLine.startsWith("### ") -> {
+                    Text(
+                        text = trimmedLine.removePrefix("### "),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
+                    )
+                }
+                trimmedLine.startsWith("## ") -> {
+                    Text(
+                        text = trimmedLine.removePrefix("## "),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                    )
+                }
+                trimmedLine.startsWith("# ") -> {
+                    Text(
+                        text = trimmedLine.removePrefix("# "),
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                    )
+                }
+                trimmedLine.startsWith("- ") || trimmedLine.startsWith("* ") -> {
+                    Row(modifier = Modifier.padding(vertical = 2.dp, horizontal = 8.dp)) {
+                        Text("• ", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Text(
+                            text = trimmedLine.substring(2).trim(),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                trimmedLine.isNotBlank() -> {
+                    Text(
+                        text = trimmedLine,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun UpdateDialogImpl(
     onDismissRequest: () -> Unit,
     title: String,
@@ -101,7 +163,7 @@ fun UpdateDialogImpl(
                 Text(text = stringResource(id = R.string.dismiss))
             }
         },
-        text = { Column(Modifier.verticalScroll(rememberScrollState())) { Text(releaseNote) } },
+        text = { Column(Modifier.verticalScroll(rememberScrollState())) { MarkdownText(releaseNote) } },
     )
 }
 
