@@ -104,7 +104,7 @@ object FileUtil {
         }
 
     @CheckResult
-    fun scanFileToMediaLibraryPostDownload(title: String, downloadDir: String): List<String> =
+    fun scanFileToMediaLibraryPostDownload(title: String, downloadDir: String, includeSubtitles: Boolean = false): List<String> =
         File(downloadDir)
             .walkTopDown()
             .filter { it.isFile && it.absolutePath.contains(title) }
@@ -113,7 +113,7 @@ object FileUtil {
             .apply {
                 MediaScannerConnection.scanFile(context, this.toList().toTypedArray(), null, null)
                 removeAll {
-                    it.contains(Regex(THUMBNAIL_REGEX)) || it.contains(Regex(SUBTITLE_REGEX))
+                    it.contains(Regex(THUMBNAIL_REGEX)) || (!includeSubtitles && it.contains(Regex(SUBTITLE_REGEX)))
                 }
             }
 

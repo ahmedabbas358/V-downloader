@@ -496,4 +496,5 @@
     <string name="duration">Duration</string>  
     <string name="source">Source</string>
 
+    <string name="yt_dlp_not_found">yt-dlp executable not found. Please update yt-dlp in Settings.</string>
 </resources>

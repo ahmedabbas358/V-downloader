@@ -467,8 +467,9 @@
     <string name="sponsor_desc">Support this app by sponsoring on GitHub</string>
     <string name="sponsor_msg">V-Downloader will always be free and open source for everyone. If you like it, please consider sponsoring me on GitHub!</string>
     <string name="sponsors">Sponsors</string>
-    <string name="sponsor_msg2">Thank you very much!</string>
+    <string name="sponsor_msg2">Thanks a lot!</string>
     <string name="exit">Exit</string>
+    <string name="subtitle">Subtitle</string>
     <string name="ytdlp_missing_title">yt-dlp Core Missing</string>
     <string name="ytdlp_missing_desc">To download videos, please install the core download engine yt-dlp first.</string>
     <string name="install_now">Install Now</string>

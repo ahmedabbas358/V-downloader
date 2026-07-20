@@ -231,5 +231,8 @@ object FileUtil {
         return Environment.getExternalStorageDirectory().absolutePath + "/$last"
     }
 
+    fun cleanFileName(fileName: String): String =
+        fileName.replace(Regex("[/\\\\:*?\"<>|]"), "_").replace(Regex("\\s+"), " ").trim()
+
     private const val TAG = "FileUtil"
 }

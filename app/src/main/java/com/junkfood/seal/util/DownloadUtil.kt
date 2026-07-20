@@ -714,13 +714,13 @@ object DownloadUtil {
 
         with(downloadPreferences) {
             val url =
-                playlistUrl.ifEmpty {
-                    videoInfo.originalUrl
-                        ?: videoInfo.webpageUrl
-                        ?: return Result.failure(
+                videoInfo.originalUrl
+                    ?: videoInfo.webpageUrl
+                    ?: playlistUrl.ifEmpty {
+                        return Result.failure(
                             Throwable(context.getString(R.string.fetch_info_error_msg))
                         )
-                }
+                    }
             val request = YoutubeDLRequest(url)
             val pathBuilder = StringBuilder()
             val outputBuilder = StringBuilder()
@@ -764,8 +764,13 @@ object DownloadUtil {
                     }
 
                     if (playlistItem != 0 && downloadPlaylist) {
-                        addOption("--playlist-items", playlistItem)
-                        if (subdirectoryPlaylistTitle && !videoInfo.playlist.isNullOrEmpty()) {
+                        addOption("--no-playlist")
+                        if (subdirectoryPlaylistTitle && fallbackPlaylistTitle.isNotEmpty()) {
+                            if (skipDownload && downloadSubtitle) {
+                                outputBuilder.append("Sub ")
+                            }
+                            outputBuilder.append(com.junkfood.seal.util.FileUtil.cleanFileName(fallbackPlaylistTitle)).append("/")
+                        } else if (subdirectoryPlaylistTitle && !videoInfo.playlist.isNullOrEmpty()) {
                             if (skipDownload && downloadSubtitle) {
                                 outputBuilder.append("Sub ")
                             }
@@ -833,8 +838,11 @@ object DownloadUtil {
                         if (splitByChapter) {
                             OUTPUT_TEMPLATE_SPLIT
                         } else if (videoClips.isEmpty()) {
-                            if (downloadPlaylist && (playlistNumbering || (skipDownload && downloadSubtitle)) && playlistItem != 0)
-                                outputTemplate.withPlaylistNumbering()
+                            if (downloadPlaylist && (playlistNumbering || (skipDownload && downloadSubtitle)) && playlistItem != 0) {
+                                val prefix = String.format(java.util.Locale.US, "%03d - ", playlistItem)
+                                val fileNameStart = outputTemplate.lastIndexOf('/').takeIf { it >= 0 }?.plus(1) ?: 0
+                                outputTemplate.replaceRange(fileNameStart, fileNameStart, prefix)
+                            }
                             else outputTemplate
                         } else {
                             OUTPUT_TEMPLATE_CLIPS

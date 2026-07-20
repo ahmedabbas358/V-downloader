@@ -43,7 +43,13 @@ data class Task(
     @Serializable
     sealed interface TypeInfo {
 
-        @Serializable data class Playlist(val index: Int = 0, val playlistTitle: String = "", val playlistUrl: String = "", val isFallback: Boolean = false) : TypeInfo
+        @Serializable data class Playlist(
+            val index: Int = 0,
+            val playlistTitle: String = "",
+            val playlistUrl: String = "",
+            val isFallback: Boolean = false,
+            val retryCount: Int = 0,
+        ) : TypeInfo
 
         @Serializable data class CustomCommand(val template: CommandTemplate) : TypeInfo
 
@@ -142,25 +148,57 @@ data class Task(
     ) {
         companion object {
             fun fromVideoInfo(info: VideoInfo): ViewState {
-                val formats =
+                // Primary: use requestedFormats / requestedDownloads (only available after full download-info fetch)
+                val primaryFormats =
                     info.requestedFormats
                         ?: info.requestedDownloads?.map { it.toFormat() }
-                        ?: emptyList()
+
+                // Fallback: use all available formats from yt-dlp JSON for non-YouTube platforms
+                val allAvailableFormats = info.availableFormats()
+
+                val formats = if (!primaryFormats.isNullOrEmpty()) primaryFormats else allAvailableFormats
 
                 val videoFormats = formats.filter { it.containsVideo() }
                 val audioOnlyFormats = formats.filter { it.isAudioOnly() }
 
+                // Estimate file size: use known size first, then approx, then sum from formats
+                val fileSizeEstimate: Double = info.fileSize
+                    ?: info.fileSizeApprox
+                    ?: allAvailableFormats
+                        .filter { it.containsVideo() || it.isAudioOnly() }
+                        .maxByOrNull { it.effectiveBitrate }
+                        ?.estimatedSizeBytes()
+                    ?: .0
+
+                // Duration: prefer numeric, fall back to durationString parsing
+                val durationSeconds: Int = info.duration?.roundToInt()
+                    ?: parseDurationString(info.durationString)
+                    ?: 0
+
                 return ViewState(
                     url = info.webpageUrl ?: info.originalUrl.toString(),
                     title = info.title,
-                    uploader = info.uploader ?: info.channel ?: info.uploaderId.toString(),
+                    uploader = info.uploader ?: info.channel ?: info.uploaderId?.takeIf { it.isNotEmpty() } ?: "",
                     extractorKey = info.extractorKey,
-                    duration = info.duration?.roundToInt() ?: 0,
+                    duration = durationSeconds,
                     thumbnailUrl = info.thumbnail.toHttpsUrl(),
-                    fileSizeApprox = info.fileSize ?: info.fileSizeApprox ?: .0,
-                    videoFormats = videoFormats,
-                    audioOnlyFormats = audioOnlyFormats,
+                    fileSizeApprox = fileSizeEstimate,
+                    videoFormats = videoFormats.ifEmpty { allAvailableFormats.filter { it.containsVideo() } },
+                    audioOnlyFormats = audioOnlyFormats.ifEmpty { allAvailableFormats.filter { it.isAudioOnly() } },
                 )
+            }
+
+            /** Parse duration strings like "1:23:45" or "12:34" into total seconds */
+            private fun parseDurationString(durationString: String?): Int? {
+                if (durationString.isNullOrBlank()) return null
+                return try {
+                    val parts = durationString.trim().split(":")
+                    when (parts.size) {
+                        2 -> parts[0].toInt() * 60 + parts[1].toInt()
+                        3 -> parts[0].toInt() * 3600 + parts[1].toInt() * 60 + parts[2].toInt()
+                        else -> null
+                    }
+                } catch (_: NumberFormatException) { null }
             }
         }
     }

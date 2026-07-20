@@ -94,23 +94,55 @@ object TaskFactory {
         preferences: DownloadPreferences,
     ): List<TaskWithState> {
         checkNotNull(playlistResult.entries)
-        val indexEntryMap = indexList.associateWith { index -> playlistResult.entries[index - 1] }
+        val entries = playlistResult.entries
+        val playlistTitle = playlistResult.title ?: ""
 
-        val taskList =
-            indexEntryMap.map { (index, entry) ->
-                val viewState =
-                    Task.ViewState(
-                        url = entry.url ?: "",
-                        title = entry.title ?: "${playlistResult.title} - $index",
-                        duration = entry.duration?.roundToInt() ?: 0,
-                        uploader = entry.uploader ?: entry.channel ?: playlistResult.channel ?: "",
-                        thumbnailUrl = (entry.thumbnails?.lastOrNull()?.url) ?: "",
-                    )
-                val task = Task(url = playlistUrl, preferences = preferences, type = Task.TypeInfo.Playlist(index = index, playlistTitle = playlistResult.title ?: "", playlistUrl = playlistUrl))
-                val state =
-                    Task.State(downloadState = Idle, videoInfo = null, viewState = viewState)
-                TaskWithState(task, state)
-            }
+        // Fix: safe index mapping — entries are 0-based, playlist indexes are 1-based
+        // Also ensure downloadPlaylist = true and subdirectoryPlaylistTitle = true
+        val playlistPreferences = preferences.copy(
+            downloadPlaylist = true,
+            playlistNumbering = true,
+            subdirectoryPlaylistTitle = playlistTitle.isNotEmpty(),
+        )
+
+        val taskList = indexList.mapNotNull { index ->
+            // Safe bounds check to avoid IndexOutOfBoundsException
+            val entry = entries.getOrNull(index - 1) ?: return@mapNotNull null
+            val entryUrl = entry.url ?: playlistUrl
+
+            val viewState = Task.ViewState(
+                url = entryUrl,
+                title = entry.title?.let { "$index. $it" } ?: "${playlistTitle.ifEmpty { "Playlist" }} - $index",
+                duration = entry.duration?.roundToInt() ?: 0,
+                uploader = entry.uploader ?: entry.channel ?: playlistResult.channel ?: playlistResult.uploader ?: "",
+                thumbnailUrl = entry.thumbnails?.lastOrNull()?.url ?: "",
+            )
+
+            val dummyInfo = VideoInfo(
+                id = entry.id ?: "",
+                title = entry.title ?: "",
+                webpageUrl = entryUrl,
+                originalUrl = entryUrl,
+                uploader = entry.uploader ?: entry.channel ?: playlistResult.channel ?: playlistResult.uploader ?: "",
+                thumbnail = entry.thumbnails?.lastOrNull()?.url ?: "",
+                extractor = playlistResult.extractorKey ?: "generic",
+                extractorKey = playlistResult.extractorKey ?: "generic",
+                duration = entry.duration,
+            )
+
+            val task = Task(
+                url = entryUrl,
+                preferences = playlistPreferences,
+                type = Task.TypeInfo.Playlist(
+                    index = index,
+                    playlistTitle = playlistTitle,
+                    playlistUrl = playlistUrl,
+                    isFallback = entryUrl != playlistUrl,
+                )
+            )
+            val state = Task.State(downloadState = ReadyWithInfo, videoInfo = dummyInfo, viewState = viewState)
+            TaskWithState(task, state)
+        }
 
         return taskList
     }

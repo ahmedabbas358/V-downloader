@@ -237,7 +237,11 @@ fun SuggestedFormatItem(
 
     val tbrText = remember(totalTbr) { totalTbr.toBitrateText() }
 
-    val firstLineText = remember(fileSizeText, tbrText) { connectWithDelimiter(fileSizeText, tbrText, delimiter = " ") }
+    val unknownText = stringResource(id = R.string.unknown)
+
+    val firstLineText = remember(fileSizeText, tbrText, unknownText) { 
+        connectWithDelimiter(fileSizeText, tbrText, delimiter = " ").ifEmpty { unknownText } 
+    }
 
     val vcodecText = remember(videoInfo) { videoInfo.vcodec?.substringBefore(delimiter = ".") ?: "" }
     val acodecText = remember(videoInfo) { videoInfo.acodec?.substringBefore(delimiter = ".") ?: "" }
@@ -246,7 +250,9 @@ fun SuggestedFormatItem(
         connectWithBlank(vcodecText, acodecText).run { if (isNotBlank()) "($this)" else this }
     }
 
-    val secondLineText = remember(videoInfo.ext, codecText) { connectWithDelimiter(videoInfo.ext, codecText, delimiter = " ").uppercase() }
+    val secondLineText = remember(videoInfo.ext, codecText, unknownText) { 
+        connectWithDelimiter(videoInfo.ext, codecText, delimiter = " ").uppercase().ifEmpty { unknownText } 
+    }
 
     FormatItem(
         modifier = modifier,
@@ -294,9 +300,15 @@ fun FormatItem(
         }
         val fileSizeText = remember(fileSize) { fileSize?.takeIf { it > 0.0 }.toFileSizeText() }
 
-        val firstLineText = remember(fileSizeText, tbrText) { connectWithDelimiter(fileSizeText, tbrText, delimiter = " ") }
+        val unknownText = stringResource(id = R.string.unknown)
 
-        val secondLineText = remember(ext, codec) { connectWithDelimiter(ext, codec, delimiter = " ").uppercase() }
+        val firstLineText = remember(fileSizeText, tbrText, unknownText) { 
+            connectWithDelimiter(fileSizeText, tbrText, delimiter = " ").ifEmpty { unknownText } 
+        }
+
+        val secondLineText = remember(ext, codec, unknownText) { 
+            connectWithDelimiter(ext, codec, delimiter = " ").uppercase().ifEmpty { unknownText } 
+        }
 
         FormatItem(
             modifier = modifier,

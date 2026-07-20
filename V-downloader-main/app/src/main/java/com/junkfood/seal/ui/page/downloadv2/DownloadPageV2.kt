@@ -140,13 +140,21 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Sort
 import androidx.compose.material.icons.outlined.ClearAll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import com.junkfood.seal.ui.page.downloadv2.operations.OperationsViewModel
 import com.junkfood.seal.ui.page.downloadv2.operations.SortMode
+import com.yausername.youtubedl_android.YoutubeDL
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private const val TAG = "DownloadPageV2"
 
@@ -326,6 +334,21 @@ fun DownloadPageImplV2(
     var selectedTask by remember { mutableStateOf<Task?>(null) }
     val view = LocalView.current
 
+    var ytdlpMissing by remember { mutableStateOf(false) }
+    var isInstallingYtdlp by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            try {
+                if (YoutubeDL.getInstance().version(context).isNullOrEmpty()) {
+                    ytdlpMissing = true
+                }
+            } catch (e: Exception) {
+                ytdlpMissing = true
+            }
+        }
+    }
+
     fun showActionSheet(task: Task) {
         view.slightHapticFeedback()
         scope.launch {
@@ -377,6 +400,63 @@ fun DownloadPageImplV2(
             CompositionLocalProvider(LocalOverscrollFactory provides null) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Spacer(Modifier.height(with(LocalDensity.current) { headerOffset.toDp() }))
+                    
+                    if (ytdlpMissing) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = stringResource(R.string.ytdlp_missing_title),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = stringResource(R.string.ytdlp_missing_desc),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Button(
+                                    onClick = {
+                                        isInstallingYtdlp = true
+                                        scope.launch(Dispatchers.IO) {
+                                            try {
+                                                com.junkfood.seal.util.UpdateUtil.updateYtDlp()
+                                                val v = YoutubeDL.getInstance().version(context)
+                                                if (!v.isNullOrEmpty()) {
+                                                    ytdlpMissing = false
+                                                }
+                                            } catch (e: Exception) {
+                                                e.printStackTrace()
+                                            } finally {
+                                                isInstallingYtdlp = false
+                                            }
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.onErrorContainer,
+                                        contentColor = MaterialTheme.colorScheme.errorContainer
+                                    )
+                                ) {
+                                    if (isInstallingYtdlp) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(16.dp),
+                                            color = MaterialTheme.colorScheme.errorContainer,
+                                            strokeWidth = 2.dp
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(text = stringResource(R.string.fetching_info)) // Reusing downloading string
+                                    } else {
+                                        Text(text = stringResource(R.string.install_now))
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     AnimatedContent(
                         targetState = operationsState.isMultiSelectMode,
                         label = "HeaderAnimation"

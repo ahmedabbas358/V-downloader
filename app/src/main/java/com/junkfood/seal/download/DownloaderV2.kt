@@ -420,7 +420,7 @@ class DownloaderV2Impl(
 
                 val sourcePlaylistUrl =
                     if (playlistItem != 0) {
-                        task.url
+                        (task.type as? TypeInfo.Playlist)?.playlistUrl ?: ""
                     } else {
                         ""
                     }
@@ -433,6 +433,7 @@ class DownloaderV2Impl(
                         playlistItem = playlistItem,
                         taskId = task.id,
                         downloadPreferences = task.preferences,
+                        skipDownload = task.preferences.skipDownload,
                         isFallback = (task.type as? TypeInfo.Playlist)?.isFallback ?: false,
                         fallbackPlaylistTitle = (task.type as? TypeInfo.Playlist)?.playlistTitle ?: "",
                         progressCallback = {

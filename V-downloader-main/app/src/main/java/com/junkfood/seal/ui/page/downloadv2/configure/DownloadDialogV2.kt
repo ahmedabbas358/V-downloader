@@ -129,6 +129,7 @@ import com.junkfood.seal.util.DownloadType
 import com.junkfood.seal.util.DownloadType.Audio
 import com.junkfood.seal.util.DownloadType.Command
 import com.junkfood.seal.util.DownloadType.Playlist
+import com.junkfood.seal.util.DownloadType.Subtitle
 import com.junkfood.seal.util.DownloadType.Video
 import com.junkfood.seal.util.DownloadType.entries
 import com.junkfood.seal.util.DownloadUtil
@@ -155,6 +156,7 @@ private fun DownloadType.label(): String =
             Video -> R.string.video
             Command -> R.string.commands
             Playlist -> R.string.playlist
+            Subtitle -> R.string.subtitle
         }
     )
 
@@ -290,6 +292,11 @@ private fun ErrorPage(modifier: Modifier = Modifier, state: Error, onActionPost:
                 }
             }
         }
+    val isYtDlpMissing = state.throwable.message?.contains("executable not found", ignoreCase = true) == true
+    val scope = rememberCoroutineScope()
+    var isInstallingYtdlp by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
     Column(modifier = modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(
             imageVector = Icons.Outlined.ErrorOutline,
@@ -297,12 +304,12 @@ private fun ErrorPage(modifier: Modifier = Modifier, state: Error, onActionPost:
             modifier = Modifier.size(40.dp),
         )
         Text(
-            text = stringResource(R.string.fetch_info_error_msg),
+            text = if (isYtDlpMissing) stringResource(R.string.ytdlp_missing_title) else stringResource(R.string.fetch_info_error_msg),
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(top = 12.dp),
         )
         Text(
-            text = state.throwable.message.toString(),
+            text = if (isYtDlpMissing) stringResource(R.string.ytdlp_missing_desc) else state.throwable.message.toString(),
             style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier =
@@ -314,7 +321,36 @@ private fun ErrorPage(modifier: Modifier = Modifier, state: Error, onActionPost:
         )
 
         Row(modifier = Modifier) {
-            FilledTonalButton(onClick = { onActionPost(state.action) }) { Text("Retry") }
+            if (isYtDlpMissing) {
+                Button(onClick = {
+                    isInstallingYtdlp = true
+                    scope.launch(Dispatchers.IO) {
+                        try {
+                            com.junkfood.seal.util.UpdateUtil.updateYtDlp()
+                            val v = YoutubeDL.getInstance().version(context)
+                            if (!v.isNullOrEmpty()) {
+                                onActionPost(state.action) // retry automatically
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        } finally {
+                            isInstallingYtdlp = false
+                        }
+                    }
+                }) {
+                    if (isInstallingYtdlp) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    Text(stringResource(R.string.install_now))
+                }
+            } else {
+                FilledTonalButton(onClick = { onActionPost(state.action) }) { Text("Retry") }
+            }
             Spacer(Modifier.width(8.dp))
             Button(
                 onClick = {
@@ -391,7 +427,11 @@ private fun DownloadDialogContent(
                         onActionPost(
                             Action.DownloadWithPreset(
                                 urlList = state.urlList,
-                                preferences = preferences.copy(extractAudio = it == Audio),
+                                preferences = preferences.copy(
+                                    extractAudio = it == Audio,
+                                    skipDownload = it == Subtitle || preferences.skipDownload,
+                                    downloadSubtitle = it == Subtitle || preferences.downloadSubtitle
+                                ),
                             )
                         )
                     }
@@ -545,7 +585,7 @@ private fun ConfigurePage(
         }
 
     LaunchedEffect(selectedType) {
-        if (selectedType == Playlist) {
+        if (selectedType == Playlist || selectedType == Subtitle) {
             useFormatSelection = false
         }
     }
@@ -591,7 +631,7 @@ private fun ConfigurePage(
                         )
                         Custom(
                             selected = useFormatSelection,
-                            enabled = selectedType != Playlist,
+                            enabled = selectedType != Playlist && selectedType != Subtitle,
                             onClick = { useFormatSelection = true },
                         )
                     } else {
@@ -661,7 +701,11 @@ private fun ConfigurePage(
                 onActionPost(
                     Action.DownloadWithPreset(
                         urlList = listOf(url),
-                        preferences = preferences.copy(extractAudio = selectedType == Audio),
+                        preferences = preferences.copy(
+                            extractAudio = selectedType == Audio,
+                            skipDownload = selectedType == Subtitle || preferences.skipDownload,
+                            downloadSubtitle = selectedType == Subtitle || preferences.downloadSubtitle
+                        ),
                     )
                 )
             },
@@ -679,7 +723,10 @@ private fun ConfigurePage(
                         Action.FetchFormats(
                             url = url,
                             audioOnly = selectedType == Audio,
-                            preferences = preferences,
+                            preferences = preferences.copy(
+                                skipDownload = selectedType == Subtitle || preferences.skipDownload,
+                                downloadSubtitle = selectedType == Subtitle || preferences.downloadSubtitle
+                            ),
                         )
                     )
                 }
@@ -731,7 +778,7 @@ fun ConfigurePagePlaylistVariant(
                 )
                 DrawerSheetSubtitle(text = stringResource(id = R.string.download_type))
                 DownloadTypeSelectionGroup(
-                    typeEntries = listOf(Video, Audio),
+                    typeEntries = listOf(Video, Audio, Subtitle),
                     selectedType = selectedType,
                     onSelect = { selectedType = it },
                 )

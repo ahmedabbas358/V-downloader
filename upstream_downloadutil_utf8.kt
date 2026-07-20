@@ -1,4 +1,4 @@
-package com.junkfood.seal.util
+﻿package com.junkfood.seal.util
 
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteDatabase.OPEN_READONLY
@@ -78,36 +78,10 @@ object DownloadUtil {
 
     private const val OUTPUT_TEMPLATE_SPLIT = "$BASENAME/$OUTPUT_TEMPLATE_DEFAULT"
 
-    // Fixed: safely conditionally insert playlist_index and dash only if playlist_index exists
-    const val PLAYLIST_INDEX_PADDED = "%(playlist_index|%(autonumber)s)03d"
-
-    const val OUTPUT_TEMPLATE_PLAYLIST = "%(playlist_index|%(autonumber)s)03d - $BASENAME$EXTENSION"
-
-    const val OUTPUT_TEMPLATE_PLAYLIST_ID = "%(playlist_index|%(autonumber)s)03d - $BASENAME $ID$EXTENSION"
-
-    private const val PLAYLIST_TITLE_SUBDIRECTORY_PREFIX = "%(playlist_title,playlist,uploader,id).200B/"
+    private const val PLAYLIST_TITLE_SUBDIRECTORY_PREFIX = "%(playlist)s/"
 
     private const val CROP_ARTWORK_COMMAND =
         """--ppa "ffmpeg: -c:v mjpeg -vf crop=\"'if(gt(ih,iw),iw,ih)':'if(gt(iw,ih),ih,iw)'\"""""
-
-    private fun String.withPlaylistNumbering(): String {
-        if (contains("%(playlist_index") || contains("%(playlist_autonumber")) return this
-
-        val prefix = "$PLAYLIST_INDEX_PADDED - "
-        val fileNameStart = lastIndexOf('/').takeIf { it >= 0 }?.plus(1) ?: 0
-        return replaceRange(fileNameStart, fileNameStart, prefix)
-    }
-
-    /**
-     * Sanitize filename output to remove N/A or NA prefixes that yt-dlp may produce
-     * when playlist_index is not available.
-     */
-    private fun sanitizePlaylistFilename(filename: String): String {
-        return filename
-            .replace(Regex("^(N/A|NA|n/a|na)\\s*-?\\s*"), "")
-            .replace(Regex("/(N/A|NA|n/a|na)\\s*-?\\s*"), "/")
-            .trim()
-    }
 
     @CheckResult
     fun getPlaylistOrVideoInfo(
@@ -118,14 +92,12 @@ object DownloadUtil {
             ToastUtil.makeToastSuspend(context.getString(R.string.fetching_playlist_info))
             val request = YoutubeDLRequest(playlistURL)
             with(request) {
-                addOption("--compat-options", "no-youtube-unavailable-videos,no-live-chat")
+                //            addOption("--compat-options", "no-youtube-unavailable-videos")
                 addOption("--flat-playlist")
                 addOption("--dump-single-json")
-                addOption("--ignore-errors")
-                addYoutubeCompatibilityOptions()
                 addOption("-o", BASENAME)
-                addResilienceOptions(light = false)
-                addOption("--socket-timeout", "15")
+                addOption("-R", "1")
+                addOption("--socket-timeout", "5")
                 downloadPreferences.run {
                     if (extractAudio) {
                         addOption("-x")
@@ -206,65 +178,19 @@ object DownloadUtil {
                     } else {
                         addOption("--dump-single-json")
                     }
-                    addYoutubeCompatibilityOptions()
-                    addResilienceOptions(light = true)
-                    if (playlistIndex == null) {
-                        addOption("--no-playlist")
-                    }
-                    addOption("--socket-timeout", "15")
+                    addOption("-R", "1")
+                    addOption("--no-playlist")
+                    addOption("--socket-timeout", "5")
                 }
-            val result = getVideoInfo(request, taskKey)
-            
-            if (result.isFailure) {
-                if (url.contains("instagram.com", ignoreCase = true) || url.contains("tiktok.com", ignoreCase = true)) {
-                    try {
-                        val fakeVideoInfo = kotlinx.coroutines.runBlocking {
-                            val cobaltUrl = com.junkfood.seal.util.CobaltEngine.fetchVideoUrl(url)
-                            if (cobaltUrl != null) {
-                                val fileSize = com.junkfood.seal.util.CobaltEngine.fetchFileSize(cobaltUrl)
-                                VideoInfo(
-                                    id = url.hashCode().toString(),
-                                    title = "Video_${System.currentTimeMillis()}",
-                                    webpageUrl = cobaltUrl,
-                                    originalUrl = cobaltUrl,
-                                    uploader = "Social Media",
-                                    extractor = "Cobalt",
-                                    extractorKey = "Cobalt",
-                                    duration = 0.0,
-                                    fileSizeApprox = fileSize,
-                                    formats = listOf(Format(
-                                        formatId = "cobalt", 
-                                        url = cobaltUrl, 
-                                        vcodec = "h264", 
-                                        acodec = "aac", 
-                                        ext = "mp4", 
-                                        formatNote = "HD",
-                                        resolution = "HD",
-                                        fileSize = fileSize,
-                                        fileSizeApprox = fileSize
-                                    ))
-                                )
-                            } else null
-                        }
-                        if (fakeVideoInfo != null) {
-                            return Result.success(fakeVideoInfo)
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Cobalt fallback failed: ${e.message}")
-                    }
-                }
-            }
-            return result
+            return getVideoInfo(request, taskKey)
         }
     }
 
     @Serializable
     data class DownloadPreferences(
-        val skipDownload: Boolean,
         val extractAudio: Boolean,
         val createThumbnail: Boolean,
         val downloadPlaylist: Boolean,
-        val playlistNumbering: Boolean,
         val subdirectoryExtractor: Boolean,
         val subdirectoryPlaylistTitle: Boolean,
         val commandDirectory: String,
@@ -317,11 +243,9 @@ object DownloadUtil {
         companion object {
             val EMPTY =
                 DownloadPreferences(
-                    skipDownload = false,
                     extractAudio = false,
                     createThumbnail = false,
                     downloadPlaylist = false,
-                    playlistNumbering = false,
                     subdirectoryExtractor = false,
                     subdirectoryPlaylistTitle = false,
                     commandDirectory = "",
@@ -376,11 +300,9 @@ object DownloadUtil {
                 val downloadSubtitle = SUBTITLE.getBoolean()
                 val embedSubtitle = EMBED_SUBTITLE.getBoolean()
                 return DownloadPreferences(
-                    skipDownload = SUBTITLE_ONLY.getBoolean(),
                     extractAudio = EXTRACT_AUDIO.getBoolean(),
                     createThumbnail = THUMBNAIL.getBoolean(),
                     downloadPlaylist = PLAYLIST.getBoolean(),
-                    playlistNumbering = PLAYLIST_NUMBERING.getBoolean(),
                     subdirectoryExtractor = SUBDIRECTORY_EXTRACTOR.getBoolean(),
                     subdirectoryPlaylistTitle = SUBDIRECTORY_PLAYLIST_TITLE.getBoolean(),
                     commandDirectory = COMMAND_DIRECTORY.getString(),
@@ -441,30 +363,13 @@ object DownloadUtil {
             if (userAgentString.isNotEmpty()) {
                 addOption("--add-header", "User-Agent:$userAgentString")
             }
-            addOption("--socket-timeout", "30")
-            addOption("--retries", "10")
-            addOption("--fragment-retries", "10")
         }
-
-    private fun YoutubeDLRequest.addYoutubeCompatibilityOptions(): YoutubeDLRequest =
-        apply { addOption("--extractor-args", "youtube:player_client=default") }
 
     private fun YoutubeDLRequest.enableProxy(proxyUrl: String): YoutubeDLRequest =
         this.addOption("--proxy", proxyUrl)
 
     private fun YoutubeDLRequest.useDownloadArchive(): YoutubeDLRequest =
         this.addOption("--download-archive", context.getArchiveFile().absolutePath)
-
-    private fun YoutubeDLRequest.addResilienceOptions(light: Boolean = false): YoutubeDLRequest =
-        apply {
-            addOption("-R", if (light) "5" else "15")
-            addOption("--fragment-retries", if (light) "5" else "15")
-            addOption("--file-access-retries", if (light) "3" else "5")
-            addOption("--extractor-retries", if (light) "3" else "5")
-            if (!light) {
-                addOption("--socket-timeout", "30")
-            }
-        }
 
     @CheckResult
     fun getCookieListFromDatabase(): Result<List<Cookie>> = runCatching {
@@ -535,63 +440,38 @@ object DownloadUtil {
             downloadPreferences.run {
                 addOption("--add-metadata")
                 addOption("--no-embed-info-json")
-                addOption("--ignore-no-formats-error")
-                addOption("--no-abort-on-error")
-                
-                if (skipDownload) {
-                    addOption("--skip-download")
-                }
                 if (formatIdString.isNotEmpty()) {
-                    // Fix: Add fallback to 'bestvideo+bestaudio/best' if the specific format is missing
-                    addOption("-f", "$formatIdString/bestvideo+bestaudio/best")
+                    addOption("-f", formatIdString)
                     if (mergeAudioStream) {
                         addOption("--audio-multistreams")
                     }
                 } else {
-                    // Apply format sorter (-S) which is safer and respects user's resolution/codec choice
-                    // without causing 'requested format not available' errors
-                    val formatSorter = toFormatSorter()
-                    if (formatSorter.isNotEmpty()) {
-                        applyFormatSorter(this, formatSorter)
-                    }
+                    applyFormatSorter(this, toFormatSorter())
                 }
-                // Subtitles: isolated in try-catch so subtitle failure never blocks video download
                 if (downloadSubtitle) {
-                    try {
+                    if (autoSubtitle) {
+                        addOption("--write-auto-subs")
+                        if (!autoTranslatedSubtitles) {
+                            addOption("--extractor-args", "youtube:skip=translated_subs")
+                        }
+                    }
+                    subtitleLanguage
+                        .takeIf { it.isNotEmpty() }
+                        ?.let { addOption("--sub-langs", it) }
+                    if (embedSubtitle) {
+                        addOption("--embed-subs")
+                        if (keepSubtitle) {
+                            addOption("--write-subs")
+                        }
+                    } else {
                         addOption("--write-subs")
-                        if (autoSubtitle) {
-                            addOption("--write-auto-subs")
-                            if (!autoTranslatedSubtitles) {
-                                addOption("--extractor-args", "youtube:skip=translated_subs")
-                            }
-                        }
-                        if (subtitleLanguage.isNotEmpty()) {
-                            // Combine user selection with safe fallbacks for auto-translate
-                            if (autoSubtitle) {
-                                addOption("--sub-langs", "$subtitleLanguage,en.*,.*-orig")
-                            } else {
-                                addOption("--sub-langs", subtitleLanguage)
-                            }
-                        } else {
-                            // Default to common languages instead of 'all' which can cause timeouts
-                            addOption("--sub-langs", "ar.*,en.*,fr.*,es.*,de.*,.*-orig")
-                        }
-                        // Set subtitle format preference
-                        addOption("--sub-format", "srt/best")
-                        // Convert subtitles: use user preference, default to srt
-                        when (convertSubtitle) {
-                            CONVERT_ASS -> addOption("--convert-subs", "ass")
-                            CONVERT_SRT -> addOption("--convert-subs", "srt")
-                            CONVERT_VTT -> addOption("--convert-subs", "vtt")
-                            CONVERT_LRC -> addOption("--convert-subs", "lrc")
-                            else -> addOption("--convert-subs", "srt")
-                        }
-                        // Only embed subtitles when we're actually downloading video
-                        if (embedSubtitle && !skipDownload) {
-                            addOption("--embed-subs")
-                        }
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Subtitle options failed, continuing without subtitles: ${e.message}")
+                    }
+                    when (convertSubtitle) {
+                        CONVERT_ASS -> addOption("--convert-subs", "ass")
+                        CONVERT_SRT -> addOption("--convert-subs", "srt")
+                        CONVERT_VTT -> addOption("--convert-subs", "vtt")
+                        CONVERT_LRC -> addOption("--convert-subs", "lrc")
+                        else -> {}
                     }
                 }
                 if (mergeToMkv) {
@@ -608,10 +488,7 @@ object DownloadUtil {
     @CheckResult
     private fun DownloadPreferences.toAudioFormatSorter(): String =
         this.run {
-            if (!useCustomAudioPreset) {
-                // Even without custom preset, sort by best audio bitrate
-                return@run "abr"
-            }
+            if (!useCustomAudioPreset) return@run ""
             val format =
                 when (audioFormat) {
                     M4A -> "acodec:aac"
@@ -623,10 +500,9 @@ object DownloadUtil {
                     HIGH -> "abr~192"
                     MEDIUM -> "abr~128"
                     LOW -> "abr~64"
-                    ULTRA_LOW -> "abr~32"
-                    else -> "abr" // Default: best bitrate
+                    else -> ""
                 }
-            return@run connectWithDelimiter(quality, format, delimiter = ",")
+            return@run connectWithDelimiter(format, quality, delimiter = ",")
         }
 
     @CheckResult
@@ -644,7 +520,6 @@ object DownloadUtil {
 
                     else -> ""
                 }
-            // Resolution sorting: always put resolution first so quality selection actually works
             val res =
                 when (videoResolution) {
                     1 -> "res:2160"
@@ -653,11 +528,15 @@ object DownloadUtil {
                     4 -> "res:720"
                     5 -> "res:480"
                     6 -> "res:360"
-                    7 -> "+res" // lowest resolution
-                    else -> "res" // best resolution (descending by default)
+                    7 -> "+res"
+                    else -> ""
                 }
-            // Always prioritize resolution over codec preference
-            return@run connectWithDelimiter(res, format, delimiter = ",")
+            val sorter = if (videoFormat == FORMAT_COMPATIBILITY) {
+                connectWithDelimiter(format, res, delimiter = ",")
+            } else {
+                connectWithDelimiter(res, format, delimiter = ",")
+            }
+            return@run sorter
         }
 
     private fun YoutubeDLRequest.applyFormatSorter(
@@ -685,45 +564,28 @@ object DownloadUtil {
         this.apply {
             with(preferences) {
                 addOption("-x")
-                addOption("--ignore-no-formats-error")
-                addOption("--no-abort-on-error")
-                if (skipDownload) {
-                    addOption("--skip-download")
-                }
-                // Subtitles: isolated so subtitle failure never blocks audio download
                 if (downloadSubtitle) {
-                    try {
-                        addOption("--write-subs")
-                        if (autoSubtitle) {
-                            addOption("--write-auto-subs")
-                            if (!autoTranslatedSubtitles) {
-                                addOption("--extractor-args", "youtube:skip=translated_subs")
-                            }
+                    addOption("--write-subs")
+
+                    if (autoSubtitle) {
+                        addOption("--write-auto-subs")
+                        if (!autoTranslatedSubtitles) {
+                            addOption("--extractor-args", "youtube:skip=translated_subs")
                         }
-                        if (subtitleLanguage.isNotEmpty()) {
-                            if (autoSubtitle) {
-                                addOption("--sub-langs", "$subtitleLanguage,en.*,.*-orig")
-                            } else {
-                                addOption("--sub-langs", subtitleLanguage)
-                            }
-                        } else {
-                            addOption("--sub-langs", "ar.*,en.*,fr.*,es.*,de.*,.*-orig")
-                        }
-                        addOption("--sub-format", "srt/best")
-                        when (convertSubtitle) {
-                            CONVERT_ASS -> addOption("--convert-subs", "ass")
-                            CONVERT_SRT -> addOption("--convert-subs", "srt")
-                            CONVERT_VTT -> addOption("--convert-subs", "vtt")
-                            CONVERT_LRC -> addOption("--convert-subs", "lrc")
-                            else -> addOption("--convert-subs", "srt")
-                        }
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Subtitle options failed for audio: ${e.message}")
+                    }
+                    subtitleLanguage
+                        .takeIf { it.isNotEmpty() }
+                        ?.let { addOption("--sub-langs", it) }
+                    when (convertSubtitle) {
+                        CONVERT_ASS -> addOption("--convert-subs", "ass")
+                        CONVERT_SRT -> addOption("--convert-subs", "srt")
+                        CONVERT_VTT -> addOption("--convert-subs", "vtt")
+                        CONVERT_LRC -> addOption("--convert-subs", "lrc")
+                        else -> {}
                     }
                 }
                 if (formatIdString.isNotEmpty()) {
-                    // Fix: Add fallback to 'bestaudio/best' if the specific format is missing
-                    addOption("-f", "$formatIdString/bestaudio/best")
+                    addOption("-f", formatIdString)
                     if (mergeAudioStream) {
                         addOption("--audio-multistreams")
                     }
@@ -731,19 +593,14 @@ object DownloadUtil {
                     when (audioConvertFormat) {
                         CONVERT_MP3 -> {
                             addOption("--audio-format", "mp3")
-                            addOption("--audio-quality", "0") // Best quality
                         }
 
                         CONVERT_M4A -> {
                             addOption("--audio-format", "m4a")
-                            addOption("--audio-quality", "0") // Best quality
                         }
                     }
                 } else {
-                    val audioSorter = toAudioFormatSorter()
-                    if (audioSorter.isNotEmpty()) {
-                        applyFormatSorter(preferences, audioSorter)
-                    }
+                    applyFormatSorter(preferences, toAudioFormatSorter())
                 }
 
                 if (embedMetadata) {
@@ -807,8 +664,6 @@ object DownloadUtil {
         taskId: String,
         downloadPreferences: DownloadPreferences,
         progressCallback: ((Float, Long, String) -> Unit)?,
-        isFallback: Boolean = false,
-        fallbackPlaylistTitle: String = "",
     ): Result<List<String>> {
         if (videoInfo == null)
             return Result.failure(Throwable(context.getString(R.string.fetch_info_error_msg)))
@@ -842,7 +697,6 @@ object DownloadUtil {
                     if (forceIpv4) {
                         addOption("-4")
                     }
-                    addYoutubeCompatibilityOptions()
                     if (debug) {
                         addOption("-v")
                     }
@@ -863,27 +717,14 @@ object DownloadUtil {
                     if (rateLimit && maxDownloadRate.isNumberInRange(1, 1000000)) {
                         addOption("-r", "${maxDownloadRate}K")
                     }
-                    // Restored --ignore-errors as per user request to not fail on subtitles/playlists
-                    addOption("--ignore-errors")
-                    addOption("--compat-options", "no-youtube-unavailable-videos,no-live-chat")
-                    addResilienceOptions()
 
                     if (playlistItem != 0 && downloadPlaylist) {
-                        if (!isFallback) {
-                            addOption("--playlist-items", playlistItem)
-                            if (subdirectoryPlaylistTitle && !videoInfo.playlist.isNullOrEmpty()) {
-                                outputBuilder.append(PLAYLIST_TITLE_SUBDIRECTORY_PREFIX)
-                            }
-                        } else {
-                            addOption("--no-playlist")
-                            if (fallbackPlaylistTitle.isNotEmpty()) {
-                                addOption("--parse-metadata", "$fallbackPlaylistTitle:%(playlist_title)s")
-                            }
-                            addOption("--parse-metadata", "$playlistItem:%(playlist_index)s")
-                            if (subdirectoryPlaylistTitle && fallbackPlaylistTitle.isNotEmpty()) {
-                                outputBuilder.append(PLAYLIST_TITLE_SUBDIRECTORY_PREFIX)
-                            }
+                        addOption("--playlist-items", playlistItem)
+                        if (subdirectoryPlaylistTitle && !videoInfo.playlist.isNullOrEmpty()) {
+                            outputBuilder.append(PLAYLIST_TITLE_SUBDIRECTORY_PREFIX)
                         }
+                        //                    addOption("--compat-options",
+                        // "no-youtube-unavailable-videos")
                     } else {
                         addOption("--no-playlist")
                     }
@@ -934,7 +775,8 @@ object DownloadUtil {
                     if (newTitle.isNotEmpty()) {
                         addCommands(listOf("--replace-in-metadata", "title", ".+", newTitle))
                     }
-                    // Removed temp: directory configuration to prevent Errno 2 with subtitles and subdirectories
+                    if (Build.VERSION.SDK_INT > 23 && !sdcard)
+                        addOption("-P", "temp:" + getExternalTempDir())
 
                     if (splitByChapter) {
                         addOption("-o", OUTPUT_TEMPLATE_CHAPTERS)
@@ -945,9 +787,7 @@ object DownloadUtil {
                         if (splitByChapter) {
                             OUTPUT_TEMPLATE_SPLIT
                         } else if (videoClips.isEmpty()) {
-                            if (downloadPlaylist && playlistNumbering && playlistItem != 0)
-                                outputTemplate.withPlaylistNumbering()
-                            else outputTemplate
+                            outputTemplate
                         } else {
                             OUTPUT_TEMPLATE_CLIPS
                         }
@@ -960,57 +800,12 @@ object DownloadUtil {
                     YoutubeDL.getInstance()
                         .execute(request = this, processId = taskId, callback = progressCallback)
                 }
-                .mapCatching { response ->
-                    val out = response.out ?: ""
-                    val downloadedPaths = mutableListOf<String>()
-                    val regexDestination = Regex("\\[download\\] Destination: (.+)")
-                    val regexAlready = Regex("\\[download\\] (.+) has already been downloaded")
-                    val regexExtractAudio = Regex("\\[ExtractAudio\\] Destination: (.+)")
-                    val regexMerger = Regex("\\[Merger\\] Merging formats into \"(.+)\"")
-                    // Capture subtitle file paths for subtitle-only mode
-                    val regexSubtitle = Regex("\\[info\\] Writing video subtitles to: (.+)")
-                    val regexSubtitleConvert = Regex("\\[SubtitlesConvertor\\] Converting subtitles.*: (.+)")
-                    
-                    for (line in out.split("\n")) {
-                        regexDestination.find(line)?.let { downloadedPaths.add(it.groupValues[1].trim()) }
-                        regexAlready.find(line)?.let { downloadedPaths.add(it.groupValues[1].trim()) }
-                        regexExtractAudio.find(line)?.let { downloadedPaths.add(it.groupValues[1].trim()) }
-                        regexMerger.find(line)?.let { downloadedPaths.add(it.groupValues[1].trim()) }
-                        regexSubtitle.find(line)?.let { downloadedPaths.add(it.groupValues[1].trim()) }
-                        regexSubtitleConvert.find(line)?.let { downloadedPaths.add(it.groupValues[1].trim()) }
-                    }
-
-                    if (skipDownload) {
-                        // Subtitle-only mode: success even if no video files were downloaded
-                        // Subtitle files may or may not appear in paths depending on yt-dlp version
-                        Log.d(TAG, "Subtitle-only mode: ${downloadedPaths.size} file(s) found")
-                    } else if (downloadedPaths.isNotEmpty()) {
-                        val finalPath = downloadedPaths.last()
-                        val file = java.io.File(finalPath)
-                        if (!file.exists() || file.length() == 0L) {
-                            throw com.yausername.youtubedl_android.YoutubeDLException("File validation failed: $finalPath does not exist or is empty")
-                        }
-                    } else if (!downloadPreferences.downloadSubtitle) {
-                        // If no file was downloaded and we didn't just ask for subtitles, it's an error
-                        throw com.yausername.youtubedl_android.YoutubeDLException("No files downloaded")
-                    }
-                    response
-                }
                 .onFailure { th ->
                     return if (
                         sponsorBlock &&
                             th.message?.contains("Unable to communicate with SponsorBlock API") ==
                                 true
                     ) {
-                        th.printStackTrace()
-                        onFinishDownloading(
-                            preferences = this,
-                            videoInfo = videoInfo,
-                            downloadPath = pathBuilder.toString(),
-                            sdcardUri = sdcardUri,
-                        )
-                    } else if (downloadPlaylist && th is com.yausername.youtubedl_android.YoutubeDLException) {
-                        // Playlist download: if yt-dlp threw an exception due to a single failure but other items might have succeeded
                         th.printStackTrace()
                         onFinishDownloading(
                             preferences = this,
@@ -1062,7 +857,6 @@ object DownloadUtil {
                 FileUtil.scanFileToMediaLibraryPostDownload(
                         title = fileName,
                         downloadDir = downloadPath,
-                        includeSubtitles = skipDownload,
                     )
                     .run {
                         if (privateMode) Result.success(emptyList())
