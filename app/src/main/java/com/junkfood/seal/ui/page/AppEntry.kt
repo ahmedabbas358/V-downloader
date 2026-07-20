@@ -89,6 +89,8 @@ import com.junkfood.seal.ui.page.downloadv2.configure.FormatPage
 import com.junkfood.seal.ui.page.downloadv2.configure.PlaylistSelectionPage
 import com.junkfood.seal.ui.page.downloadv2.configure.DownloadDialogViewModel.Action
 import com.junkfood.seal.util.DownloadUtil
+import com.junkfood.seal.util.PreferenceUtil.getString
+import com.junkfood.seal.util.YT_DLP_VERSION
 
 private const val TAG = "HomeEntry"
 
@@ -130,6 +132,32 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
+    }
+
+    val ytdlpVersion = YT_DLP_VERSION.getString()
+    var showYtDlpWarning by rememberSaveable { mutableStateOf(ytdlpVersion.isEmpty()) }
+
+    if (showYtDlpWarning) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showYtDlpWarning = false },
+            title = { Text(stringResource(R.string.yt_dlp_not_found)) },
+            text = { Text(stringResource(R.string.ytdlp_startup_prompt)) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = {
+                        showYtDlpWarning = false
+                        navController.navigate(Route.AUTO_UPDATE)
+                    }
+                ) {
+                    Text(stringResource(R.string.ytdlp_update_action))
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { showYtDlpWarning = false }) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+            }
+        )
     }
 
     val onNavigateBack: () -> Unit = {

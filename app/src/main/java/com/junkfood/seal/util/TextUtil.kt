@@ -46,7 +46,7 @@ private const val MEGA_BYTES = 1024f * 1024f
 
 @Composable
 fun Number?.toFileSizeText(): String {
-    if (this == null) return stringResource(id = R.string.unknown)
+    if (this == null || this.toFloat() <= 0f) return stringResource(id = R.string.unknown)
 
     return this.toFloat().run {
         if (this > GIGA_BYTES) stringResource(R.string.filesize_gb).format(this / GIGA_BYTES)
@@ -57,7 +57,8 @@ fun Number?.toFileSizeText(): String {
 /** Convert time in **seconds** to `hh:mm:ss` or `mm:ss` */
 fun Int.toDurationText(): String =
     this.run {
-        if (this > 3600) "%d:%02d:%02d".format(this / 3600, (this % 3600) / 60, this % 60)
+        if (this <= 0) "--:--"
+        else if (this > 3600) "%d:%02d:%02d".format(this / 3600, (this % 3600) / 60, this % 60)
         else "%02d:%02d".format(this / 60, this % 60)
     }
 

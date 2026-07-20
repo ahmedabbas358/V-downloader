@@ -496,7 +496,7 @@ object DownloadUtil {
                     subtitleLanguage
                         .takeIf { it.isNotEmpty() }
                         ?.let { addOption("--sub-langs", it) }
-                    if (embedSubtitle) {
+                    if (embedSubtitle && !skipDownload) {
                         addOption("--embed-subs")
                         if (keepSubtitle) {
                             addOption("--write-subs")
@@ -817,11 +817,13 @@ object DownloadUtil {
                         addOption("-P", pathBuilder.toString())
                     }
 
-                    videoClips.forEach {
-                        addOption(
-                            "--download-sections",
-                            "*%d-%d".format(locale = Locale.US, it.start, it.end),
-                        )
+                    if (!skipDownload) {
+                        videoClips.forEach {
+                            addOption(
+                                "--download-sections",
+                                "*%d-%d".format(locale = Locale.US, it.start, it.end),
+                            )
+                        }
                     }
                     if (newTitle.isNotEmpty()) {
                         addCommands(listOf("--replace-in-metadata", "title", ".+", newTitle))
@@ -889,9 +891,12 @@ object DownloadUtil {
         preferences.run {
             val fileName =
                 preferences.newTitle.ifEmpty {
-                    videoInfo.filename
-                        ?: videoInfo.requestedDownloads?.firstOrNull()?.filename
-                        ?: videoInfo.title
+                    val fn = videoInfo.filename ?: videoInfo.requestedDownloads?.firstOrNull()?.filename
+                    if (skipDownload && fn != null) {
+                        fn.substringBeforeLast(".")
+                    } else {
+                        fn ?: videoInfo.title
+                    }
                 }
 
             Log.d(TAG, "onFinishDownloading: $fileName")
@@ -913,6 +918,7 @@ object DownloadUtil {
                 FileUtil.scanFileToMediaLibraryPostDownload(
                         title = fileName,
                         downloadDir = downloadPath,
+                        isSubtitleOnly = skipDownload,
                     )
                     .run {
                         if (privateMode) Result.success(emptyList())

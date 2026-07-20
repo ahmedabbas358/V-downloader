@@ -489,4 +489,5 @@
     <string name="date">التاريخ</string>
     <string name="duration">المدة</string>
     <string name="source">المصدر</string>
+    <string name="ytdlp_startup_prompt">يرجى تنزيل المكتبة حتى تعمل وظائف التطبيق بكفاءة.</string>
 </resources>

@@ -497,4 +497,5 @@
     <string name="source">Source</string>
 
     <string name="yt_dlp_not_found">yt-dlp executable not found. Please update yt-dlp in Settings.</string>
+    <string name="ytdlp_startup_prompt">Please download the required library for the application functions to work properly.</string>
 </resources>

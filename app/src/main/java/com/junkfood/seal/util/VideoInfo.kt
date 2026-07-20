@@ -23,7 +23,7 @@ data class VideoInfo(
     //    @SerialName("uploader_url") val uploaderUrl: String? = null,
     //    @SerialName("channel_id") val channelId: Int? = null,
     //    @SerialName("channel_url") val channelUrl: String? = null,
-    val duration: Double? = null,
+    @SerialName("duration") private val _duration: Double? = null,
     @SerialName("view_count") val viewCount: Long? = null,
     @SerialName("webpage_url") val webpageUrl: String? = null,
     //    @SerialName("categories") val categories: List<String> = emptyList(),
@@ -71,7 +71,21 @@ data class VideoInfo(
     @SerialName("requested_formats") val requestedFormats: List<Format>? = null,
     val filename: String? = null,
     @SerialName("_type") val type: String? = null,
-) : YoutubeDLInfo
+) : YoutubeDLInfo {
+    val duration: Double?
+        get() = _duration ?: durationString?.let {
+            try {
+                val parts = it.split(":")
+                var sec = 0.0
+                for (part in parts) {
+                    sec = sec * 60 + part.toDouble()
+                }
+                sec
+            } catch (e: Exception) {
+                null
+            }
+        }
+}
 
 @Serializable
 data class Format(
