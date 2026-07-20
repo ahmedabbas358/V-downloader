@@ -1,0 +1,173 @@
+﻿diff --git a/app/src/main/java/com/junkfood/seal/util/VideoInfo.kt b/app/src/main/java/com/junkfood/seal/util/VideoInfo.kt
+index 1b6857d8..afb3b383 100644
+--- a/app/src/main/java/com/junkfood/seal/util/VideoInfo.kt
++++ b/app/src/main/java/com/junkfood/seal/util/VideoInfo.kt
+@@ -71,7 +71,64 @@ data class VideoInfo(
+     @SerialName("requested_formats") val requestedFormats: List<Format>? = null,
+     val filename: String? = null,
+     @SerialName("_type") val type: String? = null,
+-) : YoutubeDLInfo
++) : YoutubeDLInfo {
++
++    /**
++     * All formats yt-dlp actually reported for this video, filtered to those that are
++     * realistically downloadable (must have a resolvable URL and either audio or video).
++     * This NEVER invents formats that aren't present in the original JSON ΓÇö it only
++     * filters out junk entries (e.g. "storyboard" mhtml formats, formats with no url).
++     */
++    fun availableFormats(): List<Format> =
++        formats.orEmpty().filter { f ->
++            !f.url.isNullOrBlank() && !f.isStoryboard()
++        }
++
++    /**
++     * Formats sorted by *real* quality, highest first.
++     * Priority: resolution (height) > fps > bitrate (tbr, falling back to vbr+abr) > codec quality.
++     * Combined (video+audio) formats and video-only formats are compared on the same scale so
++     * that e.g. a 2160p video-only stream correctly ranks above a 720p combined stream.
++     */
++    fun sortedFormatsByQuality(): List<Format> =
++        availableFormats().sortedWith(FormatQualityComparator)
++
++    /**
++     * Distinct resolutions (heights) actually available from yt-dlp, sorted descending.
++     * Audio-only formats are excluded since they have no meaningful resolution.
++     * Example: if yt-dlp only reports 2160p/1440p/1080p/720p, this returns exactly those,
++     * never a resolution that wasn't actually offered.
++     */
++    fun availableResolutions(): List<Int> =
++        availableFormats()
++            .filter { it.containsVideo() }
++            .mapNotNull { it.height?.roundToInt() }
++            .filter { it > 0 }
++            .distinct()
++            .sortedDescending()
++
++    /** Best video-only format for a given target height, or the best overall if height is null. */
++    fun bestVideoOnlyFormat(targetHeight: Int? = null): Format? =
++        availableFormats()
++            .filter { it.isVideoOnly() && it.containsVideo() }
++            .let { list -> targetHeight?.let { h -> list.filter { (it.height?.roundToInt() ?: 0) <= h } } ?: list }
++            .sortedWith(FormatQualityComparator)
++            .firstOrNull()
++
++    /** Best audio-only format available. */
++    fun bestAudioOnlyFormat(): Format? =
++        availableFormats()
++            .filter { it.isAudioOnly() && it.containsAudio() }
++            .sortedWith(FormatQualityComparator)
++            .firstOrNull()
++}
++
++enum class StreamType {
++    VIDEO_ONLY,
++    AUDIO_ONLY,
++    COMBINED,
++    UNKNOWN,
++}
+ 
+ @Serializable
+ data class Format(
+@@ -94,13 +151,98 @@ data class Format(
+     @SerialName("filesize") val fileSize: Double? = null,
+     @SerialName("filesize_approx") val fileSizeApprox: Double? = null,
+ ) {
+-    fun isAudioOnly(): Boolean = vcodec == null || vcodec == "none"
++    /**
++     * yt-dlp reports "no codec" in two different ways depending on extractor/version:
++     * an actual JSON null, OR the literal string "none". Some extractors also emit "" .
++     * Treat all three the same way everywhere instead of duplicating this check.
++     */
++    private fun String?.isAbsentCodec(): Boolean =
++        this == null || this.equals("none", ignoreCase = true) || this.isBlank()
++
++    fun isAudioOnly(): Boolean = vcodec.isAbsentCodec() && !acodec.isAbsentCodec()
++
++    fun isVideoOnly(): Boolean = acodec.isAbsentCodec() && !vcodec.isAbsentCodec()
++
++    fun containsVideo(): Boolean = !vcodec.isAbsentCodec() || (width != null && width > 0.0) || (height != null && height > 0.0) || (vcodec.isAbsentCodec() && acodec.isAbsentCodec() && resolution != "audio only")
++
++    fun containsAudio(): Boolean = !acodec.isAbsentCodec() || (vcodec.isAbsentCodec() && acodec.isAbsentCodec())
++
++    fun isCombined(): Boolean = containsVideo() && containsAudio()
++
++    fun isStoryboard(): Boolean =
++        formatNote?.contains("storyboard", ignoreCase = true) == true ||
++            ext.equals("mhtml", ignoreCase = true)
++
++    val streamType: StreamType
++        get() =
++            when {
++                isCombined() -> StreamType.COMBINED
++                isVideoOnly() -> StreamType.VIDEO_ONLY
++                isAudioOnly() -> StreamType.AUDIO_ONLY
++                else -> StreamType.UNKNOWN
++            }
++
++    /** Effective bitrate in kbps: prefer tbr, otherwise sum whatever video/audio bitrate exists. */
++    val effectiveBitrate: Double
++        get() = tbr ?: ((vbr ?: 0.0) + (abr ?: 0.0)).takeIf { it > 0.0 } ?: 0.0
++
++    val effectiveHeight: Int
++        get() = height?.roundToInt() ?: 0
++
++    val effectiveFps: Double
++        get() = fps ?: 0.0
++
++    /**
++     * Rough codec-quality rank used only as the last tie-breaker (after resolution/fps/bitrate
++     * already matched). Newer, more efficient codecs rank slightly higher when everything else
++     * is equal ΓÇö but this NEVER overrides resolution or bitrate differences.
++     */
++    private val videoCodecRank: Int
++        get() =
++            when {
++                vcodec == null -> 0
++                vcodec.startsWith("av01") -> 4
++                vcodec.startsWith("vp9") -> 3
++                vcodec.startsWith("avc1") || vcodec.startsWith("h264") -> 2
++                vcodec.startsWith("vp8") -> 1
++                else -> 0
++            }
++
++    private val audioCodecRank: Int
++        get() =
++            when {
++                acodec == null -> 0
++                acodec.startsWith("opus") -> 3
++                acodec.startsWith("mp4a") || acodec.startsWith("aac") -> 2
++                acodec.startsWith("mp3") -> 1
++                else -> 0
++            }
++
++    internal val codecRank: Int
++        get() = videoCodecRank + audioCodecRank
++
++    fun estimatedSizeBytes(): Double? = fileSize ?: fileSizeApprox
++}
++
++/**
++ * Real-quality comparator: resolution > fps > bitrate > codec, exactly as requested.
++ * Never used to invent or hide formats ΓÇö only to order what yt-dlp actually returned.
++ */
++object FormatQualityComparator : Comparator<Format> {
++    override fun compare(a: Format, b: Format): Int {
++        // 1) Resolution (height first, then width as a tie-breaker for equal height)
++        compareValues(b.effectiveHeight, a.effectiveHeight).let { if (it != 0) return it }
++        compareValues(b.width ?: 0.0, a.width ?: 0.0).let { if (it != 0) return it }
+ 
+-    fun isVideoOnly(): Boolean = acodec == null || acodec == "none"
++        // 2) FPS
++        compareValues(b.effectiveFps, a.effectiveFps).let { if (it != 0) return it }
+ 
+-    fun containsVideo(): Boolean = vcodec != null && vcodec != "none"
++        // 3) Bitrate
++        compareValues(b.effectiveBitrate, a.effectiveBitrate).let { if (it != 0) return it }
+ 
+-    fun containsAudio(): Boolean = acodec != null && acodec != "none"
++        // 4) Codec quality (tie-breaker only)
++        return compareValues(b.codecRank, a.codecRank)
++    }
+ }
+ 
+ @Serializable

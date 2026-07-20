@@ -9,6 +9,7 @@ import com.junkfood.seal.util.DownloadUtil
 import com.junkfood.seal.util.PlaylistResult
 import com.junkfood.seal.util.VideoInfo
 import com.yausername.youtubedl_android.YoutubeDL
+import com.junkfood.seal.ui.page.downloadv2.configure.Config
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -267,6 +268,21 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
         mSelectionStateFlow.update { SelectionState.Idle }
         mSheetStateFlow.update { SheetState.InputUrl }
         mSheetValueFlow.update { SheetValue.Hidden }
+    }
+
+    // Retrieves the current Config for a given task ID. Currently returns global Config.
+    fun getConfigForTask(taskId: Int): Config {
+        // In a full implementation, you would extract task‑specific preferences.
+        // Here we return the default Config based on current global preferences.
+        return Config()
+    }
+
+    // Applies edited Config changes and persists them. Updates global preferences.
+    fun applyEditorChanges(taskId: Int, newConfig: Config) {
+        // Persist changes globally.
+        Config.updatePreferences(newValue = newConfig, oldValue = Config())
+        // If task‑specific preferences are needed, they can be updated here.
+        // For now we simply refresh the UI via the existing state flows if required.
     }
 
     // ——— Lifecycle ———

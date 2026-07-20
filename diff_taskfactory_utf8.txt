@@ -1,0 +1,61 @@
+﻿diff --git a/app/src/main/java/com/junkfood/seal/download/TaskFactory.kt b/app/src/main/java/com/junkfood/seal/download/TaskFactory.kt
+index 247a5699..a3b00df1 100644
+--- a/app/src/main/java/com/junkfood/seal/download/TaskFactory.kt
++++ b/app/src/main/java/com/junkfood/seal/download/TaskFactory.kt
+@@ -24,6 +24,7 @@ object TaskFactory {
+         newTitle: String,
+         selectedSubtitles: List<String>,
+         selectedAutoCaptions: List<String>,
++        skipDownload: Boolean = false,
+     ): TaskWithState {
+         val fileSize =
+             formatList.fold(.0) { acc, format ->
+@@ -39,7 +40,13 @@ object TaskFactory {
+         val videoFormats = formatList.filter { it.containsVideo() }
+         val audioOnly = audioOnlyFormats.isNotEmpty() && videoFormats.isEmpty()
+         val mergeAudioStream = audioOnlyFormats.size > 1
+-        val formatId = formatList.joinToString(separator = "+") { it.formatId.toString() }
++        val baseFormatId = formatList.joinToString(separator = "+") { it.formatId.toString() }
++        
++        val formatId = if (videoFormats.size == 1 && audioOnlyFormats.isEmpty() && videoFormats[0].isVideoOnly()) {
++            "$baseFormatId+ba/best"
++        } else {
++            baseFormatId
++        }
+ 
+         val subtitleLanguage =
+             (selectedSubtitles + selectedAutoCaptions).joinToString(separator = ",")
+@@ -54,18 +61,15 @@ object TaskFactory {
+                         newTitle = newTitle,
+                         mergeAudioStream = mergeAudioStream,
+                         extractAudio = extractAudio || audioOnly,
++                        skipDownload = skipDownload,
+                     )
+                 }
+                 .run {
+-                    if (subtitleLanguage.isNotEmpty()) {
+-                        copy(
+-                            downloadSubtitle = true,
+-                            autoSubtitle = selectedAutoCaptions.isNotEmpty(),
+-                            subtitleLanguage = subtitleLanguage,
+-                        )
+-                    } else {
+-                        this
+-                    }
++                    copy(
++                        downloadSubtitle = subtitleLanguage.isNotEmpty(),
++                        autoSubtitle = selectedAutoCaptions.isNotEmpty(),
++                        subtitleLanguage = subtitleLanguage,
++                    )
+                 }
+ 
+         val task = Task(url = info.originalUrl.toString(), preferences = preferences)
+@@ -102,7 +106,7 @@ object TaskFactory {
+                         uploader = entry.uploader ?: entry.channel ?: playlistResult.channel ?: "",
+                         thumbnailUrl = (entry.thumbnails?.lastOrNull()?.url) ?: "",
+                     )
+-                val task = Task(url = playlistUrl, preferences = preferences, type = Task.TypeInfo.Playlist(index))
++                val task = Task(url = playlistUrl, preferences = preferences, type = Task.TypeInfo.Playlist(index = index, playlistTitle = playlistResult.title ?: "", playlistUrl = playlistUrl))
+                 val state =
+                     Task.State(downloadState = Idle, videoInfo = null, viewState = viewState)
+                 TaskWithState(task, state)

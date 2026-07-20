@@ -260,13 +260,27 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
                         onNavigateToDetail = { navController.navigate(Route.TASK_LOG id it) },
                     )
                 }
-                slideInVerticallyComposable(
+                // New full‑screen download editor
+                animatedComposable(
+                    Route.DOWNLOAD_EDITOR arg Route.TASK_HASHCODE,
+                    arguments = listOf(navArgument(Route.TASK_HASHCODE) { type = NavType.IntType })
+                ) { backStackEntry ->
+                    val taskId = backStackEntry.arguments?.getInt(Route.TASK_HASHCODE) ?: -1
+                    DownloadEditorScreen(
+                        taskId = taskId,
+                        onNavigateBack = onNavigateBack,
+                        dialogViewModel = dialogViewModel
+                    )
+                }
+
+                // Task log page
+                animatedComposable(
                     Route.TASK_LOG arg Route.TASK_HASHCODE,
-                    arguments = listOf(navArgument(Route.TASK_HASHCODE) { type = NavType.IntType }),
-                ) {
+                    arguments = listOf(navArgument(Route.TASK_HASHCODE) { type = NavType.IntType })
+                ) { backStackEntry ->
                     TaskLogPage(
                         onNavigateBack = onNavigateBack,
-                        taskHashCode = it.arguments?.getInt(Route.TASK_HASHCODE) ?: -1,
+                        taskHashCode = backStackEntry.arguments?.getInt(Route.TASK_HASHCODE) ?: -1,
                     )
                 }
 
