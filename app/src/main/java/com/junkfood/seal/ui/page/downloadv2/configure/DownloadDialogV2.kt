@@ -170,6 +170,8 @@ data class Config(
         },
     val useFormatSelection: Boolean = FORMAT_SELECTION.getBoolean(),
     val savedLinks: Set<String> = PreferenceUtil.getSavedLinks(),
+    val subtitleLanguage: String? = null,
+    val downloadPath: String? = null,
 ) {
     companion object {
         fun updatePreferences(newValue: Config, oldValue: Config) {

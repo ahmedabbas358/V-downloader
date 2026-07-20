@@ -87,6 +87,7 @@ private fun FormatSelectionSection(
     // TODO: Implement format selection controls and update config accordingly.
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SubtitleLanguageSection(
     config: Config,
@@ -102,17 +103,22 @@ private fun SubtitleLanguageSection(
             onValueChange = {},
             label = { Text(stringResource(R.string.select_language)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            colors = TextFieldDefaults.textFieldColors(containerColor = Color.Transparent)
+            colors = TextFieldDefaults.colors(
+                unfocusedContainerColor = Color.Transparent,
+                focusedContainerColor = Color.Transparent
+            ),
+            modifier = Modifier.menuAnchor()
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             listOf("en", "es", "fr", "de", "ar").forEach { lang ->
-                DropdownMenuItem(onClick = {
-                    selected = lang
-                    expanded = false
-                    onConfigChange(config.copy(subtitleLanguage = lang))
-                }) {
-                    Text(lang)
-                }
+                DropdownMenuItem(
+                    text = { Text(lang) },
+                    onClick = {
+                        selected = lang
+                        expanded = false
+                        onConfigChange(config.copy(subtitleLanguage = lang))
+                    }
+                )
             }
         }
     }
