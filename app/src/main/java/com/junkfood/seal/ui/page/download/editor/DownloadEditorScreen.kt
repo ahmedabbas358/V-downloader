@@ -49,8 +49,8 @@ fun DownloadEditorScreen(
                 },
                 actions = {
                     TextButton(onClick = {
-                        // Persist changes via view‑model (implementation needed)
-                        // dialogViewModel.applyEditorChanges(taskId, config)
+                        dialogViewModel.applyEditorChanges(taskId, config)
+                        onNavigateBack()
                     }) {
                         Text(stringResource(R.string.save))
                     }

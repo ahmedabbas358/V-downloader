@@ -138,7 +138,9 @@ import com.junkfood.seal.util.PreferenceUtil
 import com.junkfood.seal.util.PreferenceUtil.getBoolean
 import com.junkfood.seal.util.PreferenceUtil.updateBoolean
 import com.junkfood.seal.util.PreferenceUtil.updateInt
+import com.junkfood.seal.util.PreferenceUtil.updateString
 import com.junkfood.seal.util.SUBTITLE
+import com.junkfood.seal.util.SUBTITLE_LANGUAGE
 import com.junkfood.seal.util.TEMPLATE_ID
 import com.junkfood.seal.util.THUMBNAIL
 import com.junkfood.seal.util.ToastUtil
@@ -184,6 +186,9 @@ data class Config(
                 }
                 if (savedLinks != oldValue.savedLinks) {
                     PreferenceUtil.updateSavedLinks(savedLinks)
+                }
+                if (subtitleLanguage != oldValue.subtitleLanguage) {
+                    subtitleLanguage?.let { SUBTITLE_LANGUAGE.updateString(it) }
                 }
             }
         }

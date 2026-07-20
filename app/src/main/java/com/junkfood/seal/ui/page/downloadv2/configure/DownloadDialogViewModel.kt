@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.junkfood.seal.database.objects.CommandTemplate
 import com.junkfood.seal.download.DownloaderV2
 import com.junkfood.seal.download.Task
+import com.junkfood.seal.download.TaskFactory
 import com.junkfood.seal.util.DownloadUtil
 import com.junkfood.seal.util.PlaylistResult
 import com.junkfood.seal.util.VideoInfo
@@ -188,10 +189,52 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
         urlList: List<String>,
         preferences: DownloadUtil.DownloadPreferences,
     ) {
-        sanitizeUrls(urlList).filter { isValidUrl(it) }.forEach { url ->
-            downloader.enqueue(Task(url = url, preferences = preferences))
+        val validUrls = sanitizeUrls(urlList).filter { isValidUrl(it) }
+        validUrls.forEach { url ->
+            if (preferences.downloadPlaylist) {
+                val taskKey = "FetchAndDownload_$url"
+                if (activeJobs.containsKey(taskKey)) return@forEach
+
+                val job = viewModelScope.launch(Dispatchers.IO) {
+                    try {
+                        DownloadUtil.getPlaylistOrVideoInfo(url, preferences)
+                            .onSuccess { info ->
+                                if (info is PlaylistResult && info.entries != null) {
+                                    val indices = info.entries.indices.map { it + 1 }
+                                    val tasks = TaskFactory.createWithPlaylistResult(
+                                        playlistUrl = url,
+                                        indexList = indices,
+                                        playlistResult = info,
+                                        preferences = preferences
+                                    )
+                                    tasks.forEach { taskWithState ->
+                                        downloader.enqueue(taskWithState.task)
+                                    }
+                                } else {
+                                    downloader.enqueue(Task(url = url, preferences = preferences))
+                                }
+                            }
+                            .onFailure {
+                                downloader.enqueue(Task(url = url, preferences = preferences))
+                            }
+                    } catch (e: Exception) {
+                        downloader.enqueue(Task(url = url, preferences = preferences))
+                    } finally {
+                        activeJobs.remove(taskKey)
+                        if (activeJobs.isEmpty()) {
+                            dismissSheet()
+                        }
+                    }
+                }
+                activeJobs[taskKey] = job
+                mSheetStateFlow.update { SheetState.Loading(taskKey = taskKey, job = job) }
+            } else {
+                downloader.enqueue(Task(url = url, preferences = preferences))
+            }
         }
-        dismissSheet()
+        if (activeJobs.isEmpty()) {
+            dismissSheet()
+        }
     }
 
     private fun runCommand(
