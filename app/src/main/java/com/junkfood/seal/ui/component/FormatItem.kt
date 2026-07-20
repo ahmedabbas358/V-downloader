@@ -60,6 +60,7 @@ import com.junkfood.seal.util.Format
 import com.junkfood.seal.util.VideoInfo
 import com.junkfood.seal.util.connectWithBlank
 import com.junkfood.seal.util.connectWithDelimiter
+import com.junkfood.seal.util.effectiveBitrate
 import com.junkfood.seal.util.toBitrateText
 import com.junkfood.seal.util.toDurationText
 import com.junkfood.seal.util.toFileSizeText

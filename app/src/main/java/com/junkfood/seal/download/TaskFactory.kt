@@ -40,13 +40,7 @@ object TaskFactory {
         val videoFormats = formatList.filter { it.containsVideo() }
         val audioOnly = audioOnlyFormats.isNotEmpty() && videoFormats.isEmpty()
         val mergeAudioStream = audioOnlyFormats.size > 1
-        val baseFormatId = formatList.joinToString(separator = "+") { it.formatId.toString() }
-        
-        val formatId = if (videoFormats.size == 1 && audioOnlyFormats.isEmpty() && videoFormats[0].isVideoOnly()) {
-            "$baseFormatId+ba/best"
-        } else {
-            baseFormatId
-        }
+        val formatId = formatList.joinToString(separator = "+") { it.formatId.toString() }
 
         val subtitleLanguage =
             (selectedSubtitles + selectedAutoCaptions).joinToString(separator = ",")
@@ -65,11 +59,15 @@ object TaskFactory {
                     )
                 }
                 .run {
-                    copy(
-                        downloadSubtitle = subtitleLanguage.isNotEmpty(),
-                        autoSubtitle = selectedAutoCaptions.isNotEmpty(),
-                        subtitleLanguage = subtitleLanguage,
-                    )
+                    if (subtitleLanguage.isNotEmpty()) {
+                        copy(
+                            downloadSubtitle = true,
+                            autoSubtitle = selectedAutoCaptions.isNotEmpty(),
+                            subtitleLanguage = subtitleLanguage,
+                        )
+                    } else {
+                        this
+                    }
                 }
 
         val task = Task(url = info.originalUrl.toString(), preferences = preferences)
@@ -106,7 +104,7 @@ object TaskFactory {
                         uploader = entry.uploader ?: entry.channel ?: playlistResult.channel ?: "",
                         thumbnailUrl = (entry.thumbnails?.lastOrNull()?.url) ?: "",
                     )
-                val task = Task(url = playlistUrl, preferences = preferences, type = Task.TypeInfo.Playlist(index = index, playlistTitle = playlistResult.title ?: "", playlistUrl = playlistUrl))
+                val task = Task(url = playlistUrl, preferences = preferences, type = Task.TypeInfo.Playlist(index))
                 val state =
                     Task.State(downloadState = Idle, videoInfo = null, viewState = viewState)
                 TaskWithState(task, state)
