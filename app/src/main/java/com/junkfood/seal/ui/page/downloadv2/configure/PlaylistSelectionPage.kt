@@ -18,6 +18,7 @@ import androidx.compose.material.ModalBottomSheetValue
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -357,7 +358,7 @@ fun PlaylistSelectionPageImpl(
                         },
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.CompareArrows,
+                            imageVector = Icons.Outlined.SwapHoriz,
                             contentDescription = null,
                         )
                     }
