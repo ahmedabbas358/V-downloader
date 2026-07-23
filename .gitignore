@@ -17,3 +17,9 @@
 local.properties
 /keystore.properties
 .kotlin
+*.patch
+*.diff
+diff_*.txt
+stash_diff*.txt
+*_old.kt
+test.json
