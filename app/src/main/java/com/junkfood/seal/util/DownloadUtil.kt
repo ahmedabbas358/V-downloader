@@ -768,16 +768,22 @@ object DownloadUtil {
                         addOption("-r", "${maxDownloadRate}K")
                     }
 
+                    // Smart retry scheme ensuring downloads do not fail due to transient errors or broken items
+                    addOption("--retries", "10")
+                    addOption("--fragment-retries", "10")
+                    addOption("--file-access-retries", "5")
+                    addOption("--ignore-errors")
+
                     if (playlistItem != 0 && downloadPlaylist) {
                         addOption("--no-playlist")
                         if (subdirectoryPlaylistTitle && fallbackPlaylistTitle.isNotEmpty()) {
                             if (skipDownload && downloadSubtitle) {
-                                outputBuilder.append("Sub ")
+                                outputBuilder.append("sub ")
                             }
                             outputBuilder.append(com.junkfood.seal.util.FileUtil.cleanFileName(fallbackPlaylistTitle)).append("/")
                         } else if (subdirectoryPlaylistTitle && !videoInfo.playlist.isNullOrEmpty()) {
                             if (skipDownload && downloadSubtitle) {
-                                outputBuilder.append("Sub ")
+                                outputBuilder.append("sub ")
                             }
                             outputBuilder.append(PLAYLIST_TITLE_SUBDIRECTORY_PREFIX)
                         }

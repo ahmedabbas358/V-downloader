@@ -394,7 +394,7 @@ val DEFAULT_COMMAND_TEMPLATES =
                 --fragment-retries infinite
                 --retry-sleep 5
                 --ignore-errors
-                -o "%(playlist_title)s/sub/%(playlist_index)03d - %(title)s.%(ext)s"
+                -o "sub %(playlist_title)s/%(playlist_index)03d - %(title)s.%(ext)s"
                 """.trimIndent(),
         ),
         CommandTemplate(
