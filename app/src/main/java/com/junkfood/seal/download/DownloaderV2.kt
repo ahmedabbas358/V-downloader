@@ -343,7 +343,8 @@ class DownloaderV2Impl(
         val taskInfo = task.type
 
         val isPlaylist = taskInfo is TypeInfo.Playlist && !taskInfo.isFallback
-        val hasIndividualUrl = viewState.url.isNotEmpty() && viewState.url != url
+        val isIndividualUrlValid = viewState.url.startsWith("http://", ignoreCase = true) || viewState.url.startsWith("https://", ignoreCase = true)
+        val hasIndividualUrl = isIndividualUrlValid && viewState.url != url
 
         val fetchUrl = if (isPlaylist && hasIndividualUrl) {
             viewState.url

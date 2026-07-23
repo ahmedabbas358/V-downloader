@@ -117,6 +117,13 @@ fun getErrorReport(th: Throwable, url: String): String =
 fun matchUrlFromString(s: String, isMatchingMultiLink: Boolean = false): String =
     findURLsFromString(s, !isMatchingMultiLink).joinToString(separator = "\n")
 
+fun cleanTrackingQueryParams(url: String): String {
+    if (url.isBlank()) return url
+    return url
+        .replace(Regex("([?&])(igsh|si|utm_[^&=]+|fbclid|feature=[^&=]+|s=[0-9]+|t=[^&=]+|ref=[^&=]+)=[^&]*&?"), "$1")
+        .replace(Regex("[?&]$"), "")
+}
+
 fun findURLsFromString(input: String, firstMatchOnly: Boolean = false): List<String> {
     val result = mutableListOf<String>()
     val pattern = Pattern.compile(URL_REGEX_PATTERN)
@@ -124,10 +131,10 @@ fun findURLsFromString(input: String, firstMatchOnly: Boolean = false): List<Str
     with(pattern.matcher(input)) {
         if (!firstMatchOnly) {
             while (find()) {
-                result += group()
+                result += cleanTrackingQueryParams(group())
             }
         } else {
-            if (find()) result += (group())
+            if (find()) result += cleanTrackingQueryParams(group())
         }
     }
     return result

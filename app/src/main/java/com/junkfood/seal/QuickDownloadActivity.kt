@@ -91,11 +91,6 @@ class QuickDownloadActivity : ComponentActivity() {
                 WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.MATCH_PARENT,
             )
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
-            } else {
-                setType(WindowManager.LayoutParams.TYPE_SYSTEM_ALERT)
-            }
         }
 
         if (Build.VERSION.SDK_INT < 33) {

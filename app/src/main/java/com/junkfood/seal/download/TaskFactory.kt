@@ -44,6 +44,7 @@ object TaskFactory {
 
         val subtitleLanguage =
             (selectedSubtitles + selectedAutoCaptions).joinToString(separator = ",")
+        val hasSelectedSubs = subtitleLanguage.isNotEmpty()
 
         val preferences =
             DownloadPreferences.createFromPreferences()
@@ -56,18 +57,10 @@ object TaskFactory {
                         mergeAudioStream = mergeAudioStream,
                         extractAudio = extractAudio || audioOnly,
                         skipDownload = skipDownload,
+                        downloadSubtitle = downloadSubtitle || skipDownload || hasSelectedSubs,
+                        autoSubtitle = if (hasSelectedSubs) selectedAutoCaptions.isNotEmpty() else (autoSubtitle || skipDownload),
+                        subtitleLanguage = if (hasSelectedSubs) subtitleLanguage else this.subtitleLanguage,
                     )
-                }
-                .run {
-                    if (subtitleLanguage.isNotEmpty()) {
-                        copy(
-                            downloadSubtitle = true,
-                            autoSubtitle = selectedAutoCaptions.isNotEmpty(),
-                            subtitleLanguage = subtitleLanguage,
-                        )
-                    } else {
-                        this
-                    }
                 }
 
         val task = Task(url = info.originalUrl.toString(), preferences = preferences)
@@ -96,16 +89,22 @@ object TaskFactory {
 
         val taskList =
             indexEntryMap.map { (index, entry) ->
+                val entryUrlRaw = entry.url.orEmpty()
+                val itemUrl = when {
+                    entryUrlRaw.startsWith("http://", ignoreCase = true) || entryUrlRaw.startsWith("https://", ignoreCase = true) -> entryUrlRaw
+                    !entry.id.isNullOrEmpty() -> "https://www.youtube.com/watch?v=${entry.id}"
+                    else -> ""
+                }
                 val viewState =
                     Task.ViewState(
-                        url = entry.url ?: "",
+                        url = itemUrl,
                         title = entry.title ?: "${playlistResult.title} - $index",
                         duration = entry.duration?.roundToInt() ?: 0,
                         uploader = entry.uploader ?: entry.channel ?: playlistResult.channel ?: "",
                         thumbnailUrl = (entry.thumbnails?.lastOrNull()?.url) ?: "",
                     )
                 val task = Task(
-                    url = entry.url ?: playlistUrl, 
+                    url = itemUrl.ifEmpty { playlistUrl }, 
                     preferences = preferences, 
                     type = Task.TypeInfo.Playlist(
                         index = index,

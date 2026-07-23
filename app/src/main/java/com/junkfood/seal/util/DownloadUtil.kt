@@ -55,7 +55,12 @@ object DownloadUtil {
         const val PATH = "path"
     }
 
-    private val jsonFormat = Json { ignoreUnknownKeys = true }
+    private val jsonFormat =
+        Json {
+            ignoreUnknownKeys = true
+            coerceInputValues = true
+            isLenient = true
+        }
 
     private const val TAG = "DownloadUtil"
 

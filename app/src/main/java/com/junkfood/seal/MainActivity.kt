@@ -36,6 +36,11 @@ class MainActivity : AppCompatActivity() {
         enableEdgeToEdge()
 
         context = this.baseContext
+        intent.getSharedURL()?.let { url ->
+            if (url.isNotEmpty()) {
+                dialogViewModel.postAction(DownloadDialogViewModel.Action.ShowSheet(listOf(url)))
+            }
+        }
         setContent {
             KoinContext {
                 val windowSizeClass = calculateWindowSizeClass(this)

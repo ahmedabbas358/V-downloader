@@ -68,10 +68,12 @@ import com.junkfood.seal.util.AUDIO_CONVERSION_FORMAT
 import com.junkfood.seal.util.AUDIO_CONVERT
 import com.junkfood.seal.util.AUDIO_FORMAT
 import com.junkfood.seal.util.AUDIO_QUALITY
+import com.junkfood.seal.util.DownloadType
 import com.junkfood.seal.util.DownloadType.Audio
 import com.junkfood.seal.util.DownloadType.Video
 import com.junkfood.seal.util.DownloadUtil
 import com.junkfood.seal.util.PlaylistResult
+import com.junkfood.seal.util.PreferenceUtil
 import com.junkfood.seal.util.PreferenceUtil.updateBoolean
 import com.junkfood.seal.util.PreferenceUtil.updateInt
 import com.junkfood.seal.util.USE_CUSTOM_AUDIO_PRESET
@@ -135,7 +137,7 @@ fun PlaylistSelectionPage(
         ) {
             ConfigurePagePlaylistVariant(
                 modifier = Modifier,
-                initialDownloadType = Video,
+                initialDownloadType = PreferenceUtil.getDownloadType() ?: Video,
                 preferences = preferences,
                 onPreferencesUpdate = { preferences = it },
                 onPresetEdit = { type ->
@@ -148,10 +150,14 @@ fun PlaylistSelectionPage(
                     }
                 },
                 onDismissRequest = onDismissConfigurationSheet,
-                onDownload = {
-                    val preferences = preferences.copy(extractAudio = it == Audio)
+                onDownload = { type ->
+                    val updatedPreferences = preferences.copy(
+                        extractAudio = type == Audio,
+                        skipDownload = type == DownloadType.Subtitle,
+                        downloadSubtitle = if (type == DownloadType.Subtitle) true else preferences.downloadSubtitle,
+                    )
                     taskList
-                        .map { it.copy(task = it.task.copy(preferences = preferences)) }
+                        .map { it.copy(task = it.task.copy(preferences = updatedPreferences)) }
                         .forEach(downloader::enqueue)
                     onDismissConfigurationSheet()
                     onBack()
@@ -240,7 +246,25 @@ fun PlaylistSelectionPageImpl(
         }
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     var showDialog by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
     val playlistCount = result.entries?.size ?: 0
+
+    val indexedEntries = remember(result.entries) {
+        (result.entries ?: emptyList()).mapIndexed { indexFromZero, entry ->
+            (indexFromZero + 1) to entry
+        }
+    }
+
+    val filteredEntries = remember(indexedEntries, searchQuery) {
+        if (searchQuery.isBlank()) indexedEntries
+        else {
+            indexedEntries.filter { (_, entry) ->
+                entry.title?.contains(searchQuery, ignoreCase = true) == true ||
+                    entry.channel?.contains(searchQuery, ignoreCase = true) == true ||
+                    entry.uploader?.contains(searchQuery, ignoreCase = true) == true
+            }
+        }
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -326,6 +350,21 @@ fun PlaylistSelectionPageImpl(
                         modifier = Modifier.padding(end = 4.dp),
                         onClick = {
                             view.slightHapticFeedback()
+                            val allIndices = 1..playlistCount
+                            val newSelected = allIndices.filter { !selectedItems.contains(it) }
+                            selectedItems.clear()
+                            selectedItems.addAll(newSelected)
+                        },
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.CompareArrows,
+                            contentDescription = null,
+                        )
+                    }
+                    IconButton(
+                        modifier = Modifier.padding(end = 4.dp),
+                        onClick = {
+                            view.slightHapticFeedback()
 
                             showDialog = true
                         },
@@ -340,6 +379,12 @@ fun PlaylistSelectionPageImpl(
         },
     ) { paddings ->
         Column(modifier = Modifier.padding(paddings)) {
+            com.junkfood.seal.ui.component.SealSearchBar(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                text = searchQuery,
+                placeholderText = stringResource(R.string.search),
+                onValueChange = { searchQuery = it },
+            )
             LazyColumn {
                 item {
                     Text(
@@ -350,8 +395,7 @@ fun PlaylistSelectionPageImpl(
                     )
                 }
 
-                itemsIndexed(items = result.entries ?: emptyList()) { indexFromZero, entry ->
-                    val index = indexFromZero + 1
+                itemsIndexed(items = filteredEntries) { _, (index, entry) ->
                     TooltipBox(
                         state = rememberTooltipState(),
                         positionProvider = TooltipDefaults.rememberTooltipPositionProvider(),

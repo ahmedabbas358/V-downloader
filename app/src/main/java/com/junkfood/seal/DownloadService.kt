@@ -16,6 +16,8 @@ import org.koin.android.ext.android.inject
 
 import com.junkfood.seal.util.NotificationUtil.SERVICE_NOTIFICATION_ID
 
+import android.content.pm.ServiceInfo
+
 private const val TAG = "DownloadService"
 private const val BACKGROUND_LOCK_TIMEOUT_MS = 2 * 60 * 60 * 1000L
 
@@ -32,7 +34,19 @@ class DownloadService : Service() {
                 PendingIntent.getActivity(this, 0, notificationIntent, PendingIntent.FLAG_IMMUTABLE)
             }
         val notification = NotificationUtil.makeServiceNotification(pendingIntent)
-        startForeground(SERVICE_NOTIFICATION_ID, notification)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(
+                    SERVICE_NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+                )
+            } else {
+                startForeground(SERVICE_NOTIFICATION_ID, notification)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start foreground service: ${e.message}", e)
+        }
         acquireLocks()
         return DownloadServiceBinder()
     }

@@ -166,7 +166,18 @@ class App : Application() {
         fun startService() {
             if (isServiceRunning) return
             Intent(context.applicationContext, DownloadService::class.java).also { intent ->
-                context.applicationContext.bindService(intent, connection, Context.BIND_AUTO_CREATE)
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        context.applicationContext.startForegroundService(intent)
+                    }
+                } catch (e: Exception) {
+                    Log.e("App", "Failed to startForegroundService: ${e.message}")
+                }
+                try {
+                    context.applicationContext.bindService(intent, connection, Context.BIND_AUTO_CREATE)
+                } catch (e: Exception) {
+                    Log.e("App", "Failed to bindService: ${e.message}")
+                }
             }
         }
 

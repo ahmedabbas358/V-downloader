@@ -208,7 +208,7 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
                                         preferences = preferences
                                     )
                                     tasks.forEach { taskWithState ->
-                                        downloader.enqueue(taskWithState.task)
+                                        downloader.enqueue(taskWithState)
                                     }
                                 } else {
                                     downloader.enqueue(Task(url = url, preferences = preferences))

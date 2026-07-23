@@ -66,18 +66,30 @@ object FileUtil {
     }
 
     fun createIntentForOpeningFile(path: String?): Intent? =
-        createIntentForFile(path)?.let {
-            it.apply {
-                action = (Intent.ACTION_VIEW)
+        createIntentForFile(path)?.let { intent ->
+            intent.apply {
+                action = Intent.ACTION_VIEW
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                val extension = MimeTypeMap.getFileExtensionFromUrl(path.orEmpty())
+                val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.lowercase())
+                    ?: when {
+                        path?.contains(Regex(AUDIO_REGEX)) == true -> "audio/*"
+                        path?.contains(Regex(SUBTITLE_REGEX)) == true -> "text/plain"
+                        else -> "video/*"
+                    }
+                setDataAndType(intent.data, mimeType)
             }
         }
 
     fun createIntentForSharingFile(path: String?): Intent? =
         createIntentForFile(path)?.apply {
             action = Intent.ACTION_SEND
+            val extension = MimeTypeMap.getFileExtensionFromUrl(path.orEmpty())
+            val mimeType = data?.let { context.contentResolver.getType(it) }
+                ?: MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.lowercase())
+                ?: "media/*"
             putExtra(Intent.EXTRA_STREAM, data)
-            val mimeType = data?.let { context.contentResolver.getType(it) } ?: "media/*"
             setDataAndType(this.data, mimeType)
             clipData = ClipData(null, arrayOf(mimeType), ClipData.Item(data))
         }
@@ -100,14 +112,31 @@ object FileUtil {
 
     fun deleteFile(path: String) =
         path.runCatching {
-            if (!File(path).delete()) DocumentFile.fromSingleUri(context, Uri.parse(this))?.delete()
+            val file = File(path)
+            val deleted = if (file.exists()) {
+                file.delete()
+            } else {
+                DocumentFile.fromSingleUri(context, Uri.parse(this))?.delete() ?: false
+            }
+            MediaScannerConnection.scanFile(context, arrayOf(path), null, null)
+            deleted
         }
 
     @CheckResult
-    fun scanFileToMediaLibraryPostDownload(title: String, downloadDir: String, isSubtitleOnly: Boolean = false): List<String> =
-        File(downloadDir)
+    fun scanFileToMediaLibraryPostDownload(title: String, downloadDir: String, isSubtitleOnly: Boolean = false): List<String> {
+        val cleanedTitle = cleanFileName(title)
+        val shortTitle = if (cleanedTitle.length > 8) cleanedTitle.take(8) else cleanedTitle
+        return File(downloadDir)
             .walkTopDown()
-            .filter { it.isFile && it.absolutePath.contains(title) }
+            .filter { file ->
+                if (!file.isFile) return@filter false
+                val name = file.name
+                val path = file.absolutePath
+                path.contains(title) ||
+                    name.contains(cleanedTitle) ||
+                    (shortTitle.isNotEmpty() && name.contains(shortTitle)) ||
+                    (isSubtitleOnly && name.contains(Regex(SUBTITLE_REGEX)))
+            }
             .map { it.absolutePath }
             .toMutableList()
             .apply {
@@ -116,6 +145,7 @@ object FileUtil {
                     it.contains(Regex(THUMBNAIL_REGEX)) || (!isSubtitleOnly && it.contains(Regex(SUBTITLE_REGEX)))
                 }
             }
+    }
 
     fun scanDownloadDirectoryToMediaLibrary(downloadDir: String) =
         File(downloadDir)

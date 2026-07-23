@@ -407,7 +407,12 @@ private fun FormatPageImpl(
             )
         },
         floatingActionButton = {
-            val isFormatSelected = isSuggestedFormatSelected || formatList.isNotEmpty()
+            val isFormatSelected =
+                isSuggestedFormatSelected ||
+                    formatList.isNotEmpty() ||
+                    isSubtitleOnly ||
+                    selectedSubtitles.isNotEmpty() ||
+                    selectedAutoCaptions.isNotEmpty()
             if (isFormatSelected) {
                 ExtendedFloatingActionButton(
                     onClick = {
@@ -421,6 +426,7 @@ private fun FormatPageImpl(
                                 newTitle = videoTitle,
                                 selectedSubtitles = selectedSubtitles,
                                 selectedAutoCaptions = selectedAutoCaptions,
+                                skipDownload = isSubtitleOnly,
                             )
                         )
                     },
