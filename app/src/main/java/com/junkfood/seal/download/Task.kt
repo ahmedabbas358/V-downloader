@@ -141,7 +141,7 @@ data class Task(
         val audioOnlyFormats: List<Format>? = null,
     ) {
         companion object {
-            fun fromVideoInfo(info: VideoInfo): ViewState {
+            fun fromVideoInfo(info: VideoInfo, preferences: DownloadUtil.DownloadPreferences? = null): ViewState {
                 val formats =
                     info.requestedFormats
                         ?: info.requestedDownloads?.map { it.toFormat() }
@@ -149,13 +149,14 @@ data class Task(
 
                 val videoFormats = formats.filter { it.containsVideo() }
                 val audioOnlyFormats = formats.filter { it.isAudioOnly() }
+                val isSubOnly = preferences?.skipDownload == true && preferences.downloadSubtitle
 
                 return ViewState(
                     url = info.webpageUrl ?: info.originalUrl.toString(),
-                    title = info.title,
+                    title = if (isSubOnly && !info.title.startsWith("[Subtitle]")) "[Subtitle] ${info.title}" else info.title,
                     uploader = info.uploader ?: info.channel ?: info.uploaderId.toString(),
                     extractorKey = info.extractorKey,
-                    duration = info.duration?.roundToInt() ?: 0,
+                    duration = if (isSubOnly) 0 else (info.duration?.roundToInt() ?: 0),
                     thumbnailUrl = info.thumbnail.toHttpsUrl(),
                     fileSizeApprox = info.fileSize ?: info.fileSizeApprox ?: .0,
                     videoFormats = videoFormats,

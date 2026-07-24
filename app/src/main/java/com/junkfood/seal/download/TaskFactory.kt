@@ -95,11 +95,13 @@ object TaskFactory {
                     !entry.id.isNullOrEmpty() -> "https://www.youtube.com/watch?v=${entry.id}"
                     else -> ""
                 }
+                val isSubOnly = preferences.skipDownload && preferences.downloadSubtitle
+                val baseTitle = entry.title ?: "${playlistResult.title} - $index"
                 val viewState =
                     Task.ViewState(
                         url = itemUrl,
-                        title = entry.title ?: "${playlistResult.title} - $index",
-                        duration = entry.duration?.roundToInt() ?: 0,
+                        title = if (isSubOnly) "[Subtitle] $baseTitle" else baseTitle,
+                        duration = if (isSubOnly) 0 else (entry.duration?.roundToInt() ?: 0),
                         uploader = entry.uploader ?: entry.channel ?: playlistResult.channel ?: "",
                         thumbnailUrl = (entry.thumbnails?.lastOrNull()?.url) ?: "",
                     )

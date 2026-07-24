@@ -491,30 +491,23 @@ object DownloadUtil {
                 } else {
                     applyFormatSorter(this, toFormatSorter())
                 }
-                if (downloadSubtitle) {
-                    if (autoSubtitle) {
-                        addOption("--write-auto-subs")
-                        if (!autoTranslatedSubtitles) {
-                            addOption("--extractor-args", "youtube:skip=translated_subs")
-                        }
+                if (downloadSubtitle || skipDownload) {
+                    addOption("--write-subs")
+                    addOption("--write-auto-subs")
+                    if (subtitleLanguage.isNotEmpty()) {
+                        addOption("--sub-langs", subtitleLanguage)
+                    } else {
+                        addOption("--sub-langs", "all")
                     }
-                    subtitleLanguage
-                        .takeIf { it.isNotEmpty() }
-                        ?.let { addOption("--sub-langs", it) }
                     if (embedSubtitle && !skipDownload) {
                         addOption("--embed-subs")
-                        if (keepSubtitle) {
-                            addOption("--write-subs")
-                        }
-                    } else {
-                        addOption("--write-subs")
                     }
                     when (convertSubtitle) {
                         CONVERT_ASS -> addOption("--convert-subs", "ass")
                         CONVERT_SRT -> addOption("--convert-subs", "srt")
                         CONVERT_VTT -> addOption("--convert-subs", "vtt")
                         CONVERT_LRC -> addOption("--convert-subs", "lrc")
-                        else -> {}
+                        else -> addOption("--convert-subs", "srt")
                     }
                 }
                 if (mergeToMkv) {
@@ -610,24 +603,20 @@ object DownloadUtil {
                 if (skipDownload) {
                     addOption("--skip-download")
                 }
-                if (downloadSubtitle) {
+                if (downloadSubtitle || skipDownload) {
                     addOption("--write-subs")
-
-                    if (autoSubtitle) {
-                        addOption("--write-auto-subs")
-                        if (!autoTranslatedSubtitles) {
-                            addOption("--extractor-args", "youtube:skip=translated_subs")
-                        }
+                    addOption("--write-auto-subs")
+                    if (subtitleLanguage.isNotEmpty()) {
+                        addOption("--sub-langs", subtitleLanguage)
+                    } else {
+                        addOption("--sub-langs", "all")
                     }
-                    subtitleLanguage
-                        .takeIf { it.isNotEmpty() }
-                        ?.let { addOption("--sub-langs", it) }
                     when (convertSubtitle) {
                         CONVERT_ASS -> addOption("--convert-subs", "ass")
                         CONVERT_SRT -> addOption("--convert-subs", "srt")
                         CONVERT_VTT -> addOption("--convert-subs", "vtt")
                         CONVERT_LRC -> addOption("--convert-subs", "lrc")
-                        else -> {}
+                        else -> addOption("--convert-subs", "srt")
                     }
                 }
                 if (formatIdString.isNotEmpty()) {

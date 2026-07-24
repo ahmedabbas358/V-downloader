@@ -110,6 +110,8 @@ class DownloaderV2Impl(
     private val taskStateMap =
         mutableStateMapOf<Task, Task.State>()
 
+    private val retryCountMap = mutableMapOf<String, Int>()
+
     private val snapshotFlow =
         snapshotFlow { taskStateMap.toMap() }
 
@@ -372,7 +374,7 @@ class DownloaderV2Impl(
                         task.info = videoInfo
                         task.downloadState = ReadyWithInfo
                         task.viewState =
-                            Task.ViewState.fromVideoInfo(videoInfo)
+                            Task.ViewState.fromVideoInfo(videoInfo, task.preferences)
                     }
                     .onFailure { throwable ->
                         if (throwable is YoutubeDL.CanceledException) {
@@ -558,17 +560,34 @@ class DownloaderV2Impl(
                             return@onFailure
                         }
 
+                        val retries = (retryCountMap[task.id] ?: 0) + 1
+                        retryCountMap[task.id] = retries
+
+                        if (retries < 3) {
+                            val oldState = taskStateMap[task]
+                            if (oldState != null) {
+                                taskStateMap[task] = oldState.copy(downloadState = Idle)
+                                doYourWork()
+                                return@onFailure
+                            }
+                        }
+
                         if (task.type is TypeInfo.Playlist && !(task.type as TypeInfo.Playlist).isFallback) {
                             val playlistType = task.type as TypeInfo.Playlist
+                            val fallbackUrl = task.viewState.url.ifEmpty { task.url }
                             val newType = playlistType.copy(isFallback = true)
-                            val fallbackTask = task.copy(url = task.viewState.url, type = newType)
+                            val fallbackTask = task.copy(
+                                url = fallbackUrl,
+                                type = newType,
+                                preferences = task.preferences.copy(downloadPlaylist = false)
+                            )
                             
                             val oldState = taskStateMap.remove(task)
                             if (oldState != null) {
                                 taskStateMap[fallbackTask] = oldState.copy(downloadState = Idle, videoInfo = null)
                                 doYourWork()
+                                return@onFailure
                             }
-                            return@onFailure
                         }
 
                         task.downloadState =
