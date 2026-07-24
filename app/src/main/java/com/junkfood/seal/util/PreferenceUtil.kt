@@ -533,8 +533,9 @@ object PreferenceUtil {
         usePreviousType: Boolean = DOWNLOAD_TYPE_INITIALIZATION.getInt() == USE_PREVIOUS_SELECTION
     ): DownloadType? {
         return if (usePreviousType) {
-            DownloadType.entries.firstOrNull { it.ordinal == DOWNLOAD_TYPE.getInt() }
+            val type = DownloadType.entries.firstOrNull { it.ordinal == DOWNLOAD_TYPE.getInt() }
                 ?: DownloadType.Video
+            if (type == DownloadType.Subtitle) DownloadType.Video else type
         } else {
             null
         }
