@@ -350,7 +350,8 @@ private fun FormatPageImpl(
 
     val suggestedSubtitleMap: Map<String, List<SubtitleFormat>> =
         videoInfo.subtitles.takeIf { it.isNotEmpty() }
-            ?: videoInfo.automaticCaptions.filterKeys { it.endsWith("-orig") }
+            ?: videoInfo.automaticCaptions.takeIf { it.isNotEmpty() }
+            ?: emptyMap()
 
     val otherSubtitleMap: Map<String, List<SubtitleFormat>> =
         videoInfo.subtitles + videoInfo.automaticCaptions - suggestedSubtitleMap.keys
