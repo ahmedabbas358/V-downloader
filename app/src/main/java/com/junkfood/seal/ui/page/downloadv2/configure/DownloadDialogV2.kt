@@ -18,6 +18,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -69,6 +71,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -171,8 +174,8 @@ data class Config(
     val downloadType: DownloadType? = PreferenceUtil.getDownloadType() ?: Video,
     val typeEntries: List<DownloadType> =
         when (CUSTOM_COMMAND.getBoolean()) {
-            true -> DownloadType.entries
-            false -> DownloadType.entries - Command
+            true -> DownloadType.entries - DownloadType.Subtitle
+            false -> DownloadType.entries - Command - DownloadType.Subtitle
         },
     val useFormatSelection: Boolean = FORMAT_SELECTION.getBoolean(),
     val savedLinks: Set<String> = PreferenceUtil.getSavedLinks(),
@@ -595,37 +598,24 @@ private fun ConfigurePage(
                 )
                 Column(modifier = Modifier.animateContentSize()) {
                     if (selectedType != Command) {
-                        if (selectedType == DownloadType.Subtitle) {
-                            SubtitleLanguageSelector(
-                                preference = preferences,
-                                selected = true,
-                                onLanguageChange = { newLang: String ->
-                                    SUBTITLE_LANGUAGE.updateString(newLang)
-                                    onPreferencesUpdate(
-                                        DownloadUtil.DownloadPreferences.createFromPreferences()
-                                    )
-                                }
-                            )
-                        } else {
-                            DrawerSheetSubtitle(
-                                text = stringResource(id = R.string.format_selection),
-                                modifier = Modifier,
-                            )
-                            Preset(
-                                modifier = Modifier,
-                                preference = preferences,
-                                selected = !useFormatSelection,
-                                downloadType = selectedType,
-                                onClick = { useFormatSelection = false },
-                                showEditIcon = !useFormatSelection && selectedType != Playlist,
-                                onEdit = { onPresetEdit(selectedType) },
-                            )
-                            Custom(
-                                selected = useFormatSelection,
-                                enabled = selectedType != Playlist,
-                                onClick = { useFormatSelection = true },
-                            )
-                        }
+                        DrawerSheetSubtitle(
+                            text = stringResource(id = R.string.format_selection),
+                            modifier = Modifier,
+                        )
+                        Preset(
+                            modifier = Modifier,
+                            preference = preferences,
+                            selected = !useFormatSelection,
+                            downloadType = selectedType,
+                            onClick = { useFormatSelection = false },
+                            showEditIcon = !useFormatSelection && selectedType != Playlist,
+                            onEdit = { onPresetEdit(selectedType) },
+                        )
+                        Custom(
+                            selected = useFormatSelection,
+                            enabled = selectedType != Playlist,
+                            onClick = { useFormatSelection = true },
+                        )
                     } else {
                         if (showTemplateSelectionDialog) {
                             TemplatePickerDialog { showTemplateSelectionDialog = false }
@@ -767,36 +757,23 @@ fun ConfigurePagePlaylistVariant(
                 )
                 DrawerSheetSubtitle(text = stringResource(id = R.string.download_type))
                 DownloadTypeSelectionGroup(
-                    typeEntries = listOf(Video, Audio, DownloadType.Subtitle),
+                    typeEntries = listOf(Video, Audio),
                     selectedType = selectedType,
                     onSelect = { selectedType = it },
                 )
-                if (selectedType == DownloadType.Subtitle) {
-                    SubtitleLanguageSelector(
-                        preference = preferences,
-                        selected = true,
-                        onLanguageChange = { newLang: String ->
-                            SUBTITLE_LANGUAGE.updateString(newLang)
-                            onPreferencesUpdate(
-                                DownloadUtil.DownloadPreferences.createFromPreferences()
-                            )
-                        }
-                    )
-                } else {
-                    DrawerSheetSubtitle(
-                        text = stringResource(id = R.string.format_selection),
-                        modifier = Modifier,
-                    )
-                    Preset(
-                        modifier = Modifier,
-                        preference = preferences,
-                        selected = true,
-                        downloadType = selectedType,
-                        onClick = { onPresetEdit(selectedType) },
-                        showEditIcon = true,
-                        onEdit = { onPresetEdit(selectedType) },
-                    )
-                }
+                DrawerSheetSubtitle(
+                    text = stringResource(id = R.string.format_selection),
+                    modifier = Modifier,
+                )
+                Preset(
+                    modifier = Modifier,
+                    preference = preferences,
+                    selected = true,
+                    downloadType = selectedType,
+                    onClick = { onPresetEdit(selectedType) },
+                    showEditIcon = true,
+                    onEdit = { onPresetEdit(selectedType) },
+                )
             }
             var expanded by remember { mutableStateOf(false) }
             ExpandableTitle(expanded = expanded, onClick = { expanded = true }) {
@@ -842,6 +819,7 @@ private fun AdditionalSettings(
     isQuickDownload: Boolean,
     selectedType: DownloadType?,
     preference: DownloadUtil.DownloadPreferences,
+    videoInfo: VideoInfo? = null,
     onNavigateToCookieGeneratorPage: (String) -> Unit = {},
     onPreferenceUpdate: () -> Unit,
 ) {
@@ -849,40 +827,55 @@ private fun AdditionalSettings(
     var showCookiesDialog by rememberSaveable { mutableStateOf(false) }
 
     with(preference) {
-        Row(modifier = modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
-            if (cookiesProfiles.isNotEmpty()) {
+        Column(modifier = modifier) {
+            Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+                if (cookiesProfiles.isNotEmpty()) {
+                    VideoFilterChip(
+                        selected = preference.cookies,
+                        onClick = {
+                            if (isQuickDownload) {
+                                COOKIES.updateBoolean(!cookies)
+                                onPreferenceUpdate()
+                            } else {
+                                showCookiesDialog = true
+                            }
+                        },
+                        label = stringResource(id = R.string.cookies),
+                    )
+                }
+
                 VideoFilterChip(
-                    selected = preference.cookies,
+                    selected = downloadSubtitle,
+                    enabled = selectedType != Command,
                     onClick = {
-                        if (isQuickDownload) {
-                            COOKIES.updateBoolean(!cookies)
-                            onPreferenceUpdate()
-                        } else {
-                            showCookiesDialog = true
-                        }
+                        SUBTITLE.updateBoolean(!downloadSubtitle)
+                        onPreferenceUpdate()
                     },
-                    label = stringResource(id = R.string.cookies),
+                    label = stringResource(id = R.string.download_subtitles),
+                )
+                VideoFilterChip(
+                    selected = createThumbnail,
+                    enabled = selectedType != Command,
+                    onClick = {
+                        THUMBNAIL.updateBoolean(!createThumbnail)
+                        onPreferenceUpdate()
+                    },
+                    label = stringResource(R.string.create_thumbnail),
                 )
             }
 
-            VideoFilterChip(
-                selected = downloadSubtitle,
-                enabled = selectedType != Command,
-                onClick = {
-                    SUBTITLE.updateBoolean(!downloadSubtitle)
-                    onPreferenceUpdate()
-                },
-                label = stringResource(id = R.string.download_subtitles),
-            )
-            VideoFilterChip(
-                selected = createThumbnail,
-                enabled = selectedType != Command,
-                onClick = {
-                    THUMBNAIL.updateBoolean(!createThumbnail)
-                    onPreferenceUpdate()
-                },
-                label = stringResource(R.string.create_thumbnail),
-            )
+            if (downloadSubtitle && selectedType != Command) {
+                Spacer(modifier = Modifier.height(8.dp))
+                SubtitleLanguageSelector(
+                    preference = preference,
+                    videoInfo = videoInfo,
+                    selected = false,
+                    onLanguageChange = { newLang ->
+                        SUBTITLE_LANGUAGE.updateString(newLang)
+                        onPreferenceUpdate()
+                    }
+                )
+            }
         }
 
         if (showCookiesDialog && cookiesProfiles.isNotEmpty()) {
@@ -1265,11 +1258,13 @@ private fun ActionButtons(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SubtitleLanguageSelector(
     modifier: Modifier = Modifier,
     preference: DownloadUtil.DownloadPreferences,
-    selected: Boolean,
+    videoInfo: VideoInfo? = null,
+    selected: Boolean = false,
     onLanguageChange: (String) -> Unit,
 ) {
     var showDialog by remember { mutableStateOf(false) }
@@ -1286,22 +1281,126 @@ private fun SubtitleLanguageSelector(
     )
 
     if (showDialog) {
-        var text by remember { mutableStateOf(preference.subtitleLanguage) }
+        val availableSubs = videoInfo?.subtitles ?: emptyMap()
+        val availableAutoCaptions = videoInfo?.automaticCaptions ?: emptyMap()
+        val hasFetchedSubs = availableSubs.isNotEmpty() || availableAutoCaptions.isNotEmpty()
+
+        var selectedCodes by remember {
+            mutableStateOf(
+                preference.subtitleLanguage.split(",")
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                    .toSet()
+            )
+        }
+        var customText by remember { mutableStateOf(preference.subtitleLanguage) }
+
         AlertDialog(
             onDismissRequest = { showDialog = false },
             title = { Text(stringResource(R.string.subtitle_language_selection)) },
             text = {
-                OutlinedTextField(
-                    value = text,
-                    onValueChange = { text = it },
-                    label = { Text(stringResource(R.string.select_language)) },
-                    placeholder = { Text("en,ar,fr...") },
-                    singleLine = true
-                )
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    if (hasFetchedSubs) {
+                        Text(
+                            text = stringResource(R.string.suggested),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(vertical = 4.dp),
+                        )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        ) {
+                            availableSubs.forEach { (code, formats) ->
+                                val name = formats.firstOrNull()?.name ?: code
+                                val isSelected = selectedCodes.contains(code)
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = {
+                                        selectedCodes = if (isSelected) selectedCodes - code else selectedCodes + code
+                                        customText = selectedCodes.joinToString(",")
+                                    },
+                                    label = { Text("$name [$code]") }
+                                )
+                            }
+                        }
+
+                        if (availableAutoCaptions.isNotEmpty()) {
+                            Text(
+                                text = stringResource(R.string.auto_generated_subtitles),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+                            )
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            ) {
+                                availableAutoCaptions.forEach { (code, formats) ->
+                                    val name = formats.firstOrNull()?.name ?: "$code (auto)"
+                                    val isSelected = selectedCodes.contains(code)
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = {
+                                            selectedCodes = if (isSelected) selectedCodes - code else selectedCodes + code
+                                            customText = selectedCodes.joinToString(",")
+                                        },
+                                        label = { Text("$name [$code]") }
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                    } else {
+                        Text(
+                            text = stringResource(R.string.select_language),
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        ) {
+                            val presets = listOf("ar" to "العربية", "en" to "English", "fr" to "Français", "es" to "Español", "" to "الكل (All)")
+                            presets.forEach { (code, label) ->
+                                val isSelected = if (code.isEmpty()) selectedCodes.isEmpty() else selectedCodes.contains(code)
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = {
+                                        if (code.isEmpty()) {
+                                            selectedCodes = emptySet()
+                                            customText = ""
+                                        } else {
+                                            selectedCodes = if (isSelected) selectedCodes - code else selectedCodes + code
+                                            customText = selectedCodes.joinToString(",")
+                                        }
+                                    },
+                                    label = { Text(label) }
+                                )
+                            }
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = customText,
+                        onValueChange = {
+                            customText = it
+                            selectedCodes = it.split(",").map { s -> s.trim() }.filter { s -> s.isNotEmpty() }.toSet()
+                        },
+                        label = { Text(stringResource(R.string.select_language)) },
+                        placeholder = { Text("ar,en,fr...") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             },
             confirmButton = {
                 TextButton(onClick = {
-                    onLanguageChange(text.trim())
+                    val finalLang = customText.trim()
+                    onLanguageChange(finalLang)
                     showDialog = false
                 }) {
                     Text(stringResource(android.R.string.ok))

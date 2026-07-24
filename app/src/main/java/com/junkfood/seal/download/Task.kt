@@ -159,8 +159,8 @@ data class Task(
                     duration = if (isSubOnly) 0 else (info.duration?.roundToInt() ?: 0),
                     thumbnailUrl = info.thumbnail.toHttpsUrl(),
                     fileSizeApprox = info.fileSize ?: info.fileSizeApprox ?: .0,
-                    videoFormats = videoFormats,
-                    audioOnlyFormats = audioOnlyFormats,
+                    videoFormats = if (isSubOnly) emptyList() else videoFormats,
+                    audioOnlyFormats = if (isSubOnly) emptyList() else audioOnlyFormats,
                 )
             }
         }

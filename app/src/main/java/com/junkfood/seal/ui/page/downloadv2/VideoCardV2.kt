@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.Subtitles
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material.icons.rounded.Pause
@@ -428,7 +429,7 @@ private fun VideoInfoLabel(modifier: Modifier = Modifier, duration: Int, fileSiz
         shape = MaterialTheme.shapes.extraSmall,
     ) {
         val fileSizeText = if (showSize) fileSizeApprox.toFileSizeText() else ""
-        val durationText = if (showDuration) duration.toDurationText() else ""
+        val durationText = if (showDuration && duration > 0) duration.toDurationText() else ""
         val text = buildString {
             if (showSize) append(fileSizeText)
             if (showSize && showDuration && fileSizeText.isNotBlank() && durationText.isNotBlank()) append("  ")
@@ -626,8 +627,16 @@ fun ActionButton(
             }
         }
         is Completed -> {
-            PlayVideoButton(modifier = modifier) {
-                onActionPost(UiAction.OpenFile(downloadState.filePath))
+            val path = downloadState.filePath.orEmpty()
+            val isSub = path.endsWith(".vtt", true) || path.endsWith(".srt", true) || path.endsWith(".ass", true) || path.endsWith(".lrc", true) || path.endsWith(".json3", true) || path.endsWith(".ttml", true)
+            if (isSub) {
+                SubtitleFileButton(modifier = modifier) {
+                    onActionPost(UiAction.OpenFile(downloadState.filePath))
+                }
+            } else {
+                PlayVideoButton(modifier = modifier) {
+                    onActionPost(UiAction.OpenFile(downloadState.filePath))
+                }
             }
         }
         is FetchingInfo,
@@ -710,6 +719,25 @@ private fun PlayVideoButton(modifier: Modifier = Modifier, onClick: () -> Unit) 
     ) {
         Icon(
             imageVector = Icons.Rounded.PlayArrow,
+            contentDescription = stringResource(R.string.open_file),
+            modifier = Modifier.size(IconSize),
+        )
+    }
+}
+
+@Composable
+private fun SubtitleFileButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    FilledIconButton(
+        onClick = onClick,
+        modifier = modifier.size(IconButtonSize),
+        colors =
+            IconButtonDefaults.filledIconButtonColors(
+                containerColor = ActionButtonContainerColor,
+                contentColor = ActionButtonContentColor,
+            ),
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.Subtitles,
             contentDescription = stringResource(R.string.open_file),
             modifier = Modifier.size(IconSize),
         )

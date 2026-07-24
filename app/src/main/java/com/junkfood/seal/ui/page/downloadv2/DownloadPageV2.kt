@@ -433,7 +433,8 @@ fun DownloadPageImplV2(
                         item(span = { GridItemSpan(maxLineSpan) }) {
                             val videoCount =
                                 filteredMap.count {
-                                    !it.second.viewState.videoFormats.isNullOrEmpty()
+                                    !it.second.viewState.videoFormats.isNullOrEmpty() &&
+                                        !it.second.viewState.title.startsWith("[Subtitle]")
                                 }
                             SubHeader(
                                 modifier = Modifier,

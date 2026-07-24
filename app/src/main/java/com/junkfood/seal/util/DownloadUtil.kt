@@ -509,6 +509,8 @@ object DownloadUtil {
                         CONVERT_LRC -> addOption("--convert-subs", "lrc")
                         else -> addOption("--convert-subs", "srt")
                     }
+                    addOption("--sleep-subtitles", "3")
+                    addOption("--sleep-requests", "1.5")
                 }
                 if (mergeToMkv) {
                     addOption("--remux-video", "mkv")
@@ -763,7 +765,7 @@ object DownloadUtil {
                     addOption("--file-access-retries", "5")
                     addOption("--ignore-errors")
 
-                    if (playlistItem != 0 && downloadPlaylist) {
+                    if (playlistItem != 0) {
                         addOption("--no-playlist")
                         if (skipDownload && downloadSubtitle) {
                             val playlistName = fallbackPlaylistTitle.ifEmpty { videoInfo.playlist.orEmpty() }
