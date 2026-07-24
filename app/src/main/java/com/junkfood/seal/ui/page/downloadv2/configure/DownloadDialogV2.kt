@@ -599,7 +599,7 @@ private fun ConfigurePage(
                             SubtitleLanguageSelector(
                                 preference = preferences,
                                 selected = true,
-                                onLanguageChange = { newLang ->
+                                onLanguageChange = { newLang: String ->
                                     SUBTITLE_LANGUAGE.updateString(newLang)
                                     onPreferencesUpdate(
                                         DownloadUtil.DownloadPreferences.createFromPreferences()
@@ -775,7 +775,7 @@ fun ConfigurePagePlaylistVariant(
                     SubtitleLanguageSelector(
                         preference = preferences,
                         selected = true,
-                        onLanguageChange = { newLang ->
+                        onLanguageChange = { newLang: String ->
                             SUBTITLE_LANGUAGE.updateString(newLang)
                             onPreferencesUpdate(
                                 DownloadUtil.DownloadPreferences.createFromPreferences()
@@ -1264,3 +1264,55 @@ private fun ActionButtons(
         }
     }
 }
+
+@Composable
+private fun SubtitleLanguageSelector(
+    modifier: Modifier = Modifier,
+    preference: DownloadUtil.DownloadPreferences,
+    selected: Boolean,
+    onLanguageChange: (String) -> Unit,
+) {
+    var showDialog by remember { mutableStateOf(false) }
+
+    val currentLang = preference.subtitleLanguage.ifEmpty { stringResource(R.string.all_languages) }
+
+    SingleChoiceItem(
+        modifier = modifier,
+        title = stringResource(R.string.subtitle_language_selection),
+        desc = currentLang,
+        icon = { Icon(Icons.Outlined.Subtitles, null) },
+        selected = selected,
+        onClick = { showDialog = true },
+    )
+
+    if (showDialog) {
+        var text by remember { mutableStateOf(preference.subtitleLanguage) }
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text(stringResource(R.string.subtitle_language_selection)) },
+            text = {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = { Text(stringResource(R.string.select_language)) },
+                    placeholder = { Text("en,ar,fr...") },
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onLanguageChange(text.trim())
+                    showDialog = false
+                }) {
+                    Text(stringResource(android.R.string.ok))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDialog = false }) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+            }
+        )
+    }
+}
+
