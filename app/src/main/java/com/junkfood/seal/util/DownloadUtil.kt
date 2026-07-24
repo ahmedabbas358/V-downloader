@@ -776,16 +776,17 @@ object DownloadUtil {
 
                     if (playlistItem != 0 && downloadPlaylist) {
                         addOption("--no-playlist")
-                        if (subdirectoryPlaylistTitle && fallbackPlaylistTitle.isNotEmpty()) {
-                            if (skipDownload && downloadSubtitle) {
-                                outputBuilder.append("sub ")
+                        if (skipDownload && downloadSubtitle) {
+                            val playlistName = fallbackPlaylistTitle.ifEmpty { videoInfo.playlist.orEmpty() }
+                            if (playlistName.isNotEmpty()) {
+                                outputBuilder.append("sub ").append(com.junkfood.seal.util.FileUtil.cleanFileName(playlistName)).append("/")
                             }
-                            outputBuilder.append(com.junkfood.seal.util.FileUtil.cleanFileName(fallbackPlaylistTitle)).append("/")
-                        } else if (subdirectoryPlaylistTitle && !videoInfo.playlist.isNullOrEmpty()) {
-                            if (skipDownload && downloadSubtitle) {
-                                outputBuilder.append("sub ")
+                        } else if (subdirectoryPlaylistTitle) {
+                            if (fallbackPlaylistTitle.isNotEmpty()) {
+                                outputBuilder.append(com.junkfood.seal.util.FileUtil.cleanFileName(fallbackPlaylistTitle)).append("/")
+                            } else if (!videoInfo.playlist.isNullOrEmpty()) {
+                                outputBuilder.append(PLAYLIST_TITLE_SUBDIRECTORY_PREFIX)
                             }
-                            outputBuilder.append(PLAYLIST_TITLE_SUBDIRECTORY_PREFIX)
                         }
                     } else {
                         addOption("--no-playlist")
