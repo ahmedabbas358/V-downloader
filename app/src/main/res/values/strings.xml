@@ -500,4 +500,5 @@
     <string name="ytdlp_startup_prompt">Please download the required library for the application functions to work properly.</string>
     <string name="download_editor_title">Download Editor</string>
     <string name="select_language">Select language</string>
+    <string name="subtitle_language_selection">Select subtitle language</string>
 </resources>

@@ -52,6 +52,7 @@ import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.NewLabel
 import androidx.compose.material.icons.outlined.SettingsSuggest
 import androidx.compose.material.icons.outlined.VideoFile
+import androidx.compose.material.icons.outlined.Subtitles
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -66,6 +67,9 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -164,11 +168,11 @@ private fun DownloadType.label(): String =
 val PreferencesMock = DownloadUtil.DownloadPreferences.EMPTY
 
 data class Config(
-    val downloadType: DownloadType? = PreferenceUtil.getDownloadType()?.takeIf { it != DownloadType.Subtitle } ?: Video,
+    val downloadType: DownloadType? = PreferenceUtil.getDownloadType() ?: Video,
     val typeEntries: List<DownloadType> =
         when (CUSTOM_COMMAND.getBoolean()) {
-            true -> DownloadType.entries - DownloadType.Subtitle
-            false -> DownloadType.entries - Command - DownloadType.Subtitle
+            true -> DownloadType.entries
+            false -> DownloadType.entries - Command
         },
     val useFormatSelection: Boolean = FORMAT_SELECTION.getBoolean(),
     val savedLinks: Set<String> = PreferenceUtil.getSavedLinks(),
@@ -369,6 +373,7 @@ private fun DownloadDialogContent(
                         url = state.urlList.first(),
                         config = config,
                         preferences = preferences,
+                        onPreferencesUpdate = onPreferencesUpdate,
                         onPresetEdit = onPresetEdit,
                         onConfigSave = {
                             Config.updatePreferences(newValue = it, oldValue = config)
@@ -517,6 +522,7 @@ private fun ConfigurePagePreview() {
                         typeEntries = entries - Command,
                     ),
                 preferences = PreferencesMock,
+                onPreferencesUpdate = {},
                 onConfigSave = {},
                 settingChips = {},
             ) {}
@@ -530,6 +536,7 @@ private fun ConfigurePage(
     url: String = "",
     config: Config,
     preferences: DownloadUtil.DownloadPreferences,
+    onPreferencesUpdate: (DownloadUtil.DownloadPreferences) -> Unit,
     settingChips: @Composable () -> Unit,
     onPresetEdit: (DownloadType?) -> Unit = {},
     onConfigSave: (Config) -> Unit,
@@ -588,24 +595,37 @@ private fun ConfigurePage(
                 )
                 Column(modifier = Modifier.animateContentSize()) {
                     if (selectedType != Command) {
-                        DrawerSheetSubtitle(
-                            text = stringResource(id = R.string.format_selection),
-                            modifier = Modifier,
-                        )
-                        Preset(
-                            modifier = Modifier,
-                            preference = preferences,
-                            selected = !useFormatSelection,
-                            downloadType = selectedType,
-                            onClick = { useFormatSelection = false },
-                            showEditIcon = !useFormatSelection && selectedType != Playlist && selectedType != DownloadType.Subtitle,
-                            onEdit = { onPresetEdit(selectedType) },
-                        )
-                        Custom(
-                            selected = useFormatSelection,
-                            enabled = selectedType != Playlist,
-                            onClick = { useFormatSelection = true },
-                        )
+                        if (selectedType == DownloadType.Subtitle) {
+                            SubtitleLanguageSelector(
+                                preference = preferences,
+                                selected = true,
+                                onLanguageChange = { newLang ->
+                                    SUBTITLE_LANGUAGE.updateString(newLang)
+                                    onPreferencesUpdate(
+                                        DownloadUtil.DownloadPreferences.createFromPreferences()
+                                    )
+                                }
+                            )
+                        } else {
+                            DrawerSheetSubtitle(
+                                text = stringResource(id = R.string.format_selection),
+                                modifier = Modifier,
+                            )
+                            Preset(
+                                modifier = Modifier,
+                                preference = preferences,
+                                selected = !useFormatSelection,
+                                downloadType = selectedType,
+                                onClick = { useFormatSelection = false },
+                                showEditIcon = !useFormatSelection && selectedType != Playlist,
+                                onEdit = { onPresetEdit(selectedType) },
+                            )
+                            Custom(
+                                selected = useFormatSelection,
+                                enabled = selectedType != Playlist,
+                                onClick = { useFormatSelection = true },
+                            )
+                        }
                     } else {
                         if (showTemplateSelectionDialog) {
                             TemplatePickerDialog { showTemplateSelectionDialog = false }
@@ -751,19 +771,32 @@ fun ConfigurePagePlaylistVariant(
                     selectedType = selectedType,
                     onSelect = { selectedType = it },
                 )
-                DrawerSheetSubtitle(
-                    text = stringResource(id = R.string.format_selection),
-                    modifier = Modifier,
-                )
-                Preset(
-                    modifier = Modifier,
-                    preference = preferences,
-                    selected = true,
-                    downloadType = selectedType,
-                    onClick = { onPresetEdit(selectedType) },
-                    showEditIcon = true,
-                    onEdit = { onPresetEdit(selectedType) },
-                )
+                if (selectedType == DownloadType.Subtitle) {
+                    SubtitleLanguageSelector(
+                        preference = preferences,
+                        selected = true,
+                        onLanguageChange = { newLang ->
+                            SUBTITLE_LANGUAGE.updateString(newLang)
+                            onPreferencesUpdate(
+                                DownloadUtil.DownloadPreferences.createFromPreferences()
+                            )
+                        }
+                    )
+                } else {
+                    DrawerSheetSubtitle(
+                        text = stringResource(id = R.string.format_selection),
+                        modifier = Modifier,
+                    )
+                    Preset(
+                        modifier = Modifier,
+                        preference = preferences,
+                        selected = true,
+                        downloadType = selectedType,
+                        onClick = { onPresetEdit(selectedType) },
+                        showEditIcon = true,
+                        onEdit = { onPresetEdit(selectedType) },
+                    )
+                }
             }
             var expanded by remember { mutableStateOf(false) }
             ExpandableTitle(expanded = expanded, onClick = { expanded = true }) {
@@ -771,7 +804,6 @@ fun ConfigurePagePlaylistVariant(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     isQuickDownload = false,
                     preference = preferences,
-                    // Fix: تمرير selectedType بدلاً من Audio الثابت
                     selectedType = selectedType,
                     onPreferenceUpdate = {
                         onPreferencesUpdate(DownloadUtil.DownloadPreferences.createFromPreferences())

@@ -768,7 +768,7 @@ object DownloadUtil {
                         if (skipDownload && downloadSubtitle) {
                             val playlistName = fallbackPlaylistTitle.ifEmpty { videoInfo.playlist.orEmpty() }
                             if (playlistName.isNotEmpty()) {
-                                outputBuilder.append("sub ").append(com.junkfood.seal.util.FileUtil.cleanFileName(playlistName)).append("/")
+                                outputBuilder.append("[Subtitles] ").append(com.junkfood.seal.util.FileUtil.cleanFileName(playlistName)).append("/")
                             }
                         } else if (subdirectoryPlaylistTitle) {
                             if (fallbackPlaylistTitle.isNotEmpty()) {
