@@ -144,6 +144,8 @@ import com.junkfood.seal.util.PreferenceStrings
 import com.junkfood.seal.util.PreferenceUtil
 import com.junkfood.seal.util.PreferenceUtil.getBoolean
 import com.junkfood.seal.util.PreferenceUtil.updateBoolean
+import com.junkfood.seal.util.VideoInfo
+import com.junkfood.seal.util.SubtitleFormat
 import com.junkfood.seal.util.PreferenceUtil.updateInt
 import com.junkfood.seal.util.PreferenceUtil.updateString
 import com.junkfood.seal.util.SUBTITLE
@@ -1312,7 +1314,7 @@ private fun SubtitleLanguageSelector(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.padding(vertical = 8.dp)
                         ) {
-                            availableSubs.forEach { (code, formats) ->
+                            for ((code, formats) in availableSubs) {
                                 val name = formats.firstOrNull()?.name ?: code
                                 val isSelected = selectedCodes.contains(code)
                                 FilterChip(
@@ -1338,7 +1340,7 @@ private fun SubtitleLanguageSelector(
                                 verticalArrangement = Arrangement.spacedBy(8.dp),
                                 modifier = Modifier.padding(vertical = 8.dp)
                             ) {
-                                availableAutoCaptions.forEach { (code, formats) ->
+                                for ((code, formats) in availableAutoCaptions) {
                                     val name = formats.firstOrNull()?.name ?: "$code (auto)"
                                     val isSelected = selectedCodes.contains(code)
                                     FilterChip(
