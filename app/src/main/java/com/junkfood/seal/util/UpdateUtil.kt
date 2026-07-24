@@ -3,7 +3,9 @@ package com.junkfood.seal.util
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import android.util.Log
 import androidx.core.content.FileProvider
 import com.junkfood.seal.App
@@ -108,8 +110,21 @@ object UpdateUtil {
         context.run {
             kotlin
                 .runCatching {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !packageManager.canRequestPackageInstalls()) {
+                        val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                            data = Uri.parse("package:$packageName")
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        startActivity(intent)
+                        return@runCatching
+                    }
+                    val apkFile = getLatestApk()
+                    if (!apkFile.exists()) {
+                        ToastUtil.makeToast(R.string.app_update_failed)
+                        return@runCatching
+                    }
                     val contentUri =
-                        FileProvider.getUriForFile(this, getFileProvider(), getLatestApk())
+                        FileProvider.getUriForFile(this, getFileProvider(), apkFile)
                     val intent =
                         Intent(Intent.ACTION_VIEW).apply {
                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
