@@ -478,11 +478,31 @@ object DownloadUtil {
     ): YoutubeDLRequest =
         this.apply {
             downloadPreferences.run {
-                addOption("--add-metadata")
-                addOption("--no-embed-info-json")
                 if (skipDownload) {
                     addOption("--skip-download")
+                    addOption("--write-subs")
+                    if (autoSubtitle) {
+                        addOption("--write-auto-subs")
+                    }
+                    if (subtitleLanguage.isNotEmpty()) {
+                        addOption("--sub-langs", subtitleLanguage)
+                    } else {
+                        addOption("--sub-langs", "all")
+                    }
+                    when (convertSubtitle) {
+                        CONVERT_ASS -> addOption("--convert-subs", "ass")
+                        CONVERT_SRT -> addOption("--convert-subs", "srt")
+                        CONVERT_VTT -> addOption("--convert-subs", "vtt")
+                        CONVERT_LRC -> addOption("--convert-subs", "lrc")
+                        else -> addOption("--convert-subs", "srt")
+                    }
+                    addOption("--sleep-subtitles", "2")
+                    addOption("--sleep-requests", "1")
+                    return this
                 }
+
+                addOption("--add-metadata")
+                addOption("--no-embed-info-json")
                 if (formatIdString.isNotEmpty()) {
                     addOption("-f", formatIdString)
                     if (mergeAudioStream) {
@@ -491,7 +511,7 @@ object DownloadUtil {
                 } else {
                     applyFormatSorter(this, toFormatSorter())
                 }
-                if (downloadSubtitle || skipDownload) {
+                if (downloadSubtitle) {
                     addOption("--write-subs")
                     addOption("--write-auto-subs")
                     if (subtitleLanguage.isNotEmpty()) {
@@ -499,7 +519,7 @@ object DownloadUtil {
                     } else {
                         addOption("--sub-langs", "all")
                     }
-                    if (embedSubtitle && !skipDownload) {
+                    if (embedSubtitle) {
                         addOption("--embed-subs")
                     }
                     when (convertSubtitle) {
@@ -601,11 +621,31 @@ object DownloadUtil {
     ): YoutubeDLRequest =
         this.apply {
             with(preferences) {
-                addOption("-x")
                 if (skipDownload) {
                     addOption("--skip-download")
+                    addOption("--write-subs")
+                    if (autoSubtitle) {
+                        addOption("--write-auto-subs")
+                    }
+                    if (subtitleLanguage.isNotEmpty()) {
+                        addOption("--sub-langs", subtitleLanguage)
+                    } else {
+                        addOption("--sub-langs", "all")
+                    }
+                    when (convertSubtitle) {
+                        CONVERT_ASS -> addOption("--convert-subs", "ass")
+                        CONVERT_SRT -> addOption("--convert-subs", "srt")
+                        CONVERT_VTT -> addOption("--convert-subs", "vtt")
+                        CONVERT_LRC -> addOption("--convert-subs", "lrc")
+                        else -> addOption("--convert-subs", "srt")
+                    }
+                    addOption("--sleep-subtitles", "2")
+                    addOption("--sleep-requests", "1")
+                    return this
                 }
-                if (downloadSubtitle || skipDownload) {
+
+                addOption("-x")
+                if (downloadSubtitle) {
                     addOption("--write-subs")
                     addOption("--write-auto-subs")
                     if (subtitleLanguage.isNotEmpty()) {
@@ -802,11 +842,11 @@ object DownloadUtil {
                         else pathBuilder.append(videoDownloadDir)
                         addOptionsForVideoDownloads(downloadPreferences)
                     }
-                    if (sponsorBlock) {
+                    if (!skipDownload && sponsorBlock) {
                         addOption("--sponsorblock-remove", sponsorBlockCategory)
                     }
 
-                    if (createThumbnail) {
+                    if (!skipDownload && createThumbnail) {
                         addOption("--write-thumbnail")
                         addOption("--convert-thumbnails", "png")
                     }
@@ -820,10 +860,7 @@ object DownloadUtil {
                         addOption("-P", pathBuilder.toString())
                     }
 
-                    if (downloadSubtitle) {
-                        addOption("--sleep-subtitles", "3")
-                        addOption("--sleep-requests", "1.5")
-                    }
+                    addOption("--force-overwrites")
 
                     if (!skipDownload) {
                         videoClips.forEach {

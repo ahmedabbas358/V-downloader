@@ -176,8 +176,8 @@ data class Config(
     val downloadType: DownloadType? = PreferenceUtil.getDownloadType() ?: Video,
     val typeEntries: List<DownloadType> =
         when (CUSTOM_COMMAND.getBoolean()) {
-            true -> DownloadType.entries - DownloadType.Subtitle
-            false -> DownloadType.entries - Command - DownloadType.Subtitle
+            true -> DownloadType.entries
+            false -> DownloadType.entries - Command
         },
     val useFormatSelection: Boolean = FORMAT_SELECTION.getBoolean(),
     val savedLinks: Set<String> = PreferenceUtil.getSavedLinks(),
@@ -760,7 +760,7 @@ fun ConfigurePagePlaylistVariant(
                 )
                 DrawerSheetSubtitle(text = stringResource(id = R.string.download_type))
                 DownloadTypeSelectionGroup(
-                    typeEntries = listOf(Video, Audio),
+                    typeEntries = listOf(Video, Audio, DownloadType.Subtitle),
                     selectedType = selectedType,
                     onSelect = { selectedType = it },
                 )

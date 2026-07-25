@@ -28,10 +28,11 @@ object TaskFactory {
         skipDownload: Boolean = false,
         subtitleFormat: Int = com.junkfood.seal.util.CONVERT_SUBTITLE.getInt(),
     ): TaskWithState {
-        val fileSize =
+        val fileSize = if (skipDownload) 0.0 else {
             formatList.fold(.0) { acc, format ->
                 acc + (format.fileSize ?: format.fileSizeApprox ?: .0)
             }
+        }
 
         val info =
             videoInfo

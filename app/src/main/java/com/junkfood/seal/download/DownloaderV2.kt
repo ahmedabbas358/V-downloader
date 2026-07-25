@@ -431,12 +431,14 @@ class DownloaderV2Impl(
                     }
 
                 val isSubtitlePlaylist = task.preferences.skipDownload && task.type is TypeInfo.Playlist
-                if (isSubtitlePlaylist) {
-                    subtitleMutex.lock()
-                    kotlinx.coroutines.delay(3000L)
-                }
+                var acquiredSubtitleLock = false
                 
                 try {
+                    if (isSubtitlePlaylist) {
+                        subtitleMutex.lock()
+                        acquiredSubtitleLock = true
+                        kotlinx.coroutines.delay(2000L)
+                    }
                     var lastUpdateTime = 0L
                 DownloadUtil
                     .downloadVideo(
@@ -634,7 +636,7 @@ class DownloaderV2Impl(
                         )
                     }
                 } finally {
-                    if (isSubtitlePlaylist) {
+                    if (acquiredSubtitleLock) {
                         subtitleMutex.unlock()
                     }
                 }

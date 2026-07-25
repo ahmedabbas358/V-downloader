@@ -159,34 +159,42 @@ object UpdateUtil {
         release: Release,
     ): Flow<DownloadStatus> =
         withContext(Dispatchers.IO) {
+            val latestApk = context.getLatestApk()
             val apkVersion =
-                context.packageManager
-                    .getPackageArchiveInfo(context.getLatestApk().absolutePath, 0)
-                    ?.versionName
-                    .toVersion()
+                if (latestApk.exists()) {
+                    context.packageManager
+                        .getPackageArchiveInfo(latestApk.absolutePath, 0)
+                        ?.versionName
+                        .toVersion()
+                } else {
+                    EMPTY_VERSION
+                }
 
-            Log.d(TAG, apkVersion.toString())
+            Log.d(TAG, "Cached APK version: $apkVersion, Release version: ${release.name}")
 
-            if (apkVersion >= release.name.toVersion()) {
+            if (latestApk.exists() && apkVersion >= release.name.toVersion()) {
                 return@withContext flow<DownloadStatus> {
-                    emit(DownloadStatus.Finished(context.getLatestApk()))
+                    emit(DownloadStatus.Finished(latestApk))
                 }
             }
 
-            val abiList = Build.SUPPORTED_ABIS
-            val preferredArch = abiList.firstOrNull() ?: return@withContext emptyFlow()
+            if (latestApk.exists()) {
+                latestApk.delete()
+            }
 
-            val targetUrl =
-                release.assets
-                    ?.find {
-                        return@find it.name?.contains(preferredArch) ?: false
-                    }
-                    ?.browserDownloadUrl ?: return@withContext emptyFlow()
+            val abiList = Build.SUPPORTED_ABIS
+            val targetUrl = release.assets?.find { asset ->
+                val assetName = asset.name.orEmpty()
+                abiList.any { abi -> assetName.contains(abi, ignoreCase = true) } || assetName.contains("universal", ignoreCase = true)
+            }?.browserDownloadUrl 
+                ?: release.assets?.firstOrNull { it.name?.endsWith(".apk", ignoreCase = true) == true }?.browserDownloadUrl 
+                ?: return@withContext emptyFlow()
+
             val request = Request.Builder().url(targetUrl).build()
             try {
                 val response = client.newCall(request).execute()
                 val responseBody = response.body
-                return@withContext responseBody.downloadFileWithProgress(context.getLatestApk())
+                return@withContext responseBody.downloadFileWithProgress(latestApk)
             } catch (e: Exception) {
                 e.printStackTrace()
             }

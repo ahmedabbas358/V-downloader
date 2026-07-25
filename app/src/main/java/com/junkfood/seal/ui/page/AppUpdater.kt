@@ -90,9 +90,16 @@ fun AppUpdater() {
                                     ->
                                     currentDownloadStatus = downloadStatus
                                     if (downloadStatus is UpdateUtil.DownloadStatus.Finished) {
-                                        launcher.launch(
-                                            Manifest.permission.REQUEST_INSTALL_PACKAGES
-                                        )
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
+                                            settings.launch(
+                                                Intent(
+                                                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                                    Uri.parse("package:${context.packageName}"),
+                                                )
+                                            )
+                                        } else {
+                                            UpdateUtil.installLatestApk()
+                                        }
                                     }
                                 }
                             }
