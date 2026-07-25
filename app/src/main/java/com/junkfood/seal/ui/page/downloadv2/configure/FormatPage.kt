@@ -173,13 +173,16 @@ fun FormatPage(
 
             if (playlistTasks != null) {
                 playlistTasks.forEach { taskWithState ->
+                    val hasSelectedSubs = selectedSubtitles.isNotEmpty() || selectedAutoCaptions.isNotEmpty()
                     val updatedTask = taskWithState.task.copy(
                         preferences = taskWithState.task.preferences.copy(
                             skipDownload = skipDownload,
+                            formatIdString = if (skipDownload) "" else taskWithState.task.preferences.formatIdString,
+                            extractAudio = if (skipDownload) false else taskWithState.task.preferences.extractAudio,
                             downloadSubtitle = if (skipDownload) true else taskWithState.task.preferences.downloadSubtitle,
                             convertSubtitle = subtitleFormat,
-                            autoSubtitle = if (selectedSubtitles.isNotEmpty()) selectedAutoCaptions.isNotEmpty() else taskWithState.task.preferences.autoSubtitle,
-                            subtitleLanguage = if (selectedSubtitles.isNotEmpty()) selectedSubtitles.joinToString(",") else taskWithState.task.preferences.subtitleLanguage
+                            autoSubtitle = if (hasSelectedSubs) selectedAutoCaptions.isNotEmpty() else taskWithState.task.preferences.autoSubtitle,
+                            subtitleLanguage = if (hasSelectedSubs) (selectedSubtitles + selectedAutoCaptions).joinToString(",") else taskWithState.task.preferences.subtitleLanguage
                         )
                     )
                     downloader.enqueue(taskWithState.copy(task = updatedTask))
