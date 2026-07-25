@@ -165,10 +165,6 @@ object DownloadUtil {
                     if (restrictFilenames) {
                         addOption("--restrict-filenames")
                     }
-                    if (extractAudio) {
-                        addOption("-x")
-                    }
-                    applyFormatSorter(this@with, toFormatSorter())
                     if (cookies) {
                         enableCookies(userAgentString)
                     }
@@ -178,15 +174,8 @@ object DownloadUtil {
                     if (forceIpv4) {
                         addOption("-4")
                     }
-                    /*            if (debug) {
-                        addOption("-v")
-                    }*/
-                    if (autoSubtitle) {
-                        addOption("--write-auto-subs")
-                        if (!autoTranslatedSubtitles) {
-                            addOption("--extractor-args", "youtube:skip=translated_subs")
-                        }
-                    }
+                    addOption("--write-subs")
+                    addOption("--write-auto-subs")
                     if (playlistIndex != null) {
                         addOption("--playlist-items", playlistIndex)
                         addOption("--dump-json")
@@ -480,9 +469,7 @@ object DownloadUtil {
             if (downloadPreferences.skipDownload) {
                 addOption("--skip-download")
                 addOption("--write-subs")
-                if (downloadPreferences.autoSubtitle) {
-                    addOption("--write-auto-subs")
-                }
+                addOption("--write-auto-subs")
                 if (downloadPreferences.subtitleLanguage.isNotEmpty()) {
                     addOption("--sub-langs", downloadPreferences.subtitleLanguage)
                 } else {
@@ -624,9 +611,7 @@ object DownloadUtil {
             if (preferences.skipDownload) {
                 addOption("--skip-download")
                 addOption("--write-subs")
-                if (preferences.autoSubtitle) {
-                    addOption("--write-auto-subs")
-                }
+                addOption("--write-auto-subs")
                 if (preferences.subtitleLanguage.isNotEmpty()) {
                     addOption("--sub-langs", preferences.subtitleLanguage)
                 } else {

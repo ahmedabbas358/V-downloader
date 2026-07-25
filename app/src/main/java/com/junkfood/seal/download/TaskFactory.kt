@@ -53,12 +53,12 @@ object TaskFactory {
             DownloadPreferences.createFromPreferences()
                 .run {
                     copy(
-                        formatIdString = formatId,
-                        videoClips = videoClips,
-                        splitByChapter = splitByChapter,
+                        formatIdString = if (skipDownload) "" else formatId,
+                        videoClips = if (skipDownload) emptyList() else videoClips,
+                        splitByChapter = if (skipDownload) false else splitByChapter,
                         newTitle = newTitle,
-                        mergeAudioStream = mergeAudioStream,
-                        extractAudio = extractAudio || audioOnly,
+                        mergeAudioStream = if (skipDownload) false else mergeAudioStream,
+                        extractAudio = if (skipDownload) false else (extractAudio || audioOnly),
                         skipDownload = skipDownload,
                         downloadSubtitle = downloadSubtitle || skipDownload || hasSelectedSubs,
                         convertSubtitle = subtitleFormat,
@@ -91,6 +91,18 @@ object TaskFactory {
         checkNotNull(playlistResult.entries)
         val indexEntryMap = indexList.associateWith { index -> playlistResult.entries[index - 1] }
 
+        val sanitizedPreferences = if (preferences.skipDownload) {
+            preferences.copy(
+                formatIdString = "",
+                extractAudio = false,
+                mergeAudioStream = false,
+                splitByChapter = false,
+                videoClips = emptyList(),
+                downloadSubtitle = true,
+                autoSubtitle = true,
+            )
+        } else preferences
+
         val taskList =
             indexEntryMap.map { (index, entry) ->
                 val entryUrlRaw = entry.url.orEmpty()
@@ -99,7 +111,7 @@ object TaskFactory {
                     !entry.id.isNullOrEmpty() -> "https://www.youtube.com/watch?v=${entry.id}"
                     else -> ""
                 }
-                val isSubOnly = preferences.skipDownload && preferences.downloadSubtitle
+                val isSubOnly = sanitizedPreferences.skipDownload && sanitizedPreferences.downloadSubtitle
                 val baseTitle = entry.title ?: "${playlistResult.title} - $index"
                 val viewState =
                     Task.ViewState(
@@ -112,7 +124,7 @@ object TaskFactory {
                     )
                 val task = Task(
                     url = itemUrl.ifEmpty { playlistUrl }, 
-                    preferences = preferences, 
+                    preferences = sanitizedPreferences, 
                     type = Task.TypeInfo.Playlist(
                         index = index,
                         playlistTitle = playlistResult.title ?: "",
