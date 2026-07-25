@@ -69,7 +69,7 @@ object TaskFactory {
                 downloadState = ReadyWithInfo,
                 videoInfo = info,
                 viewState =
-                    Task.ViewState.fromVideoInfo(info = info)
+                    Task.ViewState.fromVideoInfo(info = info, preferences = preferences)
                         .copy(videoFormats = videoFormats, audioOnlyFormats = audioOnlyFormats),
             )
 
@@ -104,6 +104,7 @@ object TaskFactory {
                         duration = if (isSubOnly) 0 else (entry.duration?.roundToInt() ?: 0),
                         uploader = entry.uploader ?: entry.channel ?: playlistResult.channel ?: "",
                         thumbnailUrl = (entry.thumbnails?.lastOrNull()?.url) ?: "",
+                        isSubOnly = isSubOnly,
                     )
                 val task = Task(
                     url = itemUrl.ifEmpty { playlistUrl }, 

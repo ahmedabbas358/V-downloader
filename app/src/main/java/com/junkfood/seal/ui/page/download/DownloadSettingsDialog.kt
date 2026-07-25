@@ -174,9 +174,9 @@ fun DownloadSettingDialog(
     val downloadTypes =
         remember(isQuickDownload) {
             if (isQuickDownload) {
-                DownloadType.entries - DownloadType.Playlist
+                DownloadType.entries - DownloadType.Playlist - DownloadType.Subtitle
             } else {
-                DownloadType.entries
+                DownloadType.entries - DownloadType.Subtitle - DownloadType.Command
             }
         }
 

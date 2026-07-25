@@ -127,8 +127,22 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
                 ).onSuccess { info ->
                     when (info) {
                         is PlaylistResult -> {
-                            mSelectionStateFlow.update {
-                                SelectionState.PlaylistSelection(result = info)
+                            if (preferences.downloadPlaylist) {
+                                mSelectionStateFlow.update {
+                                    SelectionState.PlaylistSelection(result = info)
+                                }
+                            } else {
+                                // Default to the first video in the playlist if user didn't request a playlist
+                                val firstVideoUrl = info.entries?.firstOrNull()?.url ?: url
+                                DownloadUtil.fetchVideoInfoFromUrl(firstVideoUrl, preferences = preferences).onSuccess { firstVideoInfo ->
+                                    mSelectionStateFlow.update {
+                                        SelectionState.FormatSelection(info = firstVideoInfo)
+                                    }
+                                }.onFailure {
+                                    mSheetStateFlow.update {
+                                        SheetState.Error(action = action, throwable = it)
+                                    }
+                                }
                             }
                         }
                         is VideoInfo -> {

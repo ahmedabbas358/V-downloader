@@ -114,6 +114,7 @@ fun VideoCardV2(
             uploader = uploader,
             duration = duration,
             fileSizeApprox = fileSizeApprox,
+            isSubOnly = isSubOnly,
             isSelected = isSelected,
             showSize = showSize,
             showDuration = showDuration,
@@ -147,6 +148,7 @@ fun VideoListItem(
             uploader = uploader,
             duration = duration,
             fileSizeApprox = fileSizeApprox,
+            isSubOnly = isSubOnly,
             isSelected = isSelected,
             showSize = showSize,
             showDuration = showDuration,
@@ -167,6 +169,7 @@ fun VideoListItem(
     uploader: String = "",
     duration: Int = 0,
     fileSizeApprox: Double = .0,
+    isSubOnly: Boolean = false,
     isSelected: Boolean = false,
     showSize: Boolean = true,
     showDuration: Boolean = true,
@@ -185,7 +188,7 @@ fun VideoListItem(
         verticalAlignment = Alignment.Top
     ) {
         Box(modifier = Modifier) {
-            ListItemImage(modifier = Modifier, thumbnailModel = thumbnailModel)
+            ListItemImage(modifier = Modifier, thumbnailModel = thumbnailModel, isSubOnly = isSubOnly)
             VideoInfoLabel(
                 modifier = Modifier.align(Alignment.BottomEnd),
                 duration = duration,
@@ -271,6 +274,7 @@ fun VideoCardV2(
     uploader: String = "",
     duration: Int = 0,
     fileSizeApprox: Double = .0,
+    isSubOnly: Boolean = false,
     isSelected: Boolean = false,
     showSize: Boolean = true,
     showDuration: Boolean = true,
@@ -296,9 +300,11 @@ fun VideoCardV2(
     ) {
         Column {
             Box(Modifier.fillMaxWidth()) {
-                CardImage(modifier = Modifier, thumbnailModel = thumbnailModel)
+                CardImage(modifier = Modifier, thumbnailModel = thumbnailModel, isSubOnly = isSubOnly)
                 Box(Modifier.align(Alignment.TopStart)) { stateIndicator?.invoke(this) }
-                Box(Modifier.align(Alignment.Center)) { actionButton?.invoke(this) }
+                if (!isSubOnly) {
+                    Box(Modifier.align(Alignment.Center)) { actionButton?.invoke(this) }
+                }
                 VideoInfoLabel(
                     modifier = Modifier.align(Alignment.BottomEnd),
                     duration = duration,
@@ -340,7 +346,7 @@ fun VideoCardV2Preview() {
 }
 
 @Composable
-private fun CardImage(modifier: Modifier = Modifier, thumbnailModel: Any? = null) {
+private fun CardImage(modifier: Modifier = Modifier, thumbnailModel: Any? = null, isSubOnly: Boolean = false) {
     if (thumbnailModel != null) {
         AsyncImageImpl(
             modifier =
@@ -360,12 +366,23 @@ private fun CardImage(modifier: Modifier = Modifier, thumbnailModel: Any? = null
                     .fillMaxWidth()
                     .aspectRatio(16f / 9f, matchHeightConstraintsFirst = true),
             color = MaterialTheme.colorScheme.surfaceContainerHighest,
-        ) {}
+        ) {
+            if (isSubOnly) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Outlined.Subtitles,
+                        contentDescription = null,
+                        modifier = Modifier.size(IconSize),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
     }
 }
 
 @Composable
-private fun ListItemImage(modifier: Modifier = Modifier, thumbnailModel: Any? = null) {
+private fun ListItemImage(modifier: Modifier = Modifier, thumbnailModel: Any? = null, isSubOnly: Boolean = false) {
     if (thumbnailModel != null) {
         AsyncImageImpl(
             model = thumbnailModel,
@@ -383,8 +400,18 @@ private fun ListItemImage(modifier: Modifier = Modifier, thumbnailModel: Any? = 
                     .width(160.dp)
                     .aspectRatio(16f / 9f, matchHeightConstraintsFirst = true)
                     .clip(MaterialTheme.shapes.small)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-        ) {}
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+            contentAlignment = Alignment.Center
+        ) {
+            if (isSubOnly) {
+                Icon(
+                    imageVector = Icons.Outlined.Subtitles,
+                    contentDescription = null,
+                    modifier = Modifier.size(IconSize),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
 }
 

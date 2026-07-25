@@ -820,6 +820,11 @@ object DownloadUtil {
                         addOption("-P", pathBuilder.toString())
                     }
 
+                    if (downloadSubtitle) {
+                        addOption("--sleep-subtitles", "3")
+                        addOption("--sleep-requests", "1.5")
+                    }
+
                     if (!skipDownload) {
                         videoClips.forEach {
                             addOption(
@@ -845,7 +850,7 @@ object DownloadUtil {
                         if (splitByChapter) {
                             OUTPUT_TEMPLATE_SPLIT
                         } else if (videoClips.isEmpty()) {
-                            if (downloadPlaylist && (playlistNumbering || (skipDownload && downloadSubtitle)) && playlistItem != 0) {
+                            if ((downloadPlaylist || isFallback) && (playlistNumbering || (skipDownload && downloadSubtitle)) && playlistItem != 0) {
                                 val prefix = String.format(java.util.Locale.US, "%03d - ", playlistItem)
                                 val fileNameStart = outputTemplate.lastIndexOf('/').takeIf { it >= 0 }?.plus(1) ?: 0
                                 outputTemplate.replaceRange(fileNameStart, fileNameStart, prefix)

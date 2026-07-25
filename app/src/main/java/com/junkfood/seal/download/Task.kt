@@ -139,6 +139,7 @@ data class Task(
         val thumbnailUrl: String? = null,
         val videoFormats: List<Format>? = null,
         val audioOnlyFormats: List<Format>? = null,
+        val isSubOnly: Boolean = false,
     ) {
         companion object {
             fun fromVideoInfo(info: VideoInfo, preferences: DownloadUtil.DownloadPreferences? = null): ViewState {
@@ -161,6 +162,7 @@ data class Task(
                     fileSizeApprox = info.fileSize ?: info.fileSizeApprox ?: .0,
                     videoFormats = if (isSubOnly) emptyList() else videoFormats,
                     audioOnlyFormats = if (isSubOnly) emptyList() else audioOnlyFormats,
+                    isSubOnly = isSubOnly,
                 )
             }
         }
