@@ -25,7 +25,10 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
     sealed interface SelectionState {
         data object Idle : SelectionState
         data class PlaylistSelection(val result: PlaylistResult) : SelectionState
-        data class FormatSelection(val info: VideoInfo) : SelectionState
+        data class FormatSelection(
+            val info: VideoInfo,
+            val playlistTasks: List<TaskFactory.TaskWithState>? = null
+        ) : SelectionState
     }
 
     sealed interface SheetState {
@@ -63,6 +66,11 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
             val template: CommandTemplate,
             val preferences: DownloadUtil.DownloadPreferences,
         ) : Action
+        data class FetchPlaylistSubtitleFormats(
+            val firstVideoUrl: String,
+            val playlistTasks: List<TaskFactory.TaskWithState>,
+            val preferences: DownloadUtil.DownloadPreferences,
+        ) : Action
         data object Cancel : Action
     }
 
@@ -82,6 +90,7 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
             is Action.ProceedWithURLs -> proceedWithUrls(action)
             is Action.FetchFormats -> fetchFormat(action)
             is Action.FetchPlaylist -> fetchPlaylist(action)
+            is Action.FetchPlaylistSubtitleFormats -> fetchPlaylistSubtitleFormats(action)
             is Action.DownloadWithPreset -> downloadWithPreset(action.urlList, action.preferences)
             is Action.RunCommand -> runCommand(action.url, action.template, action.preferences)
             Action.HideSheet -> hideDialog()
@@ -138,9 +147,9 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
                                     mSelectionStateFlow.update {
                                         SelectionState.FormatSelection(info = firstVideoInfo)
                                     }
-                                }.onFailure {
+                                }.onFailure { th ->
                                     mSheetStateFlow.update {
-                                        SheetState.Error(action = action, throwable = it)
+                                        SheetState.Error(action = action, throwable = th)
                                     }
                                 }
                             }
@@ -171,30 +180,68 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
     }
 
     private fun fetchFormat(action: Action.FetchFormats) {
-        val (url, audioOnly, preferences) = action
-        val taskKey = "FetchFormat_$url"
+        val url = action.url
+        val preferences = action.preferences
 
+        val taskKey = "fetch_format_$url"
         if (activeJobs.containsKey(taskKey)) return
 
         val job = viewModelScope.launch(Dispatchers.IO) {
             try {
-                DownloadUtil.fetchVideoInfoFromUrl(
-                    url = url,
-                    preferences = preferences.copy(extractAudio = audioOnly),
-                    taskKey = taskKey,
-                ).onSuccess { info ->
-                    mSelectionStateFlow.update { SelectionState.FormatSelection(info = info) }
-                    dismissSheet() // إخفاء بدون إلغاء (العملية انتهت بنجاح)
-                }.onFailure { th ->
-                    mSheetStateFlow.update { SheetState.Error(action = action, throwable = th) }
-                }
+                DownloadUtil.fetchVideoInfoFromUrl(url = url, preferences = preferences)
+                    .onSuccess { info ->
+                        mSelectionStateFlow.update {
+                            SelectionState.FormatSelection(info = info)
+                        }
+                        dismissSheet()
+                    }
+                    .onFailure { th ->
+                        mSheetStateFlow.update {
+                            SheetState.Error(action = action, throwable = th)
+                        }
+                    }
             } catch (th: Throwable) {
-                mSheetStateFlow.update { SheetState.Error(action = action, throwable = th) }
+                mSheetStateFlow.update {
+                    SheetState.Error(action = action, throwable = th)
+                }
             } finally {
                 activeJobs.remove(taskKey)
             }
         }
+        activeJobs[taskKey] = job
+        mSheetStateFlow.update { SheetState.Loading(taskKey = taskKey, job = job) }
+    }
 
+    private fun fetchPlaylistSubtitleFormats(action: Action.FetchPlaylistSubtitleFormats) {
+        val url = action.firstVideoUrl
+        val preferences = action.preferences
+        val playlistTasks = action.playlistTasks
+
+        val taskKey = "fetch_playlist_subtitles_$url"
+        if (activeJobs.containsKey(taskKey)) return
+
+        val job = viewModelScope.launch(Dispatchers.IO) {
+            try {
+                DownloadUtil.fetchVideoInfoFromUrl(url = url, preferences = preferences)
+                    .onSuccess { info ->
+                        mSelectionStateFlow.update {
+                            SelectionState.FormatSelection(info = info, playlistTasks = playlistTasks)
+                        }
+                        dismissSheet()
+                    }
+                    .onFailure { th ->
+                        mSheetStateFlow.update {
+                            SheetState.Error(action = action, throwable = th)
+                        }
+                    }
+            } catch (th: Throwable) {
+                mSheetStateFlow.update {
+                    SheetState.Error(action = action, throwable = th)
+                }
+            } finally {
+                activeJobs.remove(taskKey)
+            }
+        }
         activeJobs[taskKey] = job
         mSheetStateFlow.update { SheetState.Loading(taskKey = taskKey, job = job) }
     }

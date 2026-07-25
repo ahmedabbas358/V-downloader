@@ -111,6 +111,8 @@ class DownloaderV2Impl(
         mutableStateMapOf<Task, Task.State>()
 
     private val retryCountMap = mutableMapOf<String, Int>()
+    
+    private val subtitleMutex = kotlinx.coroutines.sync.Mutex()
 
     private val snapshotFlow =
         snapshotFlow { taskStateMap.toMap() }
@@ -428,7 +430,14 @@ class DownloaderV2Impl(
                         ""
                     }
 
-                var lastUpdateTime = 0L
+                val isSubtitlePlaylist = task.preferences.skipDownload && task.type is TypeInfo.Playlist
+                if (isSubtitlePlaylist) {
+                    subtitleMutex.lock()
+                    kotlinx.coroutines.delay(3000L)
+                }
+                
+                try {
+                    var lastUpdateTime = 0L
                 DownloadUtil
                     .downloadVideo(
                         videoInfo = task.info,
@@ -624,6 +633,11 @@ class DownloaderV2Impl(
                                 throwable.stackTraceToString()
                         )
                     }
+                } finally {
+                    if (isSubtitlePlaylist) {
+                        subtitleMutex.unlock()
+                    }
+                }
             }
             .also { job ->
                 task.downloadState =

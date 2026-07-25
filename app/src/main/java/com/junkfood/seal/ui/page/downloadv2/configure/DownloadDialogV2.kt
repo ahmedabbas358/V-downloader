@@ -495,6 +495,7 @@ fun FormatPage(
         FormatPage(
             modifier = modifier,
             videoInfo = state.info,
+            playlistTasks = state.playlistTasks,
             onNavigateBack = {
                 scope.launch { sheetState.hide() }.invokeOnCompletion { onDismissRequest() }
             },

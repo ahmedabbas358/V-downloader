@@ -347,7 +347,25 @@ fun VideoCardV2Preview() {
 
 @Composable
 private fun CardImage(modifier: Modifier = Modifier, thumbnailModel: Any? = null, isSubOnly: Boolean = false) {
-    if (thumbnailModel != null) {
+    if (isSubOnly) {
+        Surface(
+            modifier =
+                modifier
+                    .padding()
+                    .fillMaxWidth()
+                    .aspectRatio(16f / 9f, matchHeightConstraintsFirst = true),
+            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Outlined.Subtitles,
+                    contentDescription = null,
+                    modifier = Modifier.size(IconSize),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    } else if (thumbnailModel != null) {
         AsyncImageImpl(
             modifier =
                 modifier
@@ -366,24 +384,30 @@ private fun CardImage(modifier: Modifier = Modifier, thumbnailModel: Any? = null
                     .fillMaxWidth()
                     .aspectRatio(16f / 9f, matchHeightConstraintsFirst = true),
             color = MaterialTheme.colorScheme.surfaceContainerHighest,
-        ) {
-            if (isSubOnly) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Outlined.Subtitles,
-                        contentDescription = null,
-                        modifier = Modifier.size(IconSize),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
+        ) {}
     }
 }
 
 @Composable
 private fun ListItemImage(modifier: Modifier = Modifier, thumbnailModel: Any? = null, isSubOnly: Boolean = false) {
-    if (thumbnailModel != null) {
+    if (isSubOnly) {
+        Box(
+            modifier =
+                modifier
+                    .width(160.dp)
+                    .aspectRatio(16f / 9f, matchHeightConstraintsFirst = true)
+                    .clip(MaterialTheme.shapes.small)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Subtitles,
+                contentDescription = null,
+                modifier = Modifier.size(IconSize),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    } else if (thumbnailModel != null) {
         AsyncImageImpl(
             model = thumbnailModel,
             modifier =
@@ -402,16 +426,7 @@ private fun ListItemImage(modifier: Modifier = Modifier, thumbnailModel: Any? = 
                     .clip(MaterialTheme.shapes.small)
                     .background(MaterialTheme.colorScheme.surfaceContainerHighest),
             contentAlignment = Alignment.Center
-        ) {
-            if (isSubOnly) {
-                Icon(
-                    imageVector = Icons.Outlined.Subtitles,
-                    contentDescription = null,
-                    modifier = Modifier.size(IconSize),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
+        ) {}
     }
 }
 

@@ -88,6 +88,7 @@ import org.koin.compose.koinInject
 fun PlaylistSelectionPage(
     state: SelectionState.PlaylistSelection,
     downloader: DownloaderV2 = koinInject(),
+    onActionPost: (com.junkfood.seal.ui.page.downloadv2.configure.DownloadDialogViewModel.Action) -> Unit = {},
     onDismissRequest: () -> Unit = {},
 ) {
     var preferences by remember {
@@ -157,9 +158,21 @@ fun PlaylistSelectionPage(
                         skipDownload = type == DownloadType.Subtitle,
                         downloadSubtitle = if (type == DownloadType.Subtitle) true else preferences.downloadSubtitle,
                     )
-                    taskList
-                        .map { it.copy(task = it.task.copy(preferences = updatedPreferences)) }
-                        .forEach(downloader::enqueue)
+                    
+                    if (type == DownloadType.Subtitle) {
+                        val firstVideoUrl = state.result.entries?.firstOrNull()?.url ?: state.result.webpageUrl ?: ""
+                        onActionPost(
+                            com.junkfood.seal.ui.page.downloadv2.configure.DownloadDialogViewModel.Action.FetchPlaylistSubtitleFormats(
+                                firstVideoUrl = firstVideoUrl,
+                                playlistTasks = taskList.map { it.copy(task = it.task.copy(preferences = updatedPreferences)) },
+                                preferences = updatedPreferences
+                            )
+                        )
+                    } else {
+                        taskList
+                            .map { it.copy(task = it.task.copy(preferences = updatedPreferences)) }
+                            .forEach(downloader::enqueue)
+                    }
                     onDismissConfigurationSheet()
                     onBack()
                 },

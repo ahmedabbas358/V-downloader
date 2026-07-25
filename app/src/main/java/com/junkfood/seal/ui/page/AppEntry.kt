@@ -334,6 +334,7 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
             is DownloadDialogViewModel.SelectionState.PlaylistSelection -> {
                 PlaylistSelectionPage(
                     state = selectionState,
+                    onActionPost = { dialogViewModel.postAction(it) },
                     onDismissRequest = { dialogViewModel.postAction(Action.Reset) },
                 )
             }

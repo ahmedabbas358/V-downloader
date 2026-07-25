@@ -111,6 +111,8 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import org.koin.compose.koinInject
+import com.junkfood.seal.util.PreferenceUtil.getInt
+import androidx.compose.material3.TextButton
 
 private const val TAG = "FormatPage"
 
@@ -122,12 +124,14 @@ private data class FormatConfig(
     val selectedSubtitles: List<String>,
     val selectedAutoCaptions: List<String>,
     val skipDownload: Boolean = false,
+    val subtitleFormat: Int = com.junkfood.seal.util.CONVERT_SUBTITLE.getInt(),
 )
 
 @Composable
 fun FormatPage(
     modifier: Modifier = Modifier,
     videoInfo: VideoInfo,
+    playlistTasks: List<com.junkfood.seal.download.TaskFactory.TaskWithState>? = null,
     downloader: DownloaderV2 = koinInject(),
     onNavigateBack: () -> Unit = {},
 ) {
@@ -167,18 +171,34 @@ fun FormatPage(
                     .run { this - this.filterWithRegex(subtitleLanguageRegex) }
                     .toSet()
 
-            downloader.enqueue(
-                TaskFactory.createWithConfigurations(
-                    videoInfo = videoInfo,
-                    formatList = formatList,
-                    videoClips = videoClips,
-                    splitByChapter = splitByChapter,
-                    newTitle = newTitle,
-                    selectedSubtitles = selectedSubtitles,
-                    selectedAutoCaptions = selectedAutoCaptions,
-                    skipDownload = skipDownload,
+            if (playlistTasks != null) {
+                playlistTasks.forEach { taskWithState ->
+                    val updatedTask = taskWithState.task.copy(
+                        preferences = taskWithState.task.preferences.copy(
+                            skipDownload = skipDownload,
+                            downloadSubtitle = if (skipDownload) true else taskWithState.task.preferences.downloadSubtitle,
+                            convertSubtitle = subtitleFormat,
+                            autoSubtitle = if (selectedSubtitles.isNotEmpty()) selectedAutoCaptions.isNotEmpty() else taskWithState.task.preferences.autoSubtitle,
+                            subtitleLanguage = if (selectedSubtitles.isNotEmpty()) selectedSubtitles.joinToString(",") else taskWithState.task.preferences.subtitleLanguage
+                        )
+                    )
+                    downloader.enqueue(taskWithState.copy(task = updatedTask))
+                }
+            } else {
+                downloader.enqueue(
+                    com.junkfood.seal.download.TaskFactory.createWithConfigurations(
+                        videoInfo = videoInfo,
+                        formatList = formatList,
+                        videoClips = videoClips,
+                        splitByChapter = splitByChapter,
+                        newTitle = newTitle,
+                        selectedSubtitles = selectedSubtitles,
+                        selectedAutoCaptions = selectedAutoCaptions,
+                        skipDownload = skipDownload,
+                        subtitleFormat = subtitleFormat,
+                    )
                 )
-            )
+            }
 
             if (diffSubtitleLanguages.isNotEmpty()) {
                 showUpdateSubtitleDialog = true
@@ -347,6 +367,8 @@ private fun FormatPageImpl(
 
     var videoClipDuration by remember { mutableStateOf(videoDurationRange) }
     var videoTitle by remember { mutableStateOf("") }
+    
+    var subtitleFormat by remember { mutableIntStateOf(com.junkfood.seal.util.CONVERT_SUBTITLE.getInt()) }
 
     val suggestedSubtitleMap: Map<String, List<SubtitleFormat>> =
         videoInfo.subtitles.takeIf { it.isNotEmpty() }
@@ -428,6 +450,7 @@ private fun FormatPageImpl(
                                 selectedSubtitles = selectedSubtitles,
                                 selectedAutoCaptions = selectedAutoCaptions,
                                 skipDownload = isSubtitleOnly,
+                                subtitleFormat = subtitleFormat,
                             )
                         )
                     },
@@ -575,6 +598,7 @@ private fun FormatPageImpl(
                                                 selectedSubtitles = selectedSubtitles,
                                                 selectedAutoCaptions = selectedAutoCaptions,
                                                 skipDownload = true,
+                                                subtitleFormat = subtitleFormat,
                                             )
                                         )
                                     }
@@ -600,6 +624,37 @@ private fun FormatPageImpl(
                                         },
                                         label = formats.first().run { name ?: protocol ?: code },
                                     )
+                                }
+                            }
+                        }
+                        
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        ) {
+                            Text(
+                                text = stringResource(id = R.string.convert_subtitle),
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.weight(1f),
+                            )
+                            var subtitleFormatExpanded by remember { mutableStateOf(false) }
+                            androidx.compose.foundation.layout.Box {
+                                TextButton(onClick = { subtitleFormatExpanded = true }) {
+                                    Text(com.junkfood.seal.util.PreferenceStrings.getSubtitleConversionFormat(subtitleFormat))
+                                }
+                                androidx.compose.material3.DropdownMenu(
+                                    expanded = subtitleFormatExpanded,
+                                    onDismissRequest = { subtitleFormatExpanded = false }
+                                ) {
+                                    listOf(0, 1, 2, 3, 4).forEach { format ->
+                                        androidx.compose.material3.DropdownMenuItem(
+                                            text = { Text(com.junkfood.seal.util.PreferenceStrings.getSubtitleConversionFormat(format)) },
+                                            onClick = {
+                                                subtitleFormat = format
+                                                subtitleFormatExpanded = false
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }

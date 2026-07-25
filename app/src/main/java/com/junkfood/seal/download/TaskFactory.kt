@@ -4,6 +4,7 @@ import androidx.annotation.CheckResult
 import com.junkfood.seal.download.Task.DownloadState.Idle
 import com.junkfood.seal.download.Task.DownloadState.ReadyWithInfo
 import com.junkfood.seal.util.DownloadUtil.DownloadPreferences
+import com.junkfood.seal.util.PreferenceUtil.getInt
 import com.junkfood.seal.util.Format
 import com.junkfood.seal.util.PlaylistResult
 import com.junkfood.seal.util.VideoClip
@@ -25,6 +26,7 @@ object TaskFactory {
         selectedSubtitles: List<String>,
         selectedAutoCaptions: List<String>,
         skipDownload: Boolean = false,
+        subtitleFormat: Int = com.junkfood.seal.util.CONVERT_SUBTITLE.getInt(),
     ): TaskWithState {
         val fileSize =
             formatList.fold(.0) { acc, format ->
@@ -58,6 +60,7 @@ object TaskFactory {
                         extractAudio = extractAudio || audioOnly,
                         skipDownload = skipDownload,
                         downloadSubtitle = downloadSubtitle || skipDownload || hasSelectedSubs,
+                        convertSubtitle = subtitleFormat,
                         autoSubtitle = if (hasSelectedSubs) selectedAutoCaptions.isNotEmpty() else (autoSubtitle || skipDownload),
                         subtitleLanguage = if (hasSelectedSubs) subtitleLanguage else this.subtitleLanguage,
                     )
