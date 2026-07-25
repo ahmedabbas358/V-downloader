@@ -477,29 +477,30 @@ object DownloadUtil {
         downloadPreferences: DownloadPreferences
     ): YoutubeDLRequest =
         this.apply {
-            downloadPreferences.run {
-                if (skipDownload) {
-                    addOption("--skip-download")
-                    addOption("--write-subs")
-                    if (autoSubtitle) {
-                        addOption("--write-auto-subs")
-                    }
-                    if (subtitleLanguage.isNotEmpty()) {
-                        addOption("--sub-langs", subtitleLanguage)
-                    } else {
-                        addOption("--sub-langs", "all")
-                    }
-                    when (convertSubtitle) {
-                        CONVERT_ASS -> addOption("--convert-subs", "ass")
-                        CONVERT_SRT -> addOption("--convert-subs", "srt")
-                        CONVERT_VTT -> addOption("--convert-subs", "vtt")
-                        CONVERT_LRC -> addOption("--convert-subs", "lrc")
-                        else -> addOption("--convert-subs", "srt")
-                    }
-                    addOption("--sleep-subtitles", "2")
-                    addOption("--sleep-requests", "1")
-                    return this
+            if (downloadPreferences.skipDownload) {
+                addOption("--skip-download")
+                addOption("--write-subs")
+                if (downloadPreferences.autoSubtitle) {
+                    addOption("--write-auto-subs")
                 }
+                if (downloadPreferences.subtitleLanguage.isNotEmpty()) {
+                    addOption("--sub-langs", downloadPreferences.subtitleLanguage)
+                } else {
+                    addOption("--sub-langs", "all")
+                }
+                when (downloadPreferences.convertSubtitle) {
+                    CONVERT_ASS -> addOption("--convert-subs", "ass")
+                    CONVERT_SRT -> addOption("--convert-subs", "srt")
+                    CONVERT_VTT -> addOption("--convert-subs", "vtt")
+                    CONVERT_LRC -> addOption("--convert-subs", "lrc")
+                    else -> addOption("--convert-subs", "srt")
+                }
+                addOption("--sleep-subtitles", "2")
+                addOption("--sleep-requests", "1")
+                return@apply
+            }
+
+            downloadPreferences.run {
 
                 addOption("--add-metadata")
                 addOption("--no-embed-info-json")
@@ -620,29 +621,30 @@ object DownloadUtil {
         playlistUrl: String,
     ): YoutubeDLRequest =
         this.apply {
-            with(preferences) {
-                if (skipDownload) {
-                    addOption("--skip-download")
-                    addOption("--write-subs")
-                    if (autoSubtitle) {
-                        addOption("--write-auto-subs")
-                    }
-                    if (subtitleLanguage.isNotEmpty()) {
-                        addOption("--sub-langs", subtitleLanguage)
-                    } else {
-                        addOption("--sub-langs", "all")
-                    }
-                    when (convertSubtitle) {
-                        CONVERT_ASS -> addOption("--convert-subs", "ass")
-                        CONVERT_SRT -> addOption("--convert-subs", "srt")
-                        CONVERT_VTT -> addOption("--convert-subs", "vtt")
-                        CONVERT_LRC -> addOption("--convert-subs", "lrc")
-                        else -> addOption("--convert-subs", "srt")
-                    }
-                    addOption("--sleep-subtitles", "2")
-                    addOption("--sleep-requests", "1")
-                    return this
+            if (preferences.skipDownload) {
+                addOption("--skip-download")
+                addOption("--write-subs")
+                if (preferences.autoSubtitle) {
+                    addOption("--write-auto-subs")
                 }
+                if (preferences.subtitleLanguage.isNotEmpty()) {
+                    addOption("--sub-langs", preferences.subtitleLanguage)
+                } else {
+                    addOption("--sub-langs", "all")
+                }
+                when (preferences.convertSubtitle) {
+                    CONVERT_ASS -> addOption("--convert-subs", "ass")
+                    CONVERT_SRT -> addOption("--convert-subs", "srt")
+                    CONVERT_VTT -> addOption("--convert-subs", "vtt")
+                    CONVERT_LRC -> addOption("--convert-subs", "lrc")
+                    else -> addOption("--convert-subs", "srt")
+                }
+                addOption("--sleep-subtitles", "2")
+                addOption("--sleep-requests", "1")
+                return@apply
+            }
+
+            with(preferences) {
 
                 addOption("-x")
                 if (downloadSubtitle) {
