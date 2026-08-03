@@ -116,6 +116,7 @@ object UpdateUtil {
                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         }
                         startActivity(intent)
+                        ToastUtil.makeToast(R.string.app_update_failed)
                         return@runCatching
                     }
                     val apkFile = getLatestApk()
@@ -127,7 +128,7 @@ object UpdateUtil {
                         FileProvider.getUriForFile(this, getFileProvider(), apkFile)
                     val intent =
                         Intent(Intent.ACTION_VIEW).apply {
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                             setDataAndType(contentUri, "application/vnd.android.package-archive")
                         }
@@ -182,11 +183,15 @@ object UpdateUtil {
                 latestApk.delete()
             }
 
-            val abiList = Build.SUPPORTED_ABIS
+            val primaryAbi = Build.SUPPORTED_ABIS.firstOrNull() ?: ""
             val targetUrl = release.assets?.find { asset ->
                 val assetName = asset.name.orEmpty()
-                abiList.any { abi -> assetName.contains(abi, ignoreCase = true) } || assetName.contains("universal", ignoreCase = true)
+                (primaryAbi.isNotEmpty() && assetName.contains(primaryAbi, ignoreCase = true)) || assetName.contains("universal", ignoreCase = true)
             }?.browserDownloadUrl 
+                ?: release.assets?.firstOrNull { asset ->
+                    val assetName = asset.name.orEmpty()
+                    Build.SUPPORTED_ABIS.any { abi -> assetName.contains(abi, ignoreCase = true) }
+                }?.browserDownloadUrl
                 ?: release.assets?.firstOrNull { it.name?.endsWith(".apk", ignoreCase = true) == true }?.browserDownloadUrl 
                 ?: return@withContext emptyFlow()
 

@@ -502,4 +502,8 @@
     <string name="select_language">Select language</string>
     <string name="subtitle_language_selection">Select subtitle language</string>
     <string name="auto_generated_subtitles">Auto-generated subtitles</string>
+    <string name="playlist_retry_missing">Re-downloading %d missing item(s)…</string>
+    <string name="playlist_download_complete">Playlist download complete (%1$d/%2$d items)</string>
+    <string name="subtitle_download_failed">Subtitle download failed</string>
+    <string name="download_error_professional">Download failed — connection or extractor error. Tap to retry.</string>
 </resources>

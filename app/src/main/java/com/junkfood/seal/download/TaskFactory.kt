@@ -99,7 +99,11 @@ object TaskFactory {
                 splitByChapter = false,
                 videoClips = emptyList(),
                 downloadSubtitle = true,
-                autoSubtitle = true,
+                autoSubtitle = preferences.autoSubtitle || preferences.subtitleLanguage.isNotEmpty(),
+                subtitleLanguage = preferences.subtitleLanguage,
+                autoTranslatedSubtitles = preferences.autoTranslatedSubtitles,
+                convertSubtitle = preferences.convertSubtitle,
+                playlistNumbering = preferences.playlistNumbering,
             )
         } else preferences
 

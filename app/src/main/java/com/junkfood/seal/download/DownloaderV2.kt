@@ -391,7 +391,7 @@ class DownloaderV2Impl(
 
                         NotificationUtil.notifyError(
                             title = task.viewState.title,
-                            textId = R.string.download_error_msg,
+                            textId = R.string.download_error_professional,
                             notificationId = task.notificationId,
                             report = throwable.stackTraceToString()
                         )
@@ -437,7 +437,7 @@ class DownloaderV2Impl(
                     if (isSubtitlePlaylist) {
                         subtitleMutex.lock()
                         acquiredSubtitleLock = true
-                        kotlinx.coroutines.delay(2000L)
+                        kotlinx.coroutines.delay(3000L)
                     }
                     var lastUpdateTime = 0L
                 DownloadUtil
@@ -628,7 +628,7 @@ class DownloaderV2Impl(
 
                         NotificationUtil.notifyError(
                             title = task.viewState.title,
-                            textId = R.string.download_error_msg,
+                            textId = R.string.download_error_professional,
                             notificationId =
                                 task.notificationId,
                             report =
@@ -639,6 +639,7 @@ class DownloaderV2Impl(
                     if (acquiredSubtitleLock) {
                         subtitleMutex.unlock()
                     }
+                    checkPlaylistCompletion(task)
                 }
             }
             .also { job ->
@@ -648,6 +649,46 @@ class DownloaderV2Impl(
                         taskId = task.id
                     )
             }
+    }
+
+    private fun checkPlaylistCompletion(completedTask: Task) {
+        val playlistType = completedTask.type as? TypeInfo.Playlist ?: return
+        if (playlistType.isFallback) return
+
+        val playlistUrl = playlistType.playlistUrl
+        if (playlistUrl.isEmpty()) return
+
+        val playlistTasks = taskStateMap.keys.filter {
+            val type = it.type as? TypeInfo.Playlist ?: return@filter false
+            type.playlistUrl == playlistUrl && !type.isFallback
+        }
+
+        if (playlistTasks.isEmpty()) return
+
+        val allFinished = playlistTasks.all { task ->
+            val state = taskStateMap[task]?.downloadState
+            state is Completed || state is Error || state is Task.DownloadState.Canceled
+        }
+
+        if (allFinished) {
+            val verificationItems = playlistTasks.mapNotNull { task ->
+                val type = task.type as? TypeInfo.Playlist ?: return@mapNotNull null
+                PlaylistVerifier.VerificationItem(
+                    index = type.index,
+                    title = task.viewState.title,
+                    url = task.viewState.url,
+                    playlistUrl = type.playlistUrl,
+                    playlistTitle = type.playlistTitle,
+                    preferences = task.preferences
+                )
+            }.sortedBy { it.index }
+
+            if (verificationItems.isNotEmpty()) {
+                scope.launch(Dispatchers.IO) {
+                    PlaylistVerifier.verifyAndRetryPlaylist(verificationItems)
+                }
+            }
+        }
     }
 
     private fun Task.cancelImpl(
@@ -796,7 +837,7 @@ class DownloaderV2Impl(
 
                         NotificationUtil.notifyError(
                             title = task.viewState.title,
-                            textId = R.string.download_error_msg,
+                            textId = R.string.download_error_professional,
                             notificationId =
                                 task.notificationId,
                             report =

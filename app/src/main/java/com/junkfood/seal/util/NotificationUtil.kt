@@ -208,7 +208,7 @@ object NotificationUtil {
 
     fun notifyError(
         title: String,
-        textId: Int = R.string.download_error_msg,
+        textId: Int = R.string.download_error_professional,
         notificationId: Int,
         report: String,
     ) {
@@ -230,11 +230,21 @@ object NotificationUtil {
                     PendingIntent.FLAG_IMMUTABLE or
                     PendingIntent.FLAG_UPDATE_CURRENT,
             )
+
+        val appIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        }
+        val appPendingIntent = appIntent?.let {
+            PendingIntent.getActivity(context, notificationId, it, PendingIntent.FLAG_IMMUTABLE)
+        }
+
         NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_seal)
             .setContentTitle(title)
             .setContentText(context.getString(textId))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(context.getString(textId)))
             .setOngoing(false)
+            .setContentIntent(appPendingIntent)
             .addAction(
                 R.drawable.outline_content_copy_24,
                 context.getString(R.string.copy_error_report),

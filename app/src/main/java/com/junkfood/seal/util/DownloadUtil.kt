@@ -463,6 +463,14 @@ object DownloadUtil {
     fun getCookiesContentFromDatabase(): Result<String> =
         getCookieListFromDatabase().mapCatching { it.toCookiesFileContent() }
 
+    private fun buildSubLangsOption(rawLang: String): String {
+        val trimmed = rawLang.trim()
+        if (trimmed.isEmpty() || trimmed.equals("all", ignoreCase = true)) return "all"
+        val langs = trimmed.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        if (langs.isEmpty()) return "all"
+        return langs.flatMap { l -> listOf(l, "$l-.*", ".*-$l") }.distinct().joinToString(",")
+    }
+
     private fun YoutubeDLRequest.enableAria2c(): YoutubeDLRequest =
         this.addOption("--downloader", "libaria2c.so")
 
@@ -473,12 +481,11 @@ object DownloadUtil {
             if (downloadPreferences.skipDownload) {
                 addOption("--skip-download")
                 addOption("--write-subs")
-                addOption("--write-auto-subs")
-                if (downloadPreferences.subtitleLanguage.isNotEmpty()) {
-                    addOption("--sub-langs", downloadPreferences.subtitleLanguage)
-                } else {
-                    addOption("--sub-langs", "all")
+                if (downloadPreferences.autoSubtitle || downloadPreferences.autoTranslatedSubtitles || downloadPreferences.subtitleLanguage.isNotEmpty()) {
+                    addOption("--write-auto-subs")
                 }
+                val langOption = buildSubLangsOption(downloadPreferences.subtitleLanguage)
+                addOption("--sub-langs", langOption)
                 when (downloadPreferences.convertSubtitle) {
                     CONVERT_ASS -> addOption("--convert-subs", "ass")
                     CONVERT_SRT -> addOption("--convert-subs", "srt")
@@ -486,8 +493,8 @@ object DownloadUtil {
                     CONVERT_LRC -> addOption("--convert-subs", "lrc")
                     else -> addOption("--convert-subs", "srt")
                 }
-                addOption("--sleep-subtitles", "2")
-                addOption("--sleep-requests", "1")
+                addOption("--sleep-subtitles", "3")
+                addOption("--sleep-requests", "2")
                 return@apply
             }
 
@@ -505,12 +512,11 @@ object DownloadUtil {
                 }
                 if (downloadSubtitle) {
                     addOption("--write-subs")
-                    addOption("--write-auto-subs")
-                    if (subtitleLanguage.isNotEmpty()) {
-                        addOption("--sub-langs", subtitleLanguage)
-                    } else {
-                        addOption("--sub-langs", "all")
+                    if (autoSubtitle || autoTranslatedSubtitles || subtitleLanguage.isNotEmpty()) {
+                        addOption("--write-auto-subs")
                     }
+                    val langOption = buildSubLangsOption(subtitleLanguage)
+                    addOption("--sub-langs", langOption)
                     if (embedSubtitle) {
                         addOption("--embed-subs")
                     }
@@ -522,7 +528,7 @@ object DownloadUtil {
                         else -> addOption("--convert-subs", "srt")
                     }
                     addOption("--sleep-subtitles", "3")
-                    addOption("--sleep-requests", "1.5")
+                    addOption("--sleep-requests", "2")
                 }
                 if (mergeToMkv) {
                     addOption("--remux-video", "mkv")
@@ -615,12 +621,11 @@ object DownloadUtil {
             if (preferences.skipDownload) {
                 addOption("--skip-download")
                 addOption("--write-subs")
-                addOption("--write-auto-subs")
-                if (preferences.subtitleLanguage.isNotEmpty()) {
-                    addOption("--sub-langs", preferences.subtitleLanguage)
-                } else {
-                    addOption("--sub-langs", "all")
+                if (preferences.autoSubtitle || preferences.autoTranslatedSubtitles || preferences.subtitleLanguage.isNotEmpty()) {
+                    addOption("--write-auto-subs")
                 }
+                val langOption = buildSubLangsOption(preferences.subtitleLanguage)
+                addOption("--sub-langs", langOption)
                 when (preferences.convertSubtitle) {
                     CONVERT_ASS -> addOption("--convert-subs", "ass")
                     CONVERT_SRT -> addOption("--convert-subs", "srt")
@@ -628,8 +633,8 @@ object DownloadUtil {
                     CONVERT_LRC -> addOption("--convert-subs", "lrc")
                     else -> addOption("--convert-subs", "srt")
                 }
-                addOption("--sleep-subtitles", "2")
-                addOption("--sleep-requests", "1")
+                addOption("--sleep-subtitles", "3")
+                addOption("--sleep-requests", "2")
                 return@apply
             }
 
@@ -638,12 +643,11 @@ object DownloadUtil {
                 addOption("-x")
                 if (downloadSubtitle) {
                     addOption("--write-subs")
-                    addOption("--write-auto-subs")
-                    if (subtitleLanguage.isNotEmpty()) {
-                        addOption("--sub-langs", subtitleLanguage)
-                    } else {
-                        addOption("--sub-langs", "all")
+                    if (autoSubtitle || autoTranslatedSubtitles || subtitleLanguage.isNotEmpty()) {
+                        addOption("--write-auto-subs")
                     }
+                    val langOption = buildSubLangsOption(subtitleLanguage)
+                    addOption("--sub-langs", langOption)
                     when (convertSubtitle) {
                         CONVERT_ASS -> addOption("--convert-subs", "ass")
                         CONVERT_SRT -> addOption("--convert-subs", "srt")
