@@ -348,16 +348,17 @@ class DownloaderV2Impl(
 
         val isPlaylist = taskInfo is TypeInfo.Playlist && !taskInfo.isFallback
         val isIndividualUrlValid = viewState.url.startsWith("http://", ignoreCase = true) || viewState.url.startsWith("https://", ignoreCase = true)
-        val hasIndividualUrl = isIndividualUrlValid && viewState.url != url
 
-        val fetchUrl = if (isPlaylist && hasIndividualUrl) {
+        val fetchUrl = if (isPlaylist && isIndividualUrlValid) {
             viewState.url
         } else {
             task.url
         }
 
+        val isDirectVideoUrl = fetchUrl.contains("watch?v=", ignoreCase = true) || fetchUrl.contains("youtu.be/", ignoreCase = true) || fetchUrl.contains("/shorts/", ignoreCase = true)
+
         val playlistIndex =
-            if (isPlaylist && fetchUrl == task.url) {
+            if (isPlaylist && !isDirectVideoUrl && (fetchUrl.contains("playlist", ignoreCase = true) || fetchUrl.contains("list=", ignoreCase = true))) {
                 (taskInfo as TypeInfo.Playlist).index
             } else {
                 null
@@ -653,14 +654,13 @@ class DownloaderV2Impl(
 
     private fun checkPlaylistCompletion(completedTask: Task) {
         val playlistType = completedTask.type as? TypeInfo.Playlist ?: return
-        if (playlistType.isFallback) return
 
         val playlistUrl = playlistType.playlistUrl
         if (playlistUrl.isEmpty()) return
 
         val playlistTasks = taskStateMap.keys.filter {
             val type = it.type as? TypeInfo.Playlist ?: return@filter false
-            type.playlistUrl == playlistUrl && !type.isFallback
+            type.playlistUrl == playlistUrl
         }
 
         if (playlistTasks.isEmpty()) return

@@ -185,9 +185,9 @@ object DownloadUtil {
                         addOption("--dump-json")
                     } else {
                         addOption("--dump-single-json")
+                        addOption("--no-playlist")
                     }
                     addOption("-R", "1")
-                    addOption("--no-playlist")
                     addOption("--socket-timeout", "5")
                 }
             val result = getVideoInfo(request, taskKey)
@@ -508,6 +508,17 @@ object DownloadUtil {
                         addOption("--audio-multistreams")
                     }
                 } else {
+                    val formatSelector = when (videoResolution) {
+                        1 -> "bv*[height<=2160]+ba/b[height<=2160]/b"
+                        2 -> "bv*[height<=1440]+ba/b[height<=1440]/b"
+                        3 -> "bv*[height<=1080]+ba/b[height<=1080]/b"
+                        4 -> "bv*[height<=720]+ba/b[height<=720]/b"
+                        5 -> "bv*[height<=480]+ba/b[height<=480]/b"
+                        6 -> "bv*[height<=360]+ba/b[height<=360]/b"
+                        7 -> "wv*+wa/w/b"
+                        else -> "bv*+ba/b"
+                    }
+                    addOption("-f", formatSelector)
                     applyFormatSorter(this, toFormatSorter())
                 }
                 if (downloadSubtitle) {

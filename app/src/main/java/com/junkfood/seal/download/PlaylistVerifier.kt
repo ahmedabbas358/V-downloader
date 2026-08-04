@@ -65,10 +65,13 @@ object PlaylistVerifier {
 
         Log.d(TAG, "Verifying playlist items in directory: ${targetDirFile.absolutePath}")
 
-        val existingFiles = if (targetDirFile.exists()) {
-            targetDirFile.listFiles()?.toList() ?: emptyList()
-        } else {
-            emptyList()
+        val allCandidateFiles = mutableListOf<File>()
+        if (targetDirFile.exists()) {
+            allCandidateFiles.addAll(targetDirFile.walkTopDown().filter { it.isFile && it.length() > 0L })
+        }
+        val baseDirFile = File(baseDir)
+        if (baseDirFile.exists() && baseDirFile != targetDirFile) {
+            allCandidateFiles.addAll(baseDirFile.walkTopDown().filter { it.isFile && it.length() > 0L })
         }
 
         val missingItems = mutableListOf<VerificationItem>()
@@ -76,11 +79,17 @@ object PlaylistVerifier {
 
         for (item in items) {
             val prefixPadded = String.format(java.util.Locale.US, "%03d - ", item.index)
+            val cleanTitle = FileUtil.cleanFileName(item.title)
+            val shortTitle = if (cleanTitle.length > 6) cleanTitle.take(6) else cleanTitle
+            val urlId = if (item.url.contains("v=")) item.url.substringAfter("v=").substringBefore("&") else ""
             
-            // Search if any existing file starts with the index prefix "001 - " or contains index
-            val matchFound = existingFiles.any { file ->
+            val matchFound = allCandidateFiles.any { file ->
                 val fileName = file.name
-                (fileName.startsWith(prefixPadded) || fileName.contains(prefixPadded)) && file.length() > 0L
+                fileName.startsWith(prefixPadded) ||
+                    fileName.contains(prefixPadded) ||
+                    (cleanTitle.isNotEmpty() && fileName.contains(cleanTitle, ignoreCase = true)) ||
+                    (shortTitle.isNotEmpty() && fileName.contains(shortTitle, ignoreCase = true)) ||
+                    (urlId.isNotEmpty() && fileName.contains(urlId, ignoreCase = true))
             }
 
             if (matchFound) {
