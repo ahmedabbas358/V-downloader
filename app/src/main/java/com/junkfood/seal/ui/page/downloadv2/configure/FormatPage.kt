@@ -956,7 +956,7 @@ private fun SubtitleSelectionDialog(
     suggestedSubtitles: Map<String, List<SubtitleFormat>>,
     autoCaptions: Map<String, List<SubtitleFormat>>,
     selectedSubtitles: List<String>,
-    selectedAutoCaptions: List<String>,
+    selectedAutoCaptions: List<String> = emptyList(),
     onDismissRequest: () -> Unit = {},
     onConfirm: (subs: List<String>, autoSubs: List<String>) -> Unit = { _, _ -> },
 ) {
