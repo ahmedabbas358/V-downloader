@@ -122,7 +122,7 @@ private data class FormatConfig(
     val splitByChapter: Boolean,
     val newTitle: String,
     val selectedSubtitles: List<String>,
-    val selectedAutoCaptions: List<String>,
+    val selectedAutoCaptions: List<String> = emptyList(),
     val skipDownload: Boolean = false,
     val subtitleFormat: Int = com.junkfood.seal.util.CONVERT_SUBTITLE.getInt(),
 )
