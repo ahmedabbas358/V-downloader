@@ -400,20 +400,28 @@ private fun DownloadDialogContent(
                         onActionPost = { onActionPost(it) },
                     )
                 } else {
+                    // FIX: ConfigurePagePlaylistVariant's trailing lambda parameter is
+                    // onDownload: (DownloadType, Boolean) -> Unit  (a Function2).
+                    // The previous code wrote a parameter-less lambda that referenced
+                    // an unbound `it`, which the compiler resolves as Function0<Unit>,
+                    // causing: "Argument type mismatch: actual type is
+                    // kotlin.Function0<Unit> but expected kotlin.Function2<...>".
+                    // Declaring both parameters explicitly (ignoring the unused second
+                    // one with `_`) matches the expected function type.
                     ConfigurePagePlaylistVariant(
                         initialDownloadType = config.downloadType ?: Video,
                         preferences = preferences,
                         onPreferencesUpdate = onPreferencesUpdate,
                         onPresetEdit = onPresetEdit,
                         onDismissRequest = { onActionPost(Action.HideSheet) },
-                    ) {
+                    ) { selectedDownloadType, _ ->
                         onActionPost(
                             Action.DownloadWithPreset(
                                 urlList = state.urlList,
                                 preferences = preferences.copy(
-                                    extractAudio = it == Audio,
-                                    skipDownload = it == DownloadType.Subtitle,
-                                    downloadSubtitle = if (it == DownloadType.Subtitle) true else preferences.downloadSubtitle
+                                    extractAudio = selectedDownloadType == Audio,
+                                    skipDownload = selectedDownloadType == DownloadType.Subtitle,
+                                    downloadSubtitle = if (selectedDownloadType == DownloadType.Subtitle) true else preferences.downloadSubtitle
                                 ),
                             )
                         )
@@ -550,15 +558,15 @@ private fun ConfigurePage(
     onActionPost: (Action) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    
+
     // Fix: rememberSaveable للحفاظ على الحالة عند تغيير الإعدادات أو اللغة
-    var selectedType by rememberSaveable(config.downloadType) { 
-        mutableStateOf(config.downloadType) 
+    var selectedType by rememberSaveable(config.downloadType) {
+        mutableStateOf(config.downloadType)
     }
-    var useFormatSelection by rememberSaveable(config.useFormatSelection) { 
-        mutableStateOf(config.useFormatSelection) 
+    var useFormatSelection by rememberSaveable(config.useFormatSelection) {
+        mutableStateOf(config.useFormatSelection)
     }
-    
+
     // Fix: التأكد من أن selectedType ليس null قبل السماح بالمتابعة
     val canProceed = selectedType != null && selectedType in config.typeEntries
 
@@ -1420,4 +1428,3 @@ private fun SubtitleLanguageSelector(
         )
     }
 }
-
