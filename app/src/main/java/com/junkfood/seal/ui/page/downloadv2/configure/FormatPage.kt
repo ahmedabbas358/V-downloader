@@ -601,13 +601,19 @@ private fun FormatPageImpl(
                                 modifier = Modifier.weight(1f),
                             )
 
+                            // FIX: the previous code referenced
+                            // androidx.appcompat.R.string.abc_activity_chooser_view_see_all,
+                            // an internal AppCompat resource that is not part of its public
+                            // R class. Referencing it causes an unresolved-reference compile
+                            // error. R.string.show_all_items is already defined and used
+                            // elsewhere in this file, so we reuse it here with the total
+                            // subtitle/caption count instead.
                             ClickableTextAction(
                                 visible = true,
                                 text =
                                     stringResource(
-                                        id =
-                                            androidx.appcompat.R.string
-                                                .abc_activity_chooser_view_see_all
+                                        id = R.string.show_all_items,
+                                        suggestedSubtitleMap.size + otherSubtitleMap.size,
                                     ),
                             ) {
                                 showSubtitleSelectionDialog = true
