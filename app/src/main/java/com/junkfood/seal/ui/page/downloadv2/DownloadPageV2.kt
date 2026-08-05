@@ -140,6 +140,24 @@ import org.koin.compose.koinInject
 
 private const val TAG = "DownloadPageV2"
 
+/*
+ * FIX: "Unresolved reference 'selected'" / "Unresolved reference 'retry'"
+ *
+ * SelectionHeader() referenced R.string.selected and R.string.retry, but those
+ * string resource entries don't exist in res/values/strings.xml (or weren't
+ * added yet), so aapt never generated those R.string fields for the compiler
+ * to resolve. Rather than leaving the build broken, SelectionHeader below uses
+ * plain literal strings for these two labels.
+ *
+ * To restore proper localization, add these two entries to
+ * res/values/strings.xml (and any values-xx/strings.xml translations you keep)
+ * and then switch the two literals back to stringResource(R.string.selected)
+ * and stringResource(R.string.retry):
+ *
+ *   <string name="selected">selected</string>
+ *   <string name="retry">Retry</string>
+ */
+
 enum class Filter {
     All,
     Downloading,
@@ -300,7 +318,7 @@ fun DownloadPageImplV2(
 
     val filteredMap by
         remember(activeFilter, sortOption, taskDownloadStateMap) {
-            derivedStateOf { 
+            derivedStateOf {
                 val filtered = taskDownloadStateMap.filter { activeFilter.predict(it.toPair()) }
                 filtered.toList().sortedWith(Comparator { a, b ->
                     when (sortOption) {
@@ -332,7 +350,7 @@ fun DownloadPageImplV2(
             sheetState.show()
         }
     }
-    
+
     fun toggleSelection(task: Task) {
         selectedTasks = if (selectedTasks.contains(task)) {
             selectedTasks - task
@@ -554,7 +572,7 @@ fun DownloadPageImplV2(
             }
         }
     }
-    
+
     if (isMenuSheetOpen) {
         SealModalBottomSheet(
             sheetState = menuSheetState,
@@ -681,7 +699,9 @@ private fun SelectionHeader(
         }
         Spacer(modifier = Modifier.width(4.dp))
         Text(
-            text = "$selectedCount ${stringResource(R.string.selected)}",
+            // FIX: R.string.selected didn't exist yet (see note at top of file) —
+            // using a literal here until the resource is added.
+            text = "$selectedCount selected",
             color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.titleLarge.copy(
                 fontSize = 18.sp,
@@ -699,7 +719,9 @@ private fun SelectionHeader(
         IconButton(onClick = onResumeSelected) {
             Icon(
                 imageVector = androidx.compose.material.icons.Icons.Outlined.Refresh,
-                contentDescription = stringResource(R.string.retry),
+                // FIX: R.string.retry didn't exist yet (see note at top of file) —
+                // using a literal here until the resource is added.
+                contentDescription = "Retry",
                 tint = MaterialTheme.colorScheme.onSurface,
             )
         }
@@ -966,7 +988,7 @@ internal class DownloadPageV2Test {
             override fun cancel(task: Task): Boolean {
                 return false
             }
-            
+
             override fun pause(task: Task): Boolean {
                 return false
             }
