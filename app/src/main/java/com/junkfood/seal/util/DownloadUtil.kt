@@ -481,9 +481,7 @@ object DownloadUtil {
             if (downloadPreferences.skipDownload) {
                 addOption("--skip-download")
                 addOption("--write-subs")
-                if (downloadPreferences.autoSubtitle || downloadPreferences.autoTranslatedSubtitles || downloadPreferences.subtitleLanguage.isNotEmpty()) {
-                    addOption("--write-auto-subs")
-                }
+                addOption("--write-auto-subs")
                 val langOption = buildSubLangsOption(downloadPreferences.subtitleLanguage)
                 addOption("--sub-langs", langOption)
                 when (downloadPreferences.convertSubtitle) {
@@ -632,9 +630,7 @@ object DownloadUtil {
             if (preferences.skipDownload) {
                 addOption("--skip-download")
                 addOption("--write-subs")
-                if (preferences.autoSubtitle || preferences.autoTranslatedSubtitles || preferences.subtitleLanguage.isNotEmpty()) {
-                    addOption("--write-auto-subs")
-                }
+                addOption("--write-auto-subs")
                 val langOption = buildSubLangsOption(preferences.subtitleLanguage)
                 addOption("--sub-langs", langOption)
                 when (preferences.convertSubtitle) {
@@ -835,7 +831,7 @@ object DownloadUtil {
                         addOption("--concurrent-fragments", concurrentFragments)
                     }
 
-                    if (extractAudio || (videoInfo.vcodec == "none")) {
+                    if (!skipDownload && (extractAudio || (videoInfo.vcodec == "none"))) {
                         if (privateDirectory) pathBuilder.append(App.privateDownloadDir)
                         else pathBuilder.append(audioDownloadDir)
                         addOptionsForAudioDownloads(

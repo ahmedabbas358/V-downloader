@@ -174,14 +174,16 @@ fun FormatPage(
             if (playlistTasks != null) {
                 playlistTasks.forEach { taskWithState ->
                     val hasSelectedSubs = selectedSubtitles.isNotEmpty() || selectedAutoCaptions.isNotEmpty()
+                    val isSubOnly = skipDownload || isSubtitleOnly || taskWithState.task.preferences.skipDownload
                     val updatedTask = taskWithState.task.copy(
                         preferences = taskWithState.task.preferences.copy(
-                            skipDownload = skipDownload,
-                            formatIdString = if (skipDownload) "" else taskWithState.task.preferences.formatIdString,
-                            extractAudio = if (skipDownload) false else taskWithState.task.preferences.extractAudio,
-                            downloadSubtitle = if (skipDownload) true else taskWithState.task.preferences.downloadSubtitle,
+                            skipDownload = isSubOnly,
+                            formatIdString = if (isSubOnly) "" else taskWithState.task.preferences.formatIdString,
+                            extractAudio = if (isSubOnly) false else taskWithState.task.preferences.extractAudio,
+                            downloadSubtitle = true,
                             convertSubtitle = subtitleFormat,
-                            autoSubtitle = if (hasSelectedSubs) selectedAutoCaptions.isNotEmpty() else taskWithState.task.preferences.autoSubtitle,
+                            autoSubtitle = if (hasSelectedSubs) selectedAutoCaptions.isNotEmpty() else true,
+                            autoTranslatedSubtitles = true,
                             subtitleLanguage = if (hasSelectedSubs) (selectedSubtitles + selectedAutoCaptions).joinToString(",") else taskWithState.task.preferences.subtitleLanguage
                         )
                     )
@@ -818,6 +820,10 @@ private fun FormatPageImpl(
                 selectedSubtitles.run {
                     clear()
                     addAll(subs)
+                }
+                selectedAutoCaptions.run {
+                    clear()
+                    addAll(autoSubs)
                 }
 
                 showSubtitleSelectionDialog = false

@@ -43,7 +43,13 @@ object TaskFactory {
         val videoFormats = formatList.filter { it.containsVideo() }
         val audioOnly = audioOnlyFormats.isNotEmpty() && videoFormats.isEmpty()
         val mergeAudioStream = audioOnlyFormats.size > 1
-        val formatId = formatList.joinToString(separator = "+") { it.formatId.toString() }
+        val hasVideoOnlyFormat = videoFormats.any { it.vcodec != "none" && (it.acodec == "none" || it.acodec == null) }
+        val rawFormatId = formatList.joinToString(separator = "+") { it.formatId.toString() }
+        val formatId = if (hasVideoOnlyFormat && audioOnlyFormats.isEmpty() && rawFormatId.isNotEmpty()) {
+            "$rawFormatId+bestaudio/best"
+        } else {
+            rawFormatId
+        }
 
         val subtitleLanguage =
             (selectedSubtitles + selectedAutoCaptions).joinToString(separator = ",")

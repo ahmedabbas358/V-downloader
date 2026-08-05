@@ -159,22 +159,25 @@ fun PlaylistSelectionPage(
                         downloadSubtitle = if (type == DownloadType.Subtitle) true else preferences.downloadSubtitle,
                     )
                     
+                    val updatedTasks = taskList.map { it.copy(task = it.task.copy(preferences = updatedPreferences)) }
+                    
                     if (type == DownloadType.Subtitle) {
-                        val firstVideoUrl = state.result.entries?.firstOrNull()?.url ?: state.result.webpageUrl ?: ""
-                        onActionPost(
-                            com.junkfood.seal.ui.page.downloadv2.configure.DownloadDialogViewModel.Action.FetchPlaylistSubtitleFormats(
-                                firstVideoUrl = firstVideoUrl,
-                                playlistTasks = taskList.map { it.copy(task = it.task.copy(preferences = updatedPreferences)) },
-                                preferences = updatedPreferences
+                        val firstUrl = updatedTasks.firstOrNull()?.task?.url
+                        if (firstUrl != null) {
+                            onActionPost(
+                                com.junkfood.seal.ui.page.downloadv2.configure.DownloadDialogViewModel.Action.FetchPlaylistSubtitleFormats(
+                                    firstVideoUrl = firstUrl,
+                                    preferences = updatedPreferences,
+                                    playlistTasks = updatedTasks
+                                )
                             )
-                        )
+                        }
+                        onDismissConfigurationSheet()
                     } else {
-                        taskList
-                            .map { it.copy(task = it.task.copy(preferences = updatedPreferences)) }
-                            .forEach(downloader::enqueue)
+                        updatedTasks.forEach(downloader::enqueue)
+                        onDismissConfigurationSheet()
+                        onBack()
                     }
-                    onDismissConfigurationSheet()
-                    onBack()
                 },
             )
         }

@@ -366,37 +366,50 @@ class DownloaderV2Impl(
 
         scope
             .launch(Dispatchers.Default) {
-                DownloadUtil
-                    .fetchVideoInfoFromUrl(
-                        url = fetchUrl,
-                        playlistIndex = playlistIndex,
-                        preferences = task.preferences,
-                        taskKey = task.id
-                    )
-                    .onSuccess { videoInfo ->
-                        task.info = videoInfo
-                        task.downloadState = ReadyWithInfo
-                        task.viewState =
-                            Task.ViewState.fromVideoInfo(videoInfo, task.preferences)
+                val isSubtitlePlaylist = task.preferences.skipDownload && isPlaylist
+                var acquiredSubtitleLock = false
+                try {
+                    if (isSubtitlePlaylist) {
+                        subtitleMutex.lock()
+                        acquiredSubtitleLock = true
+                        kotlinx.coroutines.delay(3000L)
                     }
-                    .onFailure { throwable ->
-                        if (throwable is YoutubeDL.CanceledException) {
-                            return@onFailure
-                        }
-
-                        task.downloadState =
-                            Error(
-                                throwable = throwable,
-                                action = FetchInfo
-                            )
-
-                        NotificationUtil.notifyError(
-                            title = task.viewState.title,
-                            textId = R.string.download_error_professional,
-                            notificationId = task.notificationId,
-                            report = throwable.stackTraceToString()
+                    DownloadUtil
+                        .fetchVideoInfoFromUrl(
+                            url = fetchUrl,
+                            playlistIndex = playlistIndex,
+                            preferences = task.preferences,
+                            taskKey = task.id
                         )
+                        .onSuccess { videoInfo ->
+                            task.info = videoInfo
+                            task.downloadState = ReadyWithInfo
+                            task.viewState =
+                                Task.ViewState.fromVideoInfo(videoInfo, task.preferences)
+                        }
+                        .onFailure { throwable ->
+                            if (throwable is YoutubeDL.CanceledException) {
+                                return@onFailure
+                            }
+    
+                            task.downloadState =
+                                Error(
+                                    throwable = throwable,
+                                    action = FetchInfo
+                                )
+    
+                            NotificationUtil.notifyError(
+                                title = task.viewState.title,
+                                textId = R.string.download_error_professional,
+                                notificationId = task.notificationId,
+                                report = throwable.stackTraceToString()
+                            )
+                        }
+                } finally {
+                    if (acquiredSubtitleLock) {
+                        subtitleMutex.unlock()
                     }
+                }
             }
             .also { job ->
                 task.downloadState =

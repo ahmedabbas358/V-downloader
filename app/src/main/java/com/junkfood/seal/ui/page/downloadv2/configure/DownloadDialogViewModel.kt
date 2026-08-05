@@ -128,7 +128,7 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
         // حماية من تكرار الطلبات
         if (activeJobs.containsKey(taskKey)) return
 
-        val job = viewModelScope.launch(Dispatchers.IO) {
+        val job = viewModelScope.launch(Dispatchers.IO, start = CoroutineStart.LAZY) {
             try {
                 DownloadUtil.getPlaylistOrVideoInfo(
                     playlistURL = url,
@@ -142,7 +142,14 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
                                 }
                             } else {
                                 // Default to the first video in the playlist if user didn't request a playlist
-                                val firstVideoUrl = info.entries?.firstOrNull()?.url ?: url
+                                val rawEntryUrl = info.entries?.firstOrNull()?.url
+                                val entryId = info.entries?.firstOrNull()?.id
+                                val firstVideoUrl = when {
+                                    rawEntryUrl?.startsWith("http://", ignoreCase = true) == true || rawEntryUrl?.startsWith("https://", ignoreCase = true) == true -> rawEntryUrl
+                                    rawEntryUrl?.startsWith("watch?v=", ignoreCase = true) == true -> "https://www.youtube.com/$rawEntryUrl"
+                                    !entryId.isNullOrEmpty() -> "https://www.youtube.com/watch?v=$entryId"
+                                    else -> url
+                                }
                                 DownloadUtil.fetchVideoInfoFromUrl(firstVideoUrl, preferences = preferences).onSuccess { firstVideoInfo ->
                                     mSelectionStateFlow.update {
                                         SelectionState.FormatSelection(info = firstVideoInfo)
@@ -171,12 +178,15 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
                     SheetState.Error(action = action, throwable = th)
                 }
             } finally {
-                activeJobs.remove(taskKey)
+                withContext(Dispatchers.Main) {
+                    activeJobs.remove(taskKey)
+                }
             }
         }
 
         activeJobs[taskKey] = job
         mSheetStateFlow.update { SheetState.Loading(taskKey = taskKey, job = job) }
+        job.start()
     }
 
     private fun fetchFormat(action: Action.FetchFormats) {
@@ -186,14 +196,14 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
         val taskKey = "fetch_format_$url"
         if (activeJobs.containsKey(taskKey)) return
 
-        val job = viewModelScope.launch(Dispatchers.IO) {
+        val job = viewModelScope.launch(Dispatchers.IO, start = CoroutineStart.LAZY) {
             try {
                 DownloadUtil.fetchVideoInfoFromUrl(url = url, preferences = preferences)
                     .onSuccess { info ->
                         mSelectionStateFlow.update {
                             SelectionState.FormatSelection(info = info)
                         }
-                        dismissSheet()
+                        withContext(Dispatchers.Main) { dismissSheet() }
                     }
                     .onFailure { th ->
                         mSheetStateFlow.update {
@@ -205,11 +215,14 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
                     SheetState.Error(action = action, throwable = th)
                 }
             } finally {
-                activeJobs.remove(taskKey)
+                withContext(Dispatchers.Main) {
+                    activeJobs.remove(taskKey)
+                }
             }
         }
         activeJobs[taskKey] = job
         mSheetStateFlow.update { SheetState.Loading(taskKey = taskKey, job = job) }
+        job.start()
     }
 
     private fun fetchPlaylistSubtitleFormats(action: Action.FetchPlaylistSubtitleFormats) {
@@ -220,14 +233,14 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
         val taskKey = "fetch_playlist_subtitles_$url"
         if (activeJobs.containsKey(taskKey)) return
 
-        val job = viewModelScope.launch(Dispatchers.IO) {
+        val job = viewModelScope.launch(Dispatchers.IO, start = CoroutineStart.LAZY) {
             try {
                 DownloadUtil.fetchVideoInfoFromUrl(url = url, preferences = preferences)
                     .onSuccess { info ->
                         mSelectionStateFlow.update {
                             SelectionState.FormatSelection(info = info, playlistTasks = playlistTasks)
                         }
-                        dismissSheet()
+                        withContext(Dispatchers.Main) { dismissSheet() }
                     }
                     .onFailure { th ->
                         mSheetStateFlow.update {
@@ -239,11 +252,14 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
                     SheetState.Error(action = action, throwable = th)
                 }
             } finally {
-                activeJobs.remove(taskKey)
+                withContext(Dispatchers.Main) {
+                    activeJobs.remove(taskKey)
+                }
             }
         }
         activeJobs[taskKey] = job
         mSheetStateFlow.update { SheetState.Loading(taskKey = taskKey, job = job) }
+        job.start()
     }
 
     private fun downloadWithPreset(
@@ -256,7 +272,7 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
                 val taskKey = "FetchAndDownload_$url"
                 if (activeJobs.containsKey(taskKey)) return@forEach
 
-                val job = viewModelScope.launch(Dispatchers.IO) {
+                val job = viewModelScope.launch(Dispatchers.IO, start = CoroutineStart.LAZY) {
                     try {
                         DownloadUtil.getPlaylistOrVideoInfo(url, preferences)
                             .onSuccess { info ->
@@ -281,14 +297,17 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
                     } catch (e: Exception) {
                         downloader.enqueue(Task(url = url, preferences = preferences))
                     } finally {
-                        activeJobs.remove(taskKey)
-                        if (activeJobs.isEmpty()) {
-                            dismissSheet()
+                        withContext(Dispatchers.Main) {
+                            activeJobs.remove(taskKey)
+                            if (activeJobs.isEmpty()) {
+                                dismissSheet()
+                            }
                         }
                     }
                 }
                 activeJobs[taskKey] = job
                 mSheetStateFlow.update { SheetState.Loading(taskKey = taskKey, job = job) }
+                job.start()
             } else {
                 downloader.enqueue(Task(url = url, preferences = preferences))
             }

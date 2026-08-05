@@ -909,14 +909,16 @@ fun PreferenceSlider(
                     modifier = Modifier.padding(end = 16.dp)
                 )
             }
-            androidx.compose.material3.Slider(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 0.dp),
-                value = value,
-                onValueChange = onValueChange,
-                onValueChangeFinished = onValueChangeFinished,
-                valueRange = valueRange,
-                steps = steps
-            )
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
+                androidx.compose.material3.Slider(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 0.dp),
+                    value = value,
+                    onValueChange = onValueChange,
+                    onValueChangeFinished = onValueChangeFinished,
+                    valueRange = valueRange,
+                    steps = steps
+                )
+            }
         }
     }
 }
