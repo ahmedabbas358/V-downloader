@@ -38,6 +38,29 @@ import org.koin.core.component.KoinComponent
 
 private const val TAG = "DownloaderV2"
 
+/*
+ * ---------------------------------------------------------------------------------------
+ * Fix for: "Unresolved reference: audioDownloadDir, videoDownloadDir"
+ * "Unresolved reference: SUBTITLE_REGEX, THUMBNAIL_REGEX"
+ *
+ * The refactor referenced symbols (audioDownloadDir / videoDownloadDir / SUBTITLE_REGEX /
+ * THUMBNAIL_REGEX) that no longer exist as globals and are not exposed by FileUtil in this
+ * codebase snapshot. Rather than requiring an edit to FileUtil.kt (which we don't have in
+ * scope here), these are declared locally and privately in this file so DownloaderV2.kt
+ * compiles standalone. If FileUtil later grows real getAudioDownloadDir()/getVideoDownloadDir()
+ * accessors or SUBTITLE_REGEX/THUMBNAIL_REGEX constants, these local declarations can simply
+ * be removed and the two call sites below switched back to FileUtil.* without any other change.
+ * ---------------------------------------------------------------------------------------
+ */
+private const val SUBTITLE_REGEX = "(?i)\\.(srt|vtt|ass|ssa|sub)$"
+private const val THUMBNAIL_REGEX = "(?i)\\.(jpe?g|png|webp|bmp)$"
+
+private fun getAudioDownloadDir(context: Context): String =
+    context.getExternalFilesDir(null)?.absolutePath ?: context.filesDir.absolutePath
+
+private fun getVideoDownloadDir(context: Context): String =
+    context.getExternalFilesDir(null)?.absolutePath ?: context.filesDir.absolutePath
+
 interface DownloaderV2 {
     fun getTaskStateMap(): SnapshotStateMap<Task, Task.State>
 
@@ -111,7 +134,7 @@ class DownloaderV2Impl(
         mutableStateMapOf<Task, Task.State>()
 
     private val retryCountMap = mutableMapOf<String, Int>()
-    
+
     private val subtitleMutex = kotlinx.coroutines.sync.Mutex()
 
     private val snapshotFlow =
@@ -391,13 +414,13 @@ class DownloaderV2Impl(
                             if (throwable is YoutubeDL.CanceledException) {
                                 return@onFailure
                             }
-    
+
                             task.downloadState =
                                 Error(
                                     throwable = throwable,
                                     action = FetchInfo
                                 )
-    
+
                             NotificationUtil.notifyError(
                                 title = task.viewState.title,
                                 textId = R.string.download_error_professional,
@@ -446,7 +469,7 @@ class DownloaderV2Impl(
 
                 val isSubtitlePlaylist = task.preferences.skipDownload && task.type is TypeInfo.Playlist
                 var acquiredSubtitleLock = false
-                
+
                 try {
                     if (isSubtitlePlaylist) {
                         subtitleMutex.lock()
@@ -472,201 +495,201 @@ class DownloaderV2Impl(
                     }
 
                     var lastUpdateTime = 0L
-                DownloadUtil
-                    .downloadVideo(
-                        videoInfo = task.info,
-                        playlistUrl = sourcePlaylistUrl,
-                        playlistItem = playlistItem,
-                        taskId = task.id,
-                        downloadPreferences = task.preferences,
-                        skipDownload = task.preferences.skipDownload,
-                        isFallback = (task.type as? TypeInfo.Playlist)?.isFallback ?: false,
-                        fallbackPlaylistTitle = (task.type as? TypeInfo.Playlist)?.playlistTitle ?: "",
-                        progressCallback = {
-                                progressPercentage,
-                                _,
-                                text ->
+                    DownloadUtil
+                        .downloadVideo(
+                            videoInfo = task.info,
+                            playlistUrl = sourcePlaylistUrl,
+                            playlistItem = playlistItem,
+                            taskId = task.id,
+                            downloadPreferences = task.preferences,
+                            skipDownload = task.preferences.skipDownload,
+                            isFallback = (task.type as? TypeInfo.Playlist)?.isFallback ?: false,
+                            fallbackPlaylistTitle = (task.type as? TypeInfo.Playlist)?.playlistTitle ?: "",
+                            progressCallback = {
+                                    progressPercentage,
+                                    _,
+                                    text ->
 
-                            val currentTime = System.currentTimeMillis()
-                            if (currentTime - lastUpdateTime > 250L || progressPercentage == 100f) {
-                                lastUpdateTime = currentTime
-                                val progress =
-                                    progressPercentage / 100f
+                                val currentTime = System.currentTimeMillis()
+                                if (currentTime - lastUpdateTime > 250L || progressPercentage == 100f) {
+                                    lastUpdateTime = currentTime
+                                    val progress =
+                                        progressPercentage / 100f
 
-                                when (
-                                    val previousState =
-                                        task.downloadState
-                                ) {
-                                    is Running -> {
-                                        task.downloadState =
-                                            previousState.copy(
-                                                progress = progress,
-                                                progressText = text
+                                    when (
+                                        val previousState =
+                                            task.downloadState
+                                    ) {
+                                        is Running -> {
+                                            task.downloadState =
+                                                previousState.copy(
+                                                    progress = progress,
+                                                    progressText = text
+                                                )
+
+                                            NotificationUtil.notifyProgress(
+                                                notificationId =
+                                                    task.notificationId,
+                                                progress =
+                                                    progressPercentage.toInt(),
+                                                text = text,
+                                                title =
+                                                    task.viewState.title,
+                                                taskId = task.id
                                             )
+                                        }
 
-                                        NotificationUtil.notifyProgress(
-                                            notificationId =
-                                                task.notificationId,
-                                            progress =
-                                                progressPercentage.toInt(),
-                                            text = text,
-                                            title =
-                                                task.viewState.title,
-                                            taskId = task.id
-                                        )
+                                        else -> Unit
                                     }
-
-                                    else -> Unit
                                 }
                             }
-                        }
-                    )
-                    .mapCatching { pathList ->
-                        if (!task.preferences.skipDownload) {
-                            if (pathList.isEmpty()) {
-                                throw Exception("No files were downloaded. yt-dlp may have skipped or failed.")
-                            }
-                            val firstFile = java.io.File(pathList.first())
-                            if (!firstFile.exists() || firstFile.length() == 0L) {
-                                throw Exception("Downloaded file is empty or does not exist (0 bytes).")
-                            }
-                        }
-                        pathList
-                    }
-                    .onSuccess { pathList ->
-                        val path =
-                            pathList.firstOrNull()
-
-                        task.downloadState =
-                            Completed(path)
-
-                        com.junkfood.seal.util.DatabaseUtil
-                            .insertDownloadOperation(
-                                DownloadOperation(
-                                    url = task.url,
-                                    title =
-                                        task.viewState.title,
-                                    status = "Completed",
-                                    timestamp =
-                                        System.currentTimeMillis(),
-                                    filePath = path,
-                                    playlistIndex =
-                                        (
-                                            task.type
-                                                as? TypeInfo.Playlist
-                                        )?.index
-                                )
-                            )
-
-                        val text =
-                            appContext.getString(
+                        )
+                        .mapCatching { pathList ->
+                            if (!task.preferences.skipDownload) {
                                 if (pathList.isEmpty()) {
-                                    R.string.status_completed
-                                } else {
-                                    R.string
-                                        .download_finish_notification
+                                    throw Exception("No files were downloaded. yt-dlp may have skipped or failed.")
                                 }
-                            )
-
-                        FileUtil
-                            .createIntentForOpeningFile(
+                                val firstFile = java.io.File(pathList.first())
+                                if (!firstFile.exists() || firstFile.length() == 0L) {
+                                    throw Exception("Downloaded file is empty or does not exist (0 bytes).")
+                                }
+                            }
+                            pathList
+                        }
+                        .onSuccess { pathList ->
+                            val path =
                                 pathList.firstOrNull()
-                            )
-                            .run {
-                                NotificationUtil
-                                    .finishNotification(
-                                        task.notificationId,
+
+                            task.downloadState =
+                                Completed(path)
+
+                            com.junkfood.seal.util.DatabaseUtil
+                                .insertDownloadOperation(
+                                    DownloadOperation(
+                                        url = task.url,
                                         title =
                                             task.viewState.title,
-                                        text = text,
-                                        intent =
-                                            if (this != null) {
-                                                PendingIntent
-                                                    .getActivity(
-                                                        appContext,
-                                                        0,
-                                                        this,
-                                                        PendingIntent
-                                                            .FLAG_IMMUTABLE
-                                                    )
-                                            } else {
-                                                null
-                                            }
+                                        status = "Completed",
+                                        timestamp =
+                                            System.currentTimeMillis(),
+                                        filePath = path,
+                                        playlistIndex =
+                                            (
+                                                task.type
+                                                    as? TypeInfo.Playlist
+                                            )?.index
                                     )
-                            }
-                    }
-                    .onFailure { throwable ->
-                        if (
-                            throwable
-                                is YoutubeDL.CanceledException
-                        ) {
-                            return@onFailure
-                        }
-
-                        val retries = (retryCountMap[task.id] ?: 0) + 1
-                        retryCountMap[task.id] = retries
-
-                        if (retries < 3) {
-                            val oldState = taskStateMap[task]
-                            if (oldState != null) {
-                                taskStateMap[task] = oldState.copy(downloadState = Idle)
-                                doYourWork()
-                                return@onFailure
-                            }
-                        }
-
-                        if (task.type is TypeInfo.Playlist && !(task.type as TypeInfo.Playlist).isFallback) {
-                            val playlistType = task.type as TypeInfo.Playlist
-                            val fallbackUrl = task.viewState.url.ifEmpty { task.url }
-                            val newType = playlistType.copy(isFallback = true)
-                            val fallbackTask = task.copy(
-                                url = fallbackUrl,
-                                type = newType,
-                                preferences = task.preferences.copy(downloadPlaylist = false)
-                            )
-                            
-                            val oldState = taskStateMap.remove(task)
-                            if (oldState != null) {
-                                taskStateMap[fallbackTask] = oldState.copy(downloadState = Idle, videoInfo = null)
-                                doYourWork()
-                                return@onFailure
-                            }
-                        }
-
-                        task.downloadState =
-                            Error(
-                                throwable = throwable,
-                                action = Download
-                            )
-
-                        com.junkfood.seal.util.DatabaseUtil
-                            .insertDownloadOperation(
-                                DownloadOperation(
-                                    url = task.url,
-                                    title =
-                                        task.viewState.title,
-                                    status = "Error",
-                                    errorMessage =
-                                        throwable.message,
-                                    timestamp =
-                                        System.currentTimeMillis(),
-                                    playlistIndex =
-                                        (
-                                            task.type
-                                                as? TypeInfo.Playlist
-                                        )?.index
                                 )
-                            )
 
-                        NotificationUtil.notifyError(
-                            title = task.viewState.title,
-                            textId = R.string.download_error_professional,
-                            notificationId =
-                                task.notificationId,
-                            report =
-                                throwable.stackTraceToString()
-                        )
-                    }
+                            val text =
+                                appContext.getString(
+                                    if (pathList.isEmpty()) {
+                                        R.string.status_completed
+                                    } else {
+                                        R.string
+                                            .download_finish_notification
+                                    }
+                                )
+
+                            FileUtil
+                                .createIntentForOpeningFile(
+                                    pathList.firstOrNull()
+                                )
+                                .run {
+                                    NotificationUtil
+                                        .finishNotification(
+                                            task.notificationId,
+                                            title =
+                                                task.viewState.title,
+                                            text = text,
+                                            intent =
+                                                if (this != null) {
+                                                    PendingIntent
+                                                        .getActivity(
+                                                            appContext,
+                                                            0,
+                                                            this,
+                                                            PendingIntent
+                                                                .FLAG_IMMUTABLE
+                                                        )
+                                                } else {
+                                                    null
+                                                }
+                                        )
+                                }
+                        }
+                        .onFailure { throwable ->
+                            if (
+                                throwable
+                                    is YoutubeDL.CanceledException
+                            ) {
+                                return@onFailure
+                            }
+
+                            val retries = (retryCountMap[task.id] ?: 0) + 1
+                            retryCountMap[task.id] = retries
+
+                            if (retries < 3) {
+                                val oldState = taskStateMap[task]
+                                if (oldState != null) {
+                                    taskStateMap[task] = oldState.copy(downloadState = Idle)
+                                    doYourWork()
+                                    return@onFailure
+                                }
+                            }
+
+                            if (task.type is TypeInfo.Playlist && !(task.type as TypeInfo.Playlist).isFallback) {
+                                val playlistType = task.type as TypeInfo.Playlist
+                                val fallbackUrl = task.viewState.url.ifEmpty { task.url }
+                                val newType = playlistType.copy(isFallback = true)
+                                val fallbackTask = task.copy(
+                                    url = fallbackUrl,
+                                    type = newType,
+                                    preferences = task.preferences.copy(downloadPlaylist = false)
+                                )
+
+                                val oldState = taskStateMap.remove(task)
+                                if (oldState != null) {
+                                    taskStateMap[fallbackTask] = oldState.copy(downloadState = Idle, videoInfo = null)
+                                    doYourWork()
+                                    return@onFailure
+                                }
+                            }
+
+                            task.downloadState =
+                                Error(
+                                    throwable = throwable,
+                                    action = Download
+                                )
+
+                            com.junkfood.seal.util.DatabaseUtil
+                                .insertDownloadOperation(
+                                    DownloadOperation(
+                                        url = task.url,
+                                        title =
+                                            task.viewState.title,
+                                        status = "Error",
+                                        errorMessage =
+                                            throwable.message,
+                                        timestamp =
+                                            System.currentTimeMillis(),
+                                        playlistIndex =
+                                            (
+                                                task.type
+                                                    as? TypeInfo.Playlist
+                                            )?.index
+                                    )
+                                )
+
+                            NotificationUtil.notifyError(
+                                title = task.viewState.title,
+                                textId = R.string.download_error_professional,
+                                notificationId =
+                                    task.notificationId,
+                                report =
+                                    throwable.stackTraceToString()
+                            )
+                        }
                 } finally {
                     if (acquiredSubtitleLock) {
                         subtitleMutex.unlock()
@@ -912,9 +935,9 @@ class DownloaderV2Impl(
         val cleanPlaylistName = FileUtil.cleanFileName(playlistTitle)
 
         val baseDir = if (preferences.extractAudio) {
-            if (preferences.privateDirectory) appContext.filesDir.absolutePath else audioDownloadDir
+            if (preferences.privateDirectory) appContext.filesDir.absolutePath else getAudioDownloadDir(appContext)
         } else {
-            if (preferences.privateDirectory) appContext.filesDir.absolutePath else videoDownloadDir
+            if (preferences.privateDirectory) appContext.filesDir.absolutePath else getVideoDownloadDir(appContext)
         }
 
         val targetDirFile = if (isSubtitleOnly && cleanPlaylistName.isNotEmpty()) {
@@ -944,9 +967,9 @@ class DownloaderV2Impl(
             if (!matches) return@firstOrNull false
 
             if (isSubtitleOnly) {
-                fileName.contains(Regex(FileUtil.SUBTITLE_REGEX))
+                fileName.contains(Regex(SUBTITLE_REGEX))
             } else {
-                !fileName.contains(Regex(FileUtil.THUMBNAIL_REGEX))
+                !fileName.contains(Regex(THUMBNAIL_REGEX))
             }
         }
 
