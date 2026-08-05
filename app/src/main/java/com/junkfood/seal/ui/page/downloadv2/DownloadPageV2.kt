@@ -38,10 +38,13 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.List
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FloatingActionButton
@@ -378,39 +381,60 @@ fun DownloadPageImplV2(
             CompositionLocalProvider(LocalOverscrollFactory provides null) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Spacer(Modifier.height(with(LocalDensity.current) { headerOffset.toDp() }))
-                    Header(onMenuOpen = onMenuOpen, modifier = Modifier.padding(horizontal = 16.dp))
-                    SelectionGroupRow(
-                        modifier =
-                            Modifier.horizontalScroll(rememberScrollState())
-                                .padding(horizontal = 20.dp)
-                    ) {
-                        Filter.entries.forEach { filter ->
-                            SelectionGroupItem(
-                                colors =
-                                    SelectionGroupDefaults.colors(
-                                        activeContainerColor =
-                                            LocalFixedColorRoles.current.tertiaryFixed,
-                                        activeContentColor =
-                                            LocalFixedColorRoles.current.onTertiaryFixed,
-                                    ),
-                                selected = activeFilter == filter,
-                                onClick = {
-                                    if (activeFilter == filter) {
-                                        scope.launch { lazyListState.animateScrollToItem(0) }
-                                        scope.launch {
-                                            val initialValue = headerOffset
-                                            AnimationState(initialValue = initialValue).animateTo(
-                                                spacerHeight
-                                            ) {
-                                                headerOffset = value
+                    if (isSelectionMode) {
+                        SelectionHeader(
+                            selectedCount = selectedTasks.size,
+                            onClearSelection = { selectedTasks = emptySet() },
+                            onSelectAll = { selectedTasks = filteredMap.map { it.first }.toSet() },
+                            onDeleteSelected = {
+                                selectedTasks.forEach { onActionPost(it, UiAction.Delete) }
+                                selectedTasks = emptySet()
+                            },
+                            onResumeSelected = {
+                                selectedTasks.forEach { onActionPost(it, UiAction.Resume) }
+                                selectedTasks = emptySet()
+                            },
+                            onCancelSelected = {
+                                selectedTasks.forEach { onActionPost(it, UiAction.Cancel) }
+                                selectedTasks = emptySet()
+                            },
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        )
+                    } else {
+                        Header(onMenuOpen = onMenuOpen, modifier = Modifier.padding(horizontal = 16.dp))
+                        SelectionGroupRow(
+                            modifier =
+                                Modifier.horizontalScroll(rememberScrollState())
+                                    .padding(horizontal = 20.dp)
+                        ) {
+                            Filter.entries.forEach { filter ->
+                                SelectionGroupItem(
+                                    colors =
+                                        SelectionGroupDefaults.colors(
+                                            activeContainerColor =
+                                                LocalFixedColorRoles.current.tertiaryFixed,
+                                            activeContentColor =
+                                                LocalFixedColorRoles.current.onTertiaryFixed,
+                                        ),
+                                    selected = activeFilter == filter,
+                                    onClick = {
+                                        if (activeFilter == filter) {
+                                            scope.launch { lazyListState.animateScrollToItem(0) }
+                                            scope.launch {
+                                                val initialValue = headerOffset
+                                                AnimationState(initialValue = initialValue).animateTo(
+                                                    spacerHeight
+                                                ) {
+                                                    headerOffset = value
+                                                }
                                             }
+                                        } else {
+                                            activeFilter = filter
                                         }
-                                    } else {
-                                        activeFilter = filter
-                                    }
-                                },
-                            ) {
-                                Text(filter.label())
+                                    },
+                                ) {
+                                    Text(filter.label())
+                                }
                             }
                         }
                     }
@@ -627,6 +651,63 @@ fun DownloadPageImplV2(
                     scope.launch { sheetState.hide() }.invokeOnCompletion { selectedTask = null }
                 },
                 onActionPost = onActionPost,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SelectionHeader(
+    selectedCount: Int,
+    onClearSelection: () -> Unit,
+    onSelectAll: () -> Unit,
+    onDeleteSelected: () -> Unit,
+    onResumeSelected: () -> Unit,
+    onCancelSelected: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(64.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onClearSelection) {
+            Icon(
+                imageVector = androidx.compose.material.icons.Icons.Outlined.Close,
+                contentDescription = stringResource(R.string.cancel),
+                tint = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = "$selectedCount ${stringResource(R.string.selected)}",
+            color = MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Medium,
+            ),
+            modifier = Modifier.weight(1f),
+        )
+        IconButton(onClick = onSelectAll) {
+            Icon(
+                imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Outlined.List,
+                contentDescription = stringResource(R.string.select_all),
+                tint = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+        IconButton(onClick = onResumeSelected) {
+            Icon(
+                imageVector = androidx.compose.material.icons.Icons.Outlined.Refresh,
+                contentDescription = stringResource(R.string.retry),
+                tint = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+        IconButton(onClick = onDeleteSelected) {
+            Icon(
+                imageVector = androidx.compose.material.icons.Icons.Outlined.Delete,
+                contentDescription = stringResource(R.string.delete),
+                tint = MaterialTheme.colorScheme.error,
             )
         }
     }

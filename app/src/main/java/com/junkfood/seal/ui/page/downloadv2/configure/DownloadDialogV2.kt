@@ -1035,32 +1035,33 @@ private fun DownloadTypeSelectionGroup(
     selectedType: DownloadType?,
     onSelect: (DownloadType) -> Unit,
 ) {
-    val typeCount = typeEntries.size
-    if (typeCount == DownloadType.entries.size) {
-        LazyRow(modifier = modifier) {
-            items(typeEntries) { type ->
-                SingleChoiceChip(
-                    selected = selectedType == type,
-                    label = type.label(),
-                    onClick = { onSelect(type) },
-                )
-            }
-        }
-    } else {
-        SingleChoiceSegmentedButtonRow(modifier = modifier.fillMaxWidth()) {
-            typeEntries.forEachIndexed { index, type ->
-                SingleChoiceSegmentedButton(
-                    selected = selectedType == type,
-                    onClick = { onSelect(type) },
-                    shape = SegmentedButtonDefaults.itemShape(index, typeCount),
-                ) {
+    LazyRow(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(horizontal = 4.dp),
+    ) {
+        items(typeEntries) { type ->
+            FilterChip(
+                selected = selectedType == type,
+                onClick = { onSelect(type) },
+                label = {
                     Text(
                         text = type.label(),
+                        style = MaterialTheme.typography.labelLarge,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                }
-            }
+                },
+                leadingIcon = if (selectedType == type) {
+                    {
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                } else null,
+            )
         }
     }
 }
@@ -1077,14 +1078,10 @@ private fun Preset(
 ) {
     val description =
         when (downloadType) {
-            Audio -> {
-                PreferenceStrings.getAudioPresetText(preference)
-            }
-
-            Video -> {
-                PreferenceStrings.getVideoPresetText(preference)
-            }
-
+            Audio -> PreferenceStrings.getAudioPresetText(preference)
+            Video -> PreferenceStrings.getVideoPresetText(preference)
+            DownloadType.Subtitle -> PreferenceStrings.getSubtitlePresetText(preference)
+            Command -> stringResource(R.string.custom_command)
             Playlist -> stringResource(R.string.preset_format_selection_desc)
             else -> ""
         }

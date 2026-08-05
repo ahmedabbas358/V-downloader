@@ -453,6 +453,24 @@ class DownloaderV2Impl(
                         acquiredSubtitleLock = true
                         kotlinx.coroutines.delay(3000L)
                     }
+
+                    val existingFilePath = checkExistingFile(task)
+                    if (existingFilePath != null) {
+                        Log.d(TAG, "Fast Path: File already exists for ${task.viewState.title} -> $existingFilePath")
+                        task.downloadState = Completed(existingFilePath)
+                        com.junkfood.seal.util.DatabaseUtil.insertDownloadOperation(
+                            DownloadOperation(
+                                url = task.url,
+                                title = task.viewState.title,
+                                status = "Completed",
+                                timestamp = System.currentTimeMillis(),
+                                filePath = existingFilePath,
+                                playlistIndex = playlistItem.takeIf { it != 0 }
+                            )
+                        )
+                        return@launch
+                    }
+
                     var lastUpdateTime = 0L
                 DownloadUtil
                     .downloadVideo(
@@ -883,5 +901,55 @@ class DownloaderV2Impl(
                         taskId = task.id
                     )
             }
+    }
+
+    private fun checkExistingFile(task: Task): String? {
+        val preferences = task.preferences
+        val isSubtitleOnly = preferences.skipDownload && preferences.downloadSubtitle
+        val playlistType = task.type as? TypeInfo.Playlist
+        val playlistTitle = playlistType?.playlistTitle.orEmpty()
+        val playlistIndex = playlistType?.index ?: 0
+        val cleanPlaylistName = FileUtil.cleanFileName(playlistTitle)
+
+        val baseDir = if (preferences.extractAudio) {
+            if (preferences.privateDirectory) appContext.filesDir.absolutePath else audioDownloadDir
+        } else {
+            if (preferences.privateDirectory) appContext.filesDir.absolutePath else videoDownloadDir
+        }
+
+        val targetDirFile = if (isSubtitleOnly && cleanPlaylistName.isNotEmpty()) {
+            java.io.File(baseDir, "[Subtitles] $cleanPlaylistName")
+        } else if (preferences.subdirectoryPlaylistTitle && cleanPlaylistName.isNotEmpty()) {
+            java.io.File(baseDir, cleanPlaylistName)
+        } else {
+            java.io.File(baseDir)
+        }
+
+        if (!targetDirFile.exists()) return null
+
+        val files = targetDirFile.listFiles()?.filter { it.isFile && it.length() > 0L } ?: return null
+
+        val prefixPadded = if (playlistIndex > 0) String.format(java.util.Locale.US, "%03d - ", playlistIndex) else ""
+        val rawTitle = task.viewState.title.removePrefix("[Subtitle] ").trim()
+        val cleanTitle = FileUtil.cleanFileName(rawTitle)
+        val videoId = task.info?.id.orEmpty()
+
+        val matchingFile = files.firstOrNull { file ->
+            val fileName = file.name
+            val matchesPrefix = prefixPadded.isNotEmpty() && fileName.startsWith(prefixPadded)
+            val matchesTitle = cleanTitle.isNotEmpty() && fileName.contains(cleanTitle, ignoreCase = true)
+            val matchesId = videoId.isNotEmpty() && fileName.contains(videoId, ignoreCase = true)
+
+            val matches = matchesPrefix || matchesTitle || matchesId
+            if (!matches) return@firstOrNull false
+
+            if (isSubtitleOnly) {
+                fileName.contains(Regex(FileUtil.SUBTITLE_REGEX))
+            } else {
+                !fileName.contains(Regex(FileUtil.THUMBNAIL_REGEX))
+            }
+        }
+
+        return matchingFile?.absolutePath
     }
 }

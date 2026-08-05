@@ -177,10 +177,23 @@ fun FormatPage(
             val mergeAudioStreamPlaylist = audioOnlyFormats.size > 1
             val hasVideoOnlyFormat = videoFormats.any { it.vcodec != "none" && (it.acodec == "none" || it.acodec == null) }
             val rawFormatId = formatList.joinToString(separator = "+") { it.formatId.toString() }
-            val formatId = if (hasVideoOnlyFormat && audioOnlyFormats.isEmpty() && rawFormatId.isNotEmpty()) {
-                "$rawFormatId+bestaudio/best"
+            val maxSelectedHeight = videoFormats.mapNotNull { it.height?.toInt() }.maxOrNull()
+            
+            val fallbackSpec = when {
+                isAudioOnlyPlaylist -> "bestaudio/best"
+                maxSelectedHeight != null && maxSelectedHeight > 0 -> "bestvideo[height<=$maxSelectedHeight]+bestaudio/best"
+                hasVideoOnlyFormat -> "bestvideo+bestaudio/best"
+                else -> "best"
+            }
+
+            val formatId = if (rawFormatId.isNotEmpty()) {
+                if (hasVideoOnlyFormat && audioOnlyFormats.isEmpty()) {
+                    "$rawFormatId+bestaudio/$fallbackSpec"
+                } else {
+                    "$rawFormatId/$fallbackSpec"
+                }
             } else {
-                rawFormatId
+                fallbackSpec
             }
 
             if (playlistTasks != null) {
@@ -190,7 +203,7 @@ fun FormatPage(
                     val updatedTask = taskWithState.task.copy(
                         preferences = taskWithState.task.preferences.copy(
                             skipDownload = isSubOnly,
-                            formatIdString = if (isSubOnly) "" else formatId.ifEmpty { taskWithState.task.preferences.formatIdString },
+                            formatIdString = if (isSubOnly) "" else formatId,
                             extractAudio = if (isSubOnly) false else (taskWithState.task.preferences.extractAudio || isAudioOnlyPlaylist),
                             mergeAudioStream = if (isSubOnly) false else mergeAudioStreamPlaylist,
                             downloadSubtitle = true,

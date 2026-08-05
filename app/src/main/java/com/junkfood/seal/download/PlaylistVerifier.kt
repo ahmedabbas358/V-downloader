@@ -131,7 +131,7 @@ object PlaylistVerifier {
 
             val individualUrl = missingItem.url.ifEmpty { missingItem.playlistUrl }
             val fallbackPrefs = missingItem.preferences.copy(
-                downloadPlaylist = false
+                downloadPlaylist = true
             )
 
             val fallbackTaskKey = "fallback_${missingItem.index}_${System.currentTimeMillis()}"

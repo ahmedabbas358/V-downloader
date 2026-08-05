@@ -865,4 +865,12 @@ object PreferenceStrings {
             }
         }
     }
+
+    @Composable
+    fun getSubtitlePresetText(preferences: DownloadUtil.DownloadPreferences): String {
+        return with(preferences) {
+            val lang = subtitleLanguage.ifEmpty { "en" }
+            stringResource(id = R.string.download_subtitles) + " ($lang)"
+        }
+    }
 }
