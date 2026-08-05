@@ -171,6 +171,18 @@ fun FormatPage(
                     .run { this - this.filterWithRegex(subtitleLanguageRegex) }
                     .toSet()
 
+            val audioOnlyFormats = formatList.filter { it.isAudioOnly() }
+            val videoFormats = formatList.filter { it.containsVideo() }
+            val isAudioOnlyPlaylist = audioOnlyFormats.isNotEmpty() && videoFormats.isEmpty()
+            val mergeAudioStreamPlaylist = audioOnlyFormats.size > 1
+            val hasVideoOnlyFormat = videoFormats.any { it.vcodec != "none" && (it.acodec == "none" || it.acodec == null) }
+            val rawFormatId = formatList.joinToString(separator = "+") { it.formatId.toString() }
+            val formatId = if (hasVideoOnlyFormat && audioOnlyFormats.isEmpty() && rawFormatId.isNotEmpty()) {
+                "$rawFormatId+bestaudio/best"
+            } else {
+                rawFormatId
+            }
+
             if (playlistTasks != null) {
                 playlistTasks.forEach { taskWithState ->
                     val hasSelectedSubs = selectedSubtitles.isNotEmpty() || selectedAutoCaptions.isNotEmpty()
@@ -178,8 +190,9 @@ fun FormatPage(
                     val updatedTask = taskWithState.task.copy(
                         preferences = taskWithState.task.preferences.copy(
                             skipDownload = isSubOnly,
-                            formatIdString = if (isSubOnly) "" else taskWithState.task.preferences.formatIdString,
-                            extractAudio = if (isSubOnly) false else taskWithState.task.preferences.extractAudio,
+                            formatIdString = if (isSubOnly) "" else formatId.ifEmpty { taskWithState.task.preferences.formatIdString },
+                            extractAudio = if (isSubOnly) false else (taskWithState.task.preferences.extractAudio || isAudioOnlyPlaylist),
+                            mergeAudioStream = if (isSubOnly) false else mergeAudioStreamPlaylist,
                             downloadSubtitle = true,
                             convertSubtitle = subtitleFormat,
                             autoSubtitle = if (hasSelectedSubs) selectedAutoCaptions.isNotEmpty() else true,
@@ -815,6 +828,7 @@ private fun FormatPageImpl(
             suggestedSubtitles = suggestedSubtitleMap,
             autoCaptions = otherSubtitleMap,
             selectedSubtitles = selectedSubtitles,
+            selectedAutoCaptions = selectedAutoCaptions,
             onDismissRequest = { showSubtitleSelectionDialog = false },
             onConfirm = { subs, autoSubs ->
                 selectedSubtitles.run {
@@ -923,24 +937,27 @@ private fun SubtitleSelectionDialog(
     suggestedSubtitles: Map<String, List<SubtitleFormat>>,
     autoCaptions: Map<String, List<SubtitleFormat>>,
     selectedSubtitles: List<String>,
+    selectedAutoCaptions: List<String>,
     onDismissRequest: () -> Unit = {},
     onConfirm: (subs: List<String>, autoSubs: List<String>) -> Unit = { _, _ -> },
 ) {
     var searchText by remember { mutableStateOf("") }
-    val selectedSubtitles = remember {
+    val selectedSubtitlesState = remember {
         mutableStateListOf<String>().apply { addAll(selectedSubtitles) }
     }
-    val selectedAutoCaptions = remember { mutableStateListOf<String>() }
+    val selectedAutoCaptionsState = remember { 
+        mutableStateListOf<String>().apply { addAll(selectedAutoCaptions) }
+    }
 
     val suggestedSubtitlesFiltered =
-        suggestedSubtitles.filterWithSearchText(searchText).sortedWithSelection(selectedSubtitles)
+        suggestedSubtitles.filterWithSearchText(searchText).sortedWithSelection(selectedSubtitlesState)
     val autoCaptionsFiltered =
-        autoCaptions.filterWithSearchText(searchText).sortedWithSelection(selectedSubtitles)
+        autoCaptions.filterWithSearchText(searchText).sortedWithSelection(selectedSubtitlesState)
 
     SealDialog(
         containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
         onDismissRequest = onDismissRequest,
-        confirmButton = { ConfirmButton { onConfirm(selectedSubtitles, selectedAutoCaptions) } },
+        confirmButton = { ConfirmButton { onConfirm(selectedSubtitlesState, selectedAutoCaptionsState) } },
         dismissButton = { DismissButton { onDismissRequest() } },
         title = { Text(text = stringResource(id = R.string.subtitle_language)) },
         icon = { Icon(imageVector = Icons.Outlined.Subtitles, contentDescription = null) },
@@ -971,12 +988,12 @@ private fun SubtitleSelectionDialog(
                         item(key = code) {
                             DialogCheckBoxItem(
                                 modifier = Modifier.animateItem(),
-                                checked = selectedSubtitles.contains(code),
+                                checked = selectedSubtitlesState.contains(code),
                                 onValueChange = {
-                                    if (selectedSubtitles.contains(code)) {
-                                        selectedSubtitles.remove(code)
+                                    if (selectedSubtitlesState.contains(code)) {
+                                        selectedSubtitlesState.remove(code)
                                     } else {
-                                        selectedSubtitles.add(code)
+                                        selectedSubtitlesState.add(code)
                                     }
                                 },
                                 text = formats.first().run { name ?: protocol ?: code },
@@ -997,12 +1014,12 @@ private fun SubtitleSelectionDialog(
                             item(key = code) {
                                 DialogCheckBoxItem(
                                     modifier = Modifier.animateItem(),
-                                    checked = selectedAutoCaptions.contains(code),
+                                    checked = selectedAutoCaptionsState.contains(code),
                                     onValueChange = {
-                                        if (selectedAutoCaptions.contains(code)) {
-                                            selectedAutoCaptions.remove(code)
+                                        if (selectedAutoCaptionsState.contains(code)) {
+                                            selectedAutoCaptionsState.remove(code)
                                         } else {
-                                            selectedAutoCaptions.add(code)
+                                            selectedAutoCaptionsState.add(code)
                                         }
                                     },
                                     text = formats.first().run { name ?: protocol ?: code },

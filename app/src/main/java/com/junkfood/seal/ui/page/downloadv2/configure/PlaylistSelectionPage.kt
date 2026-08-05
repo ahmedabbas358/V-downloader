@@ -152,7 +152,7 @@ fun PlaylistSelectionPage(
                     }
                 },
                 onDismissRequest = onDismissConfigurationSheet,
-                onDownload = { type ->
+                onDownload = { type, useFormatSelection ->
                     val updatedPreferences = preferences.copy(
                         extractAudio = type == Audio,
                         skipDownload = type == DownloadType.Subtitle,
@@ -161,7 +161,7 @@ fun PlaylistSelectionPage(
                     
                     val updatedTasks = taskList.map { it.copy(task = it.task.copy(preferences = updatedPreferences)) }
                     
-                    if (type == DownloadType.Subtitle) {
+                    if (useFormatSelection || type == DownloadType.Subtitle) {
                         val firstUrl = updatedTasks.firstOrNull()?.task?.url
                         if (firstUrl != null) {
                             onActionPost(

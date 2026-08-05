@@ -389,6 +389,7 @@ private fun DownloadDialogContent(
                                 isQuickDownload = false,
                                 preference = preferences,
                                 selectedType = config.downloadType,
+                                useFormatSelection = config.useFormatSelection,
                                 onPreferenceUpdate = {
                                     onPreferencesUpdate(
                                         DownloadUtil.DownloadPreferences.createFromPreferences()
@@ -569,12 +570,6 @@ private fun ConfigurePage(
             mutableStateOf(PreferenceUtil.getTemplate())
         }
 
-    LaunchedEffect(selectedType) {
-        if (selectedType == Playlist) {
-            useFormatSelection = false
-        }
-    }
-
     // Fix: ترتيب المعدلات الصحيح + fillMaxWidth لتجنب تمدد غير متوقع
     Column(
         modifier = modifier
@@ -611,12 +606,12 @@ private fun ConfigurePage(
                             selected = !useFormatSelection,
                             downloadType = selectedType,
                             onClick = { useFormatSelection = false },
-                            showEditIcon = !useFormatSelection && selectedType != Playlist,
+                            showEditIcon = !useFormatSelection,
                             onEdit = { onPresetEdit(selectedType) },
                         )
                         Custom(
                             selected = useFormatSelection,
-                            enabled = selectedType != Playlist,
+                            enabled = true,
                             onClick = { useFormatSelection = true },
                         )
                     } else {
@@ -736,9 +731,10 @@ fun ConfigurePagePlaylistVariant(
     onPreferencesUpdate: (DownloadUtil.DownloadPreferences) -> Unit,
     onPresetEdit: (DownloadType?) -> Unit = {},
     onDismissRequest: () -> Unit,
-    onDownload: (DownloadType) -> Unit,
+    onDownload: (DownloadType, Boolean) -> Unit,
 ) {
     var selectedType by remember(initialDownloadType) { mutableStateOf(initialDownloadType) }
+    var useFormatSelection by remember { mutableStateOf(false) }
 
     // Fix: ترتيب المعدلات الصحيح + fillMaxWidth
     Column(
@@ -771,11 +767,16 @@ fun ConfigurePagePlaylistVariant(
                 Preset(
                     modifier = Modifier,
                     preference = preferences,
-                    selected = true,
+                    selected = !useFormatSelection,
                     downloadType = selectedType,
-                    onClick = { onPresetEdit(selectedType) },
-                    showEditIcon = true,
+                    onClick = { useFormatSelection = false },
+                    showEditIcon = !useFormatSelection,
                     onEdit = { onPresetEdit(selectedType) },
+                )
+                Custom(
+                    selected = useFormatSelection,
+                    enabled = true,
+                    onClick = { useFormatSelection = true },
                 )
             }
             var expanded by remember { mutableStateOf(false) }
@@ -785,6 +786,7 @@ fun ConfigurePagePlaylistVariant(
                     isQuickDownload = false,
                     preference = preferences,
                     selectedType = selectedType,
+                    useFormatSelection = useFormatSelection,
                     onPreferenceUpdate = {
                         onPreferencesUpdate(DownloadUtil.DownloadPreferences.createFromPreferences())
                     },
@@ -797,19 +799,18 @@ fun ConfigurePagePlaylistVariant(
             modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 16.dp),
             canProceed = true,
             selectedType = selectedType,
-            useFormatSelection = false,
+            useFormatSelection = useFormatSelection,
             onCancel = onDismissRequest,
             onDownload = {
-                // Fix: استخدام selectedType الذي اختاره المستخدم
-                onDownload(selectedType)
+                onDownload(selectedType, useFormatSelection)
                 onDismissRequest()
             },
             onFetchInfo = {
-                onDownload(selectedType)
+                onDownload(selectedType, useFormatSelection)
                 onDismissRequest()
             },
             onTaskStart = {
-                onDownload(selectedType)
+                onDownload(selectedType, useFormatSelection)
                 onDismissRequest()
             },
         )
@@ -823,6 +824,7 @@ private fun AdditionalSettings(
     selectedType: DownloadType?,
     preference: DownloadUtil.DownloadPreferences,
     videoInfo: VideoInfo? = null,
+    useFormatSelection: Boolean = false,
     onNavigateToCookieGeneratorPage: (String) -> Unit = {},
     onPreferenceUpdate: () -> Unit,
 ) {
@@ -867,7 +869,7 @@ private fun AdditionalSettings(
                 )
             }
 
-            if (downloadSubtitle && selectedType != Command) {
+            if (downloadSubtitle && selectedType != Command && !useFormatSelection) {
                 Spacer(modifier = Modifier.height(8.dp))
                 SubtitleLanguageSelector(
                     preference = preference,
@@ -1052,7 +1054,11 @@ private fun DownloadTypeSelectionGroup(
                     onClick = { onSelect(type) },
                     shape = SegmentedButtonDefaults.itemShape(index, typeCount),
                 ) {
-                    Text(text = type.label())
+                    Text(
+                        text = type.label(),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
         }
