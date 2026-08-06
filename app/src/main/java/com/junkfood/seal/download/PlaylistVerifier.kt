@@ -1,6 +1,7 @@
 package com.junkfood.seal.download
 
 import android.content.Context
+import android.util.Log
 import com.junkfood.seal.App.Companion.context
 import com.junkfood.seal.util.DownloadUtil
 import com.junkfood.seal.util.DownloadUtil.DownloadPreferences
@@ -239,6 +240,64 @@ object PlaylistVerifier {
                 viewState = viewState
             )
             downloader.enqueue(TaskFactory.TaskWithState(task, state))
+        }
+    }
+
+    private const val TAG = "PlaylistVerifier"
+
+    /**
+     * Verify completed playlist items by re-scanning the playlist metadata and
+     * checking which files are already present on disk.
+     *
+     * Called from [DownloaderV2Impl.checkPlaylistCompletion] after all tasks for
+     * a playlist have reached a terminal state (Completed / Error / Canceled).
+     *
+     * This overload intentionally does NOT re-enqueue missing items because the
+     * caller does not pass a [DownloaderV2] reference. It logs the verification
+     * result so developers and crash reporters can see what was missing.
+     */
+    suspend fun verifyAndRetryPlaylist(
+        items: List<VerificationItem>
+    ) = withContext(Dispatchers.IO) {
+        if (items.isEmpty()) {
+            Log.d(TAG, "verifyAndRetryPlaylist: empty items list, nothing to verify")
+            return@withContext
+        }
+
+        val first = items.first()
+        val playlistUrl = first.playlistUrl
+        val preferences = first.preferences
+
+        Log.d(
+            TAG,
+            "verifyAndRetryPlaylist: verifying ${items.size} items for playlist '${first.playlistTitle}'"
+        )
+
+        try {
+            val scanResult = scanPlaylist(
+                playlistUrl = playlistUrl,
+                preferences = preferences
+            ).getOrThrow()
+
+            Log.d(
+                TAG,
+                "verifyAndRetryPlaylist: scan complete — " +
+                    "total=${scanResult.totalCount}, " +
+                    "found=${scanResult.foundItems.size}, " +
+                    "missing=${scanResult.missingItems.size}, " +
+                    "dir=${scanResult.targetDirectory}"
+            )
+
+            if (scanResult.missingItems.isNotEmpty()) {
+                scanResult.missingItems.forEach { missing ->
+                    Log.w(
+                        TAG,
+                        "verifyAndRetryPlaylist: MISSING #${missing.index} — ${missing.title}"
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "verifyAndRetryPlaylist: scan failed for $playlistUrl", e)
         }
     }
 }
