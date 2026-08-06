@@ -379,7 +379,7 @@ fun DownloadPageImplV2(
     Scaffold(
         modifier = modifier.fillMaxSize().statusBarsPadding(),
         containerColor = Color.Transparent,
-        floatingActionButtonPosition = androidx.compose.material3.FabPosition.Center,
+        floatingActionButtonPosition = androidx.compose.material3.FabPosition.End,
         floatingActionButton = {
             if (isSelectionMode) {
                 Box(

@@ -4,6 +4,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.junkfood.seal.App
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.snapshots.SnapshotStateMap
@@ -57,10 +58,10 @@ private const val SUBTITLE_REGEX = "(?i)\\.(srt|vtt|ass|ssa|sub)$"
 private const val THUMBNAIL_REGEX = "(?i)\\.(jpe?g|png|webp|bmp)$"
 
 private fun getAudioDownloadDir(context: Context): String =
-    context.getExternalFilesDir(null)?.absolutePath ?: context.filesDir.absolutePath
+    App.audioDownloadDir
 
 private fun getVideoDownloadDir(context: Context): String =
-    context.getExternalFilesDir(null)?.absolutePath ?: context.filesDir.absolutePath
+    App.videoDownloadDir
 
 interface DownloaderV2 {
     fun getTaskStateMap(): SnapshotStateMap<Task, Task.State>
