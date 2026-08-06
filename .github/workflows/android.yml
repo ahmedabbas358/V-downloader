@@ -1,17 +1,19 @@
-name: Build V-Downloader APK
+name: Build & Release V-Downloader APKs
 
 on:
   workflow_dispatch:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: read
+      contents: write
 
     steps:
       - name: Checkout code
@@ -33,7 +35,7 @@ jobs:
       - name: Grant execute permission
         run: chmod +x gradlew
 
-      - name: Build APK
+      - name: Build Release APKs
         run: ./gradlew --no-daemon clean assembleGenericRelease --stacktrace
 
       - name: List generated APKs
@@ -42,7 +44,7 @@ jobs:
           find app/build/outputs -type f -name "*.apk"
 
       # ARM64
-      - name: Upload ARM64 APK
+      - name: Upload ARM64 Artifact
         uses: actions/upload-artifact@v4
         with:
           name: V-Downloader-arm64-v8a
@@ -51,7 +53,7 @@ jobs:
           retention-days: 20
 
       # ARMv7
-      - name: Upload ARMv7 APK
+      - name: Upload ARMv7 Artifact
         uses: actions/upload-artifact@v4
         with:
           name: V-Downloader-armeabi-v7a
@@ -59,26 +61,8 @@ jobs:
           if-no-files-found: ignore
           retention-days: 20
 
-      # x86
-      - name: Upload x86 APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: V-Downloader-x86
-          path: app/build/outputs/apk/generic/release/*x86*.apk
-          if-no-files-found: ignore
-          retention-days: 20
-
-      # x86_64
-      - name: Upload x86_64 APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: V-Downloader-x86_64
-          path: app/build/outputs/apk/generic/release/*x86_64*.apk
-          if-no-files-found: ignore
-          retention-days: 20
-
       # Universal
-      - name: Upload Universal APK
+      - name: Upload Universal Artifact
         uses: actions/upload-artifact@v4
         with:
           name: V-Downloader-universal
@@ -86,11 +70,43 @@ jobs:
           if-no-files-found: ignore
           retention-days: 20
 
-      # أي APK لم يتم التقاطه بالخطوات السابقة
-      - name: Upload Remaining APKs
-        uses: actions/upload-artifact@v4
+      # GitHub Release creation & APK publishing
+      - name: Create & Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
         with:
-          name: V-Downloader-Other
-          path: app/build/outputs/apk/generic/release/*.apk
-          if-no-files-found: ignore
-          retention-days: 20
+          files: app/build/outputs/apk/generic/release/*.apk
+          name: V-downloader v2.6.0
+          tag_name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          body: |
+            # 🚀 V-downloader v2.6.0 - التحديث الرئيسي الشامل (Major Release)
+
+            > ⚠️ **تنبيه مهم جداً للمستخدمين | Crucial Update Notice:**
+            > 🇸🇦 **عربي:** يُنصح بشدة **حذف النسخة القديمة المثبتة على جهازك قبل تثبيت هذا التحديث** (تثبيت جديد وليس تحديث مباشر فوق القديمة) لضمان عمل كافة الميزات والروابط الجديدة بسلاسة دون تعارض!
+            > 🇬🇧 **English:** It is strongly recommended to **uninstall the previous version before installing this update** to ensure all new features work seamlessly without conflicts!
+
+            ---
+
+            ### 🔥 أبرز الميزات الجديدة والتحديثات | Main Release Highlights:
+
+            #### 🎙️ 1. محرك عزل الموسيقى الاستوديوي (Music Removal & Vocal Extraction Engine):
+            * **AR:** ميزة التنزيل بدون موسيقى للمقاطع والصوتيات وقوائم التشغيل عبر فلتر صوتي خماسي المراحل احترافي من FFmpeg.
+            * **EN:** Studio-grade 5-stage FFmpeg audio filter pipeline for vocal extraction and background music removal for videos, audios, and playlists.
+
+            #### 🔄 2. مُزامن قوائم التشغيل الذكي (Smart Playlist Synchronizer):
+            * **AR:** فحص المجلدات المحلية ومقارنتها بقوائم التشغيل أونلاين وتنزيل العناصر المفقودة فقط بنقرة واحدة مع الترقيم الأصلي (`001 - `, `002 - `) واختيار الدقة والتسجيل.
+            * **EN:** Compare local output directories with online playlists and complete missing tracks in one click with index numbering (`001 - `, `002 - `) and resolution selection.
+
+            #### 🎛️ 3. وضع التحديد الجماعي المتقدم (Redesigned Multi-Selection Mode):
+            * **AR:** شريط سفلي عائم تفاعلي يقدم خيارات إيقاف مؤقت، استئناف، إلغاء، وحذف المقاطع المحددة دفعة واحدة.
+            * **EN:** Interactive floating bottom action bar for batch pause, resume, cancel, and delete.
+
+            #### 📋 4. قائمة الثلاث نقاط التكيفية (Sectional 3-Dots Menu):
+            * **AR:** قائمة خيارات ديناميكية ومخصصة لكل تبويب (الجميع، جار التحميل، تم الإلغاء، انتهى).
+            * **EN:** Contextual 3-dots overflow menu customized for every filter tab (All, Downloading, Canceled, Finished).
+
+            #### 📌 5. تحسينات الترجمات ودقة الأحجام (Subtitle & Size Fixes):
+            * **AR:** إصلاح حلقة خيار الترجمات المخصص وتعميم لغة الترجمة والصيغة على كافة المقاطع، مع احتساب وعرض الكيلوبايتات الحقيقية لملفات الترجمة.
+            * **EN:** Fixed subtitle format custom selection loop, applied subtitle languages across playlist items, and formatted true KB file sizes.
