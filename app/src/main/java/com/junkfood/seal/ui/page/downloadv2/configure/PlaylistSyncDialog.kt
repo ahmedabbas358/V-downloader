@@ -58,7 +58,8 @@ import com.junkfood.seal.R
 import com.junkfood.seal.download.DownloaderV2
 import com.junkfood.seal.download.PlaylistVerifier
 import com.junkfood.seal.ui.component.SealModalBottomSheet
-import com.junkfood.seal.ui.component.makeToast
+import com.junkfood.seal.util.ToastUtil
+import com.junkfood.seal.util.makeToast
 import com.junkfood.seal.ui.page.settings.format.VideoQuickSettingsDialog
 import com.junkfood.seal.ui.page.settings.format.AudioQuickSettingsDialog
 import com.junkfood.seal.util.AUDIO_CONVERSION_FORMAT
