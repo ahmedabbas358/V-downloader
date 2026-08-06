@@ -2,6 +2,7 @@ package com.junkfood.seal.download
 
 import android.content.Context
 import android.util.Log
+import com.junkfood.seal.App
 import com.junkfood.seal.App.Companion.context
 import com.junkfood.seal.util.DownloadUtil
 import com.junkfood.seal.util.DownloadUtil.DownloadPreferences
@@ -53,8 +54,12 @@ object PlaylistVerifier {
             val playlistTitle = playlistInfo.title ?: "Playlist"
             val cleanPlaylistName = FileUtil.cleanFileName(playlistTitle)
 
-            val fallbackDir = context.getExternalFilesDir(null)?.absolutePath ?: context.filesDir.absolutePath
-            val defaultBaseDir = if (preferences.privateDirectory) context.filesDir.absolutePath else fallbackDir
+            // Use the actual user-configured download directories from App companion
+            val defaultBaseDir = if (isAudioOnly) {
+                if (preferences.privateDirectory) context.filesDir.absolutePath else App.audioDownloadDir
+            } else {
+                if (preferences.privateDirectory) context.filesDir.absolutePath else App.videoDownloadDir
+            }
 
             val baseDir = if (!customDirectoryPath.isNullOrBlank() && File(customDirectoryPath).exists()) {
                 customDirectoryPath
@@ -100,8 +105,17 @@ object PlaylistVerifier {
                     .toList()
             }.distinctBy { it.absolutePath }
 
+            // Diagnostic logging
+            Log.d(TAG, "scanPlaylist: baseDir=$baseDir, mainTargetDir=${mainTargetDir.absolutePath}")
+            Log.d(TAG, "scanPlaylist: candidateDirs=${candidateDirs.map { it.absolutePath }}")
+            Log.d(TAG, "scanPlaylist: found ${allCandidateFiles.size} candidate files on disk")
+            allCandidateFiles.take(10).forEach { f ->
+                Log.d(TAG, "  candidate: ${f.name} (${f.length()} bytes)")
+            }
+
             val foundItems = mutableListOf<VerificationItem>()
             val missingItems = mutableListOf<VerificationItem>()
+
 
             entries.forEachIndexed { indexZero, entry ->
                 val index = indexZero + 1

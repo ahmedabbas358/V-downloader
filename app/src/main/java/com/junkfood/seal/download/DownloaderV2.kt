@@ -2,6 +2,7 @@ package com.junkfood.seal.download
 
 import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.util.Log
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.snapshotFlow
@@ -356,6 +357,29 @@ class DownloaderV2Impl(
     private fun Task.prepare() {
         check(downloadState == Idle)
 
+        // Auto-skip if the file already exists on disk
+        val existingPath = checkExistingFile(this)
+        if (existingPath != null) {
+            Log.d(TAG, "File already exists on disk, auto-completing: $existingPath")
+            downloadState = Completed(existingPath)
+
+            val text = appContext.getString(R.string.status_completed)
+            FileUtil.createIntentForOpeningFile(existingPath)
+                .run {
+                    NotificationUtil.finishNotification(
+                        notificationId,
+                        title = viewState.title,
+                        text = text,
+                        intent = if (this != null) {
+                            PendingIntent.getActivity(
+                                appContext, 0, this, PendingIntent.FLAG_IMMUTABLE
+                            )
+                        } else null
+                    )
+                }
+            return
+        }
+
         if (type is TypeInfo.CustomCommand) {
             execute()
         } else {
@@ -581,32 +605,31 @@ class DownloaderV2Impl(
                                     }
                                 )
 
-                            FileUtil
+                            val openFileIntent = FileUtil
                                 .createIntentForOpeningFile(
                                     pathList.firstOrNull()
                                 )
-                                .run {
-                                    NotificationUtil
-                                        .finishNotification(
-                                            task.notificationId,
-                                            title =
-                                                task.viewState.title,
-                                            text = text,
-                                            intent =
-                                                if (this != null) {
-                                                    PendingIntent
-                                                        .getActivity(
-                                                            appContext,
-                                                            0,
-                                                            this,
-                                                            PendingIntent
-                                                                .FLAG_IMMUTABLE
-                                                        )
-                                                } else {
-                                                    null
-                                                }
-                                        )
+                            val notifPendingIntent = if (openFileIntent != null) {
+                                PendingIntent.getActivity(
+                                    appContext, 0, openFileIntent,
+                                    PendingIntent.FLAG_IMMUTABLE
+                                )
+                            } else {
+                                // Fallback: open main activity when file intent fails
+                                val launchIntent = Intent(appContext, com.junkfood.seal.MainActivity::class.java).apply {
+                                    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
                                 }
+                                PendingIntent.getActivity(
+                                    appContext, 0, launchIntent,
+                                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                                )
+                            }
+                            NotificationUtil.finishNotification(
+                                task.notificationId,
+                                title = task.viewState.title,
+                                text = text,
+                                intent = notifPendingIntent
+                            )
                         }
                         .onFailure { throwable ->
                             if (
