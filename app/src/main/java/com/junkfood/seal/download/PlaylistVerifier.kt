@@ -5,8 +5,6 @@ import com.junkfood.seal.App.Companion.context
 import com.junkfood.seal.util.DownloadUtil
 import com.junkfood.seal.util.DownloadUtil.DownloadPreferences
 import com.junkfood.seal.util.FileUtil
-import com.junkfood.seal.util.FileUtil.audioDownloadDir
-import com.junkfood.seal.util.FileUtil.videoDownloadDir
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -54,11 +52,8 @@ object PlaylistVerifier {
             val playlistTitle = playlistInfo.title ?: "Playlist"
             val cleanPlaylistName = FileUtil.cleanFileName(playlistTitle)
 
-            val defaultBaseDir = if (isAudioOnly) {
-                if (preferences.privateDirectory) context.filesDir.absolutePath else audioDownloadDir
-            } else {
-                if (preferences.privateDirectory) context.filesDir.absolutePath else videoDownloadDir
-            }
+            val fallbackDir = context.getExternalFilesDir(null)?.absolutePath ?: context.filesDir.absolutePath
+            val defaultBaseDir = if (preferences.privateDirectory) context.filesDir.absolutePath else fallbackDir
 
             val baseDir = if (!customDirectoryPath.isNullOrBlank() && File(customDirectoryPath).exists()) {
                 customDirectoryPath
