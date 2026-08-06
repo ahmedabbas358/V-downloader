@@ -1,21 +1,18 @@
 package com.junkfood.seal.download
 
-import android.util.Log
-import com.junkfood.seal.App.Companion.audioDownloadDir
+import android.content.Context
 import com.junkfood.seal.App.Companion.context
-import com.junkfood.seal.App.Companion.videoDownloadDir
-import com.junkfood.seal.R
 import com.junkfood.seal.util.DownloadUtil
 import com.junkfood.seal.util.DownloadUtil.DownloadPreferences
 import com.junkfood.seal.util.FileUtil
-import com.junkfood.seal.util.NotificationUtil
+import com.junkfood.seal.util.FileUtil.audioDownloadDir
+import com.junkfood.seal.util.FileUtil.videoDownloadDir
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.Locale
 
 object PlaylistVerifier {
-    private const val TAG = "PlaylistVerifier"
 
     data class VerificationItem(
         val index: Int,
@@ -24,13 +21,6 @@ object PlaylistVerifier {
         val playlistUrl: String,
         val playlistTitle: String,
         val preferences: DownloadPreferences
-    )
-
-    data class VerificationResult(
-        val totalCount: Int,
-        val foundCount: Int,
-        val missingCount: Int,
-        val redownloadedCount: Int
     )
 
     data class ScanResult(
@@ -43,7 +33,8 @@ object PlaylistVerifier {
 
     suspend fun scanPlaylist(
         playlistUrl: String,
-        preferences: DownloadPreferences
+        preferences: DownloadPreferences,
+        customDirectoryPath: String? = null
     ): Result<ScanResult> = withContext(Dispatchers.IO) {
         runCatching {
             val infoResult = DownloadUtil.getPlaylistOrVideoInfo(
@@ -52,20 +43,30 @@ object PlaylistVerifier {
             )
             val info = infoResult.getOrThrow()
             val playlistInfo = info as? com.junkfood.seal.util.PlaylistResult
-                ?: throw IllegalStateException("URL is not a playlist")
+                ?: throw IllegalStateException("الرابط المرفق ليس قائمة تشغيل صالحة")
             val entries = playlistInfo.entries ?: emptyList()
-            
+            if (entries.isEmpty()) {
+                throw IllegalStateException("قائمة التشغيل فارغة أو لا تحتوي على عناصر متاحة")
+            }
+
             val isSubtitleOnly = preferences.skipDownload && preferences.downloadSubtitle
+            val isAudioOnly = preferences.extractAudio
             val playlistTitle = playlistInfo.title ?: "Playlist"
             val cleanPlaylistName = FileUtil.cleanFileName(playlistTitle)
-            
-            val baseDir = if (preferences.extractAudio) {
+
+            val defaultBaseDir = if (isAudioOnly) {
                 if (preferences.privateDirectory) context.filesDir.absolutePath else audioDownloadDir
             } else {
                 if (preferences.privateDirectory) context.filesDir.absolutePath else videoDownloadDir
             }
 
-            val targetDirFile = if (isSubtitleOnly && cleanPlaylistName.isNotEmpty()) {
+            val baseDir = if (!customDirectoryPath.isNullOrBlank() && File(customDirectoryPath).exists()) {
+                customDirectoryPath
+            } else {
+                defaultBaseDir
+            }
+
+            val mainTargetDir = if (isSubtitleOnly && cleanPlaylistName.isNotEmpty()) {
                 File(baseDir, "[Subtitles] $cleanPlaylistName")
             } else if (preferences.subdirectoryPlaylistTitle && cleanPlaylistName.isNotEmpty()) {
                 File(baseDir, cleanPlaylistName)
@@ -73,25 +74,35 @@ object PlaylistVerifier {
                 File(baseDir)
             }
 
-            val candidateDirs = mutableListOf<File>()
-            if (targetDirFile.exists()) candidateDirs.add(targetDirFile)
-            val baseDirFile = File(baseDir)
-            if (baseDirFile.exists() && !candidateDirs.contains(baseDirFile)) candidateDirs.add(baseDirFile)
+            // Gather candidate directories
+            val candidateDirs = mutableSetOf<File>()
+            candidateDirs.add(mainTargetDir)
+            candidateDirs.add(File(baseDir))
+
             if (cleanPlaylistName.isNotEmpty()) {
-                val subDir = File(baseDir, "[Subtitles] $cleanPlaylistName")
-                if (subDir.exists() && !candidateDirs.contains(subDir)) candidateDirs.add(subDir)
-                val playlistDir = File(baseDir, cleanPlaylistName)
-                if (playlistDir.exists() && !candidateDirs.contains(playlistDir)) candidateDirs.add(playlistDir)
+                candidateDirs.add(File(baseDir, "[Subtitles] $cleanPlaylistName"))
+                candidateDirs.add(File(baseDir, cleanPlaylistName))
             }
 
-            val allCandidateFiles = candidateDirs.flatMap { dir ->
-                dir.listFiles()?.filter { file ->
-                    file.isFile &&
-                    !file.name.endsWith(".part", ignoreCase = true) &&
-                    !file.name.endsWith(".ytdl", ignoreCase = true) &&
-                    file.length() > (if (isSubtitleOnly) 50L else 1024L)
-                }?.toList() ?: emptyList()
+            // Also search parent directory of baseDir if customized
+            File(baseDir).parentFile?.let { parent ->
+                if (parent.exists()) candidateDirs.add(parent)
             }
+
+            // Gather all files recursively (up to 3 subfolder levels deep)
+            val allCandidateFiles = candidateDirs.flatMap { dir ->
+                if (!dir.exists()) return@flatMap emptyList<File>()
+                dir.walkTopDown()
+                    .maxDepth(3)
+                    .filter { file ->
+                        file.isFile &&
+                        !file.name.endsWith(".part", ignoreCase = true) &&
+                        !file.name.endsWith(".ytdl", ignoreCase = true) &&
+                        !file.name.endsWith(".tmp", ignoreCase = true) &&
+                        file.length() > (if (isSubtitleOnly) 30L else 1024L)
+                    }
+                    .toList()
+            }.distinctBy { it.absolutePath }
 
             val foundItems = mutableListOf<VerificationItem>()
             val missingItems = mutableListOf<VerificationItem>()
@@ -121,42 +132,62 @@ object PlaylistVerifier {
                         else -> ""
                     }
                 }
-                val rawTitle = entryTitle.removePrefix("[Subtitle] ").trim()
-                val normalizedTitle = rawTitle.lowercase(java.util.Locale.US).replace(Regex("[^a-z0-9\\u0600-\\u06FF]"), "")
-                val titleWords = normalizedTitle.chunked(6).filter { it.length >= 4 }
+
+                val rawTitleClean = entryTitle.removePrefix("[Subtitle] ").trim()
+                val normalizedTitle = normalizeText(rawTitleClean)
+                val titleTokens = normalizedTitle.split(" ").filter { it.length >= 3 }
+
+                val indexPatterns = listOf(
+                    Regex("^(?:0*${index}[ \\-\\_\\.\\]]|0*${index}\\$)"),
+                    Regex("(?:^|[\\[\\(\\_\\-\\s])0*${index}(?:[\\s\\-\\_\\.\\]\\)]|$)")
+                )
 
                 val matchFound = allCandidateFiles.any { file ->
                     val fileName = file.name
-                    val normalizedFileName = fileName.lowercase(java.util.Locale.US).replace(Regex("[^a-z0-9\\u0600-\\u06FF]"), "")
+                    val fileNameWithoutExt = file.nameWithoutExtension
+                    val normalizedFileName = normalizeText(fileNameWithoutExt)
 
-                    var matches = false
-                    if (extractedId.length >= 4 && (fileName.contains(extractedId) || normalizedFileName.contains(extractedId.lowercase()))) {
-                        matches = true
+                    // Step 1: Type Validation
+                    val ext = file.extension.lowercase(Locale.US)
+                    val isValidType = if (isSubtitleOnly) {
+                        ext in listOf("srt", "vtt", "ass", "lrc")
+                    } else if (isAudioOnly) {
+                        ext in listOf("mp3", "m4a", "opus", "flac", "wav", "aac", "ogg", "mka", "mp4", "mkv", "webm")
+                    } else {
+                        ext in listOf("mp4", "mkv", "webm", "avi", "mov", "flv", "ts")
                     }
-                    if (!matches && index > 0) {
-                        val indexRegex = Regex("^(?:0*${index}[ \\-\\_\\.\\]]|\\[0*${index}\\])")
-                        if (indexRegex.containsMatchIn(fileName)) {
-                            matches = true
+                    if (!isValidType) return@any false
+
+                    var isMatched = false
+
+                    // Strategy 1: Video ID Match
+                    if (extractedId.length >= 4 && (fileName.contains(extractedId, ignoreCase = true) || normalizedFileName.contains(extractedId.lowercase(Locale.US)))) {
+                        isMatched = true
+                    }
+
+                    // Strategy 2: Numeric Playlist Index Match
+                    if (!isMatched && index > 0) {
+                        if (indexPatterns.any { it.containsMatchIn(fileName) }) {
+                            isMatched = true
                         }
                     }
-                    if (!matches && normalizedTitle.isNotEmpty() && normalizedFileName.contains(normalizedTitle)) {
-                        matches = true
-                    }
-                    if (!matches && titleWords.isNotEmpty() && titleWords.all { normalizedFileName.contains(it) }) {
-                        matches = true
-                    }
-                    if (!matches) return@any false
 
-                    if (isSubtitleOnly) {
-                        fileName.endsWith(".srt", ignoreCase = true) ||
-                        fileName.endsWith(".vtt", ignoreCase = true) ||
-                        fileName.endsWith(".ass", ignoreCase = true) ||
-                        fileName.endsWith(".lrc", ignoreCase = true)
-                    } else {
-                        !fileName.endsWith(".png", ignoreCase = true) &&
-                        !fileName.endsWith(".jpg", ignoreCase = true) &&
-                        !fileName.endsWith(".webp", ignoreCase = true)
+                    // Strategy 3: Normalized Substring Title Match
+                    if (!isMatched && normalizedTitle.length >= 4) {
+                        if (normalizedFileName.contains(normalizedTitle) || normalizedTitle.contains(normalizedFileName)) {
+                            isMatched = true
+                        }
                     }
+
+                    // Strategy 4: Significant Word Token Match (>= 75% words match)
+                    if (!isMatched && titleTokens.isNotEmpty()) {
+                        val matchedTokenCount = titleTokens.count { token -> normalizedFileName.contains(token) }
+                        if (matchedTokenCount >= (titleTokens.size * 0.75).toInt().coerceAtLeast(1)) {
+                            isMatched = true
+                        }
+                    }
+
+                    isMatched
                 }
 
                 if (matchFound) {
@@ -168,12 +199,18 @@ object PlaylistVerifier {
 
             ScanResult(
                 playlistTitle = playlistTitle,
-                targetDirectory = targetDirFile.absolutePath,
+                targetDirectory = mainTargetDir.absolutePath,
                 totalCount = entries.size,
                 foundItems = foundItems,
                 missingItems = missingItems
             )
         }
+    }
+
+    private fun normalizeText(text: String): String {
+        return text.lowercase(Locale.US)
+            .replace(Regex("[\\p{Punct}\\s\\u064B-\\u0652]+"), " ")
+            .trim()
     }
 
     suspend fun enqueueMissingItems(
@@ -208,165 +245,5 @@ object PlaylistVerifier {
             )
             downloader.enqueue(TaskFactory.TaskWithState(task, state))
         }
-    }
-
-    /**
-     * Checks all expected items in a playlist download batch against the actual output directory.
-     * Re-downloads missing items one-by-one with delays to prevent YouTube rate-limiting.
-     */
-    suspend fun verifyAndRetryPlaylist(
-        items: List<VerificationItem>
-    ): VerificationResult = withContext(Dispatchers.IO) {
-        if (items.isEmpty()) return@withContext VerificationResult(0, 0, 0, 0)
-
-        val firstItem = items.first()
-        val preferences = firstItem.preferences
-        val isSubtitleOnly = preferences.skipDownload && preferences.downloadSubtitle
-        val playlistTitle = firstItem.playlistTitle.ifEmpty { "Playlist" }
-        val cleanPlaylistName = FileUtil.cleanFileName(playlistTitle)
-
-        // Determine base folder path
-        val baseDir = if (preferences.extractAudio) {
-            if (preferences.privateDirectory) context.filesDir.absolutePath else audioDownloadDir
-        } else {
-            if (preferences.privateDirectory) context.filesDir.absolutePath else videoDownloadDir
-        }
-
-        val targetDirFile = if (isSubtitleOnly) {
-            File(baseDir, "[Subtitles] $cleanPlaylistName")
-        } else if (preferences.subdirectoryPlaylistTitle) {
-            File(baseDir, cleanPlaylistName)
-        } else {
-            File(baseDir)
-        }
-
-        Log.d(TAG, "Verifying playlist items in directory: ${targetDirFile.absolutePath}")
-
-        val allCandidateFiles = mutableListOf<File>()
-        if (targetDirFile.exists()) {
-            allCandidateFiles.addAll(targetDirFile.walkTopDown().filter { it.isFile && it.length() > 0L })
-        }
-        val baseDirFile = File(baseDir)
-        if (baseDirFile.exists() && baseDirFile != targetDirFile) {
-            allCandidateFiles.addAll(baseDirFile.walkTopDown().filter { it.isFile && it.length() > 0L })
-        }
-
-        val missingItems = mutableListOf<VerificationItem>()
-        val foundItems = mutableListOf<VerificationItem>()
-
-        for (item in items) {
-            val prefixPadded = String.format(java.util.Locale.US, "%03d - ", item.index)
-            val cleanTitle = FileUtil.cleanFileName(item.title)
-            val shortTitle = if (cleanTitle.length > 6) cleanTitle.take(6) else cleanTitle
-            val urlId = if (item.url.contains("v=")) item.url.substringAfter("v=").substringBefore("&") else ""
-            
-            val matchFound = allCandidateFiles.any { file ->
-                val fileName = file.name
-                fileName.startsWith(prefixPadded) ||
-                    fileName.contains(prefixPadded) ||
-                    (cleanTitle.isNotEmpty() && fileName.contains(cleanTitle, ignoreCase = true)) ||
-                    (shortTitle.isNotEmpty() && fileName.contains(shortTitle, ignoreCase = true)) ||
-                    (urlId.isNotEmpty() && fileName.contains(urlId, ignoreCase = true))
-            }
-
-            if (matchFound) {
-                foundItems.add(item)
-            } else {
-                missingItems.add(item)
-            }
-        }
-
-        Log.d(TAG, "Playlist Verification: Total=${items.size}, Found=${foundItems.size}, Missing=${missingItems.size}")
-
-        if (missingItems.isEmpty()) {
-            NotificationUtil.finishNotification(
-                notificationId = playlistTitle.hashCode(),
-                title = context.getString(R.string.download_queue),
-                text = context.getString(R.string.playlist_download_complete, items.size, items.size)
-            )
-            return@withContext VerificationResult(
-                totalCount = items.size,
-                foundCount = items.size,
-                missingCount = 0,
-                redownloadedCount = 0
-            )
-        }
-
-        // Notify user about missing items retry
-        NotificationUtil.notifyProgress(
-            title = playlistTitle,
-            text = context.getString(R.string.playlist_retry_missing, missingItems.size),
-            progress = 0
-        )
-
-        var redownloadedCount = 0
-        val maxRetries = 3
-
-        for ((idx, missingItem) in missingItems.withIndex()) {
-            // Apply delay between retries to avoid rate limits
-            delay(3000L)
-
-            val individualUrl = missingItem.url.ifEmpty { missingItem.playlistUrl }
-            val fallbackPrefs = missingItem.preferences.copy(
-                downloadPlaylist = true
-            )
-
-            val fallbackTaskKey = "fallback_${missingItem.index}_${System.currentTimeMillis()}"
-
-            // Fetch video info for individual item explicitly
-            val infoResult = DownloadUtil.fetchVideoInfoFromUrl(
-                url = individualUrl,
-                playlistIndex = if (missingItem.url.isEmpty()) missingItem.index else null,
-                preferences = fallbackPrefs,
-                taskKey = fallbackTaskKey
-            )
-
-            val videoInfo = infoResult.getOrNull()
-            if (videoInfo != null) {
-                var success = false
-                for (attempt in 1..maxRetries) {
-                    Log.d(TAG, "Re-downloading missing item index ${missingItem.index} (attempt $attempt/$maxRetries): ${missingItem.title}")
-                    
-                    val result = DownloadUtil.downloadVideo(
-                        videoInfo = videoInfo,
-                        playlistUrl = missingItem.playlistUrl,
-                        playlistItem = missingItem.index,
-                        taskId = fallbackTaskKey,
-                        downloadPreferences = fallbackPrefs,
-                        skipDownload = fallbackPrefs.skipDownload,
-                        isFallback = true,
-                        fallbackPlaylistTitle = missingItem.playlistTitle,
-                        progressCallback = null
-                    )
-
-                    if (result.isSuccess) {
-                        success = true
-                        redownloadedCount++
-                        break
-                    }
-                    delay(4000L)
-                }
-            }
-
-            val progressPercent = ((idx + 1) * 100) / missingItems.size
-            NotificationUtil.notifyProgress(
-                title = playlistTitle,
-                text = context.getString(R.string.playlist_retry_missing, missingItems.size - (idx + 1)),
-                progress = progressPercent
-            )
-        }
-
-        NotificationUtil.finishNotification(
-            notificationId = playlistTitle.hashCode(),
-            title = playlistTitle,
-            text = context.getString(R.string.playlist_download_complete, foundItems.size + redownloadedCount, items.size)
-        )
-
-        return@withContext VerificationResult(
-            totalCount = items.size,
-            foundCount = foundItems.size,
-            missingCount = missingItems.size,
-            redownloadedCount = redownloadedCount
-        )
     }
 }

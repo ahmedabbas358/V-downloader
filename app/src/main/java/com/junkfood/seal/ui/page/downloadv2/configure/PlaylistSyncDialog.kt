@@ -2,6 +2,7 @@ package com.junkfood.seal.ui.page.downloadv2.configure
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.Folder
@@ -58,10 +60,8 @@ import com.junkfood.seal.R
 import com.junkfood.seal.download.DownloaderV2
 import com.junkfood.seal.download.PlaylistVerifier
 import com.junkfood.seal.ui.component.SealModalBottomSheet
-import com.junkfood.seal.util.ToastUtil
-import com.junkfood.seal.util.makeToast
-import com.junkfood.seal.ui.page.settings.format.VideoQuickSettingsDialog
 import com.junkfood.seal.ui.page.settings.format.AudioQuickSettingsDialog
+import com.junkfood.seal.ui.page.settings.format.VideoQuickSettingsDialog
 import com.junkfood.seal.util.AUDIO_CONVERSION_FORMAT
 import com.junkfood.seal.util.AUDIO_CONVERT
 import com.junkfood.seal.util.AUDIO_FORMAT
@@ -70,6 +70,7 @@ import com.junkfood.seal.util.DownloadUtil.DownloadPreferences
 import com.junkfood.seal.util.PreferenceStrings
 import com.junkfood.seal.util.PreferenceUtil.updateBoolean
 import com.junkfood.seal.util.PreferenceUtil.updateInt
+import com.junkfood.seal.util.ToastUtil
 import com.junkfood.seal.util.USE_CUSTOM_AUDIO_PRESET
 import com.junkfood.seal.util.VIDEO_FORMAT
 import com.junkfood.seal.util.VIDEO_QUALITY
@@ -96,7 +97,10 @@ fun PlaylistSyncDialog(
     var currentPrefs by remember { mutableStateOf(preferences) }
     var showVideoPresetDialog by remember { mutableStateOf(false) }
     var showAudioPresetDialog by remember { mutableStateOf(false) }
-    var showQualitySection by remember { mutableStateOf(false) }
+
+    // Directory Override
+    var customFolderPath by remember { mutableStateOf("") }
+    var showFolderEditField by remember { mutableStateOf(false) }
 
     SealModalBottomSheet(
         onDismissRequest = onDismissRequest,
@@ -149,29 +153,34 @@ fun PlaylistSyncDialog(
 
             var removeMusic by remember(currentPrefs) { mutableStateOf(currentPrefs.removeMusic) }
 
-            // Content type selection
+            // Content type selection with HORIZONTAL SCROLLING to prevent single-letter vertical squeezing!
+            Text(
+                text = "نوع المحتوى:",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 6.dp)
+            )
+
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
             ) {
-                Text(
-                    text = "نوع المحتوى:",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
                 FilterChip(
                     selected = selectedType == 0,
-                    onClick = { selectedType = 0; scanResult = null; showQualitySection = false },
+                    onClick = { selectedType = 0; scanResult = null },
                     label = { Text(stringResource(R.string.video)) }
                 )
                 FilterChip(
                     selected = selectedType == 1,
-                    onClick = { selectedType = 1; scanResult = null; showQualitySection = false },
+                    onClick = { selectedType = 1; scanResult = null },
                     label = { Text(stringResource(R.string.audio)) }
                 )
                 FilterChip(
                     selected = selectedType == 2,
-                    onClick = { selectedType = 2; scanResult = null; showQualitySection = false },
+                    onClick = { selectedType = 2; scanResult = null },
                     label = { Text(stringResource(R.string.subtitle)) }
                 )
                 FilterChip(
@@ -185,86 +194,108 @@ fun PlaylistSyncDialog(
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // Quality settings toggle & summary
-            if (selectedType != 2) {
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.HighQuality,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "إعدادات الجودة",
-                                    style = MaterialTheme.typography.labelLarge
-                                )
-                                Text(
-                                    text = if (selectedType == 0) {
-                                        "الدقة: ${PreferenceStrings.getVideoResolutionDesc(currentPrefs.videoResolution)}"
-                                    } else {
-                                        "جودة الصوت: ${PreferenceStrings.getAudioQualityDesc(currentPrefs.audioQuality)}"
-                                    },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            IconButton(onClick = {
-                                if (selectedType == 0) showVideoPresetDialog = true
-                                else showAudioPresetDialog = true
-                            }) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Settings,
-                                    contentDescription = "تعديل الجودة",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            // Subtitle language display
-            if (selectedType == 2) {
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+            // Custom Folder Section
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
                     Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.Settings,
+                            imageVector = Icons.Outlined.Folder,
                             contentDescription = null,
                             modifier = Modifier.size(20.dp),
                             tint = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "لغة الترجمة: ${currentPrefs.subtitleLanguage.ifEmpty { "en" }}",
-                            style = MaterialTheme.typography.labelLarge
+                            text = if (customFolderPath.isNotBlank()) "المجلد المستهدف: $customFolderPath" else "المجلد المستهدف: التلقائي بحسب المحتوى",
+                            style = MaterialTheme.typography.labelMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(onClick = { showFolderEditField = !showFolderEditField }) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "تعديل المجلد",
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                    if (showFolderEditField) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = customFolderPath,
+                            onValueChange = { customFolderPath = it; scanResult = null },
+                            label = { Text("مسار المجلد المحلي (اختياري)") },
+                            placeholder = { Text("/storage/emulated/0/Download/Seal") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = RoundedCornerShape(8.dp)
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Quality settings summary
+            if (selectedType != 2) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.HighQuality,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "إعدادات الجودة",
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                            Text(
+                                text = if (selectedType == 0) {
+                                    "الدقة: ${PreferenceStrings.getVideoResolutionDesc(currentPrefs.videoResolution)}"
+                                } else {
+                                    "جودة الصوت: ${PreferenceStrings.getAudioQualityDesc(currentPrefs.audioQuality)}"
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        IconButton(onClick = {
+                            if (selectedType == 0) showVideoPresetDialog = true
+                            else showAudioPresetDialog = true
+                        }) {
+                            Icon(
+                                imageVector = Icons.Outlined.Settings,
+                                contentDescription = "تعديل الجودة",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+            }
 
             // Scan button
             val effectivePrefs = remember(selectedType, currentPrefs, removeMusic) {
@@ -285,12 +316,16 @@ fun PlaylistSyncDialog(
                     scanResult = null
 
                     scope.launch {
-                        val res = PlaylistVerifier.scanPlaylist(url.trim(), effectivePrefs)
+                        val res = PlaylistVerifier.scanPlaylist(
+                            playlistUrl = url.trim(),
+                            preferences = effectivePrefs,
+                            customDirectoryPath = customFolderPath.ifBlank { null }
+                        )
                         isScanning = false
                         res.onSuccess {
                             scanResult = it
                         }.onFailure { th ->
-                            errorMessage = th.localizedMessage ?: "حدث خطأ أثناء فحص القائمة"
+                            errorMessage = th.localizedMessage ?: "حدث خطأ أثناء فحص ومقارنة عناصر المجلد بالقائمة"
                         }
                     }
                 },
@@ -305,11 +340,11 @@ fun PlaylistSyncDialog(
                         color = MaterialTheme.colorScheme.onPrimary
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("جاري فحص المجلد والقائمة...")
+                    Text("جاري فحص وتدقيق المجلد بالقائمة...")
                 } else {
                     Icon(imageVector = Icons.Default.Refresh, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("فحص ومقارنة الملفات")
+                    Text("فحص ومقارنة الملفات في المجلد")
                 }
             }
 
@@ -398,7 +433,7 @@ fun PlaylistSyncDialog(
 
                 if (result.missingItems.isNotEmpty()) {
                     Text(
-                        text = "الملفات المفقودة التي سيتم تنزيلها:",
+                        text = "الملفات المفقودة التي سيتم استكمال تنزيلها:",
                         style = MaterialTheme.typography.titleSmall,
                         modifier = Modifier.padding(vertical = 4.dp)
                     )
@@ -445,12 +480,11 @@ fun PlaylistSyncDialog(
                     Button(
                         onClick = {
                             scope.launch {
-                                // Update preferences on missing items with current quality settings
                                 val itemsWithQuality = result.missingItems.map { item ->
                                     item.copy(preferences = effectivePrefs)
                                 }
                                 PlaylistVerifier.enqueueMissingItems(itemsWithQuality, downloader)
-                                com.junkfood.seal.util.ToastUtil.makeToast("تمت إضافة ${result.missingItems.size} ملف مفقود إلى قائمة التنزيل")
+                                ToastUtil.makeToast("تمت إضافة ${result.missingItems.size} ملف مفقود إلى قائمة التنزيل")
                                 onDismissRequest()
                             }
                         },
