@@ -406,7 +406,7 @@ class DownloaderV2Impl(
         val isDirectVideoUrl = fetchUrl.contains("watch?v=", ignoreCase = true) || fetchUrl.contains("youtu.be/", ignoreCase = true) || fetchUrl.contains("/shorts/", ignoreCase = true)
 
         val playlistIndex =
-            if (isPlaylist && !isDirectVideoUrl && (fetchUrl.contains("playlist", ignoreCase = true) || fetchUrl.contains("list=", ignoreCase = true))) {
+            if (isPlaylist && !isDirectVideoUrl) {
                 (taskInfo as TypeInfo.Playlist).index
             } else {
                 null
@@ -618,7 +618,7 @@ class DownloaderV2Impl(
                             } else {
                                 // Fallback: open main activity when file intent fails
                                 val launchIntent = Intent(appContext, com.junkfood.seal.MainActivity::class.java).apply {
-                                    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
                                 }
                                 PendingIntent.getActivity(
                                     appContext, 0, launchIntent,

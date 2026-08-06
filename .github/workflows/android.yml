@@ -76,37 +76,37 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: app/build/outputs/apk/generic/release/*.apk
-          name: V-downloader v2.6.1
+          name: V-downloader v2.6.2
           tag_name: ${{ github.ref_name }}
           draft: false
           prerelease: false
           body: |
-            # 🚀 V-downloader v2.6.1 - التحديث الرئيسي الشامل (Major Release)
+            # 🚀 V-downloader v2.6.2 - تحديث الإصلاحات الشاملة (The Grand Fixes Update)
 
             > ⚠️ **تنبيه مهم جداً للمستخدمين | Crucial Update Notice:**
-            > 🇸🇦 **عربي:** يُنصح بشدة **حذف النسخة القديمة المثبتة على جهازك قبل تثبيت هذا التحديث** (تثبيت جديد وليس تحديث مباشر فوق القديمة) لضمان عمل كافة الميزات والروابط الجديدة بسلاسة دون تعارض!
+            > 🇸🇦 **عربي:** يُنصح بشدة **حذف النسخة القديمة المثبتة على جهازك قبل تثبيت هذا التحديث** لضمان عمل كافة الميزات والروابط الجديدة بسلاسة دون تعارض!
             > 🇬🇧 **English:** It is strongly recommended to **uninstall the previous version before installing this update** to ensure all new features work seamlessly without conflicts!
 
             ---
 
             ### 🔥 أبرز الميزات الجديدة والتحديثات | Main Release Highlights:
 
-            #### 🎙️ 1. محرك عزل الموسيقى الاستوديوي (Music Removal & Vocal Extraction Engine):
-            * **AR:** ميزة التنزيل بدون موسيقى للمقاطع والصوتيات وقوائم التشغيل عبر فلتر صوتي خماسي المراحل احترافي من FFmpeg.
-            * **EN:** Studio-grade 5-stage FFmpeg audio filter pipeline for vocal extraction and background music removal for videos, audios, and playlists.
+            #### 🧠 1. محرك بحث ذكي متطور (Device-Wide Fuzzy Directory Matching):
+            * **AR:** ميزة البحث الذكي للمجلدات عند استكمال التنزيل؛ يبحث التطبيق الآن في كافة مجلدات الجهاز العامة (تنزيلات، أفلام، موسيقى) ويتغاضى عن الأخطاء الإملائية بنسبة تصل لـ 60% ليجد مجلد قائمة التشغيل بشكل سحري.
+            * **EN:** Advanced Fuzzy Matching that scans all public device folders (Downloads, Movies, Music) to smartly find your playlist folder even with spelling typos!
 
-            #### 🔄 2. مُزامن قوائم التشغيل الذكي (Smart Playlist Synchronizer):
-            * **AR:** فحص المجلدات المحلية ومقارنتها بقوائم التشغيل أونلاين وتنزيل العناصر المفقودة فقط بنقرة واحدة مع الترقيم الأصلي (`001 - `, `002 - `) واختيار الدقة والتسجيل.
-            * **EN:** Compare local output directories with online playlists and complete missing tracks in one click with index numbering (`001 - `, `002 - `) and resolution selection.
+            #### 🔄 2. إصلاح جذري لمزامنة قوائم التشغيل (Flawless Playlist Synchronization):
+            * **AR:** إصلاح مشكلة الدوران في حلقة مفرغة عند مزامنة عناصر مفقودة (مثل Bilibili و SoundCloud) والتعرف الدقيق على الترقيم المضاف من التطبيق (`001 - `) لمنع تداخل المقاطع.
+            * **EN:** Fixed infinite spinning loop during missing item sync (especially for Bilibili/SoundCloud) and added robust matching for app-added sequence numbers (`001 - `) to prevent cross-playlist collisions.
 
-            #### 🎛️ 3. وضع التحديد الجماعي المتقدم (Redesigned Multi-Selection Mode):
-            * **AR:** شريط سفلي عائم تفاعلي يقدم خيارات إيقاف مؤقت، استئناف، إلغاء، وحذف المقاطع المحددة دفعة واحدة.
-            * **EN:** Interactive floating bottom action bar for batch pause, resume, cancel, and delete.
+            #### 🎵 3. إصلاح وضع التنزيل "بدون موسيقى" (Audio Extraction Fix):
+            * **AR:** تحميل الفيديوهات بدون موسيقى يعمل الآن بكفاءة (عبر الفلاتر الصوتية مع الحفاظ على دقة الفيديو) دون التسبب بانهيار التطبيق، مع الحفاظ على صيغة المقاطع الصوتية.
+            * **EN:** "Remove Music" now flawlessly processes videos without causing FFmpeg stream copy crashes, while preserving original formats for audio-only downloads.
 
-            #### 📋 4. قائمة الثلاث نقاط التكيفية (Sectional 3-Dots Menu):
-            * **AR:** قائمة خيارات ديناميكية ومخصصة لكل تبويب (الجميع، جار التحميل، تم الإلغاء، انتهى).
-            * **EN:** Contextual 3-dots overflow menu customized for every filter tab (All, Downloading, Canceled, Finished).
+            #### 🔔 4. تفاعل احترافي مع الإشعارات (Interactive Notifications):
+            * **AR:** النقر على إشعار "جاري التحميل" أو إشعار "اكتمل التحميل" سيقوم الآن بفتح التطبيق فوراً والتوجه للمقطع المحمل.
+            * **EN:** Tapping on running or completed download notifications now successfully launches the app natively using appropriate intent flags.
 
-            #### 📌 5. تحسينات الترجمات ودقة الأحجام (Subtitle & Size Fixes):
-            * **AR:** إصلاح حلقة خيار الترجمات المخصص وتعميم لغة الترجمة والصيغة على كافة المقاطع، مع احتساب وعرض الكيلوبايتات الحقيقية لملفات الترجمة.
-            * **EN:** Fixed subtitle format custom selection loop, applied subtitle languages across playlist items, and formatted true KB file sizes.
+            #### 🎨 5. تصميم Social Hub جديد كلياً (Glassmorphism Social Hub):
+            * **AR:** واجهة جديدة احترافية بالكامل للروابط السريعة، بتأثيرات بصرية حديثة، وحقول إدخال ذكية وتفاعلية.
+            * **EN:** Completely redesigned Social Hub with modern glassmorphism aesthetics, dynamic inputs, and smooth interactions.

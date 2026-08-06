@@ -809,7 +809,11 @@ object DownloadUtil {
 
                     if (removeMusic) {
                         val vocalFilter = "highpass=f=100,lowpass=f=3600,afftdn=nr=15:nf=-35:tn=1,equalizer=f=250:width_type=h:width=200:g=-6,equalizer=f=1200:width_type=h:width=1500:g=5,dynaudnorm=f=150:g=15:peak=0.95"
-                        addOption("--postprocessor-args", "ffmpeg:-af $vocalFilter")
+                        if (extractAudio) {
+                            addOption("--postprocessor-args", "ffmpeg:-af $vocalFilter")
+                        } else {
+                            addOption("--postprocessor-args", "ffmpeg:-c:v copy -c:a aac -af $vocalFilter")
+                        }
                     }
 
                     // Smart retry scheme ensuring downloads do not fail due to transient errors or broken items

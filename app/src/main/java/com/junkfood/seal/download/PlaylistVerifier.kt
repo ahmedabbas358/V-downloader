@@ -61,8 +61,13 @@ object PlaylistVerifier {
                 if (preferences.privateDirectory) context.filesDir.absolutePath else App.videoDownloadDir
             }
 
-            val baseDir = if (!customDirectoryPath.isNullOrBlank() && File(customDirectoryPath).exists()) {
-                customDirectoryPath
+            val baseDir = if (!customDirectoryPath.isNullOrBlank()) {
+                val customFile = File(customDirectoryPath)
+                if (customFile.isAbsolute) {
+                    customDirectoryPath
+                } else {
+                    File(defaultBaseDir, customDirectoryPath).absolutePath
+                }
             } else {
                 defaultBaseDir
             }
@@ -80,9 +85,43 @@ object PlaylistVerifier {
             candidateDirs.add(mainTargetDir)
             candidateDirs.add(File(baseDir))
 
+            val normalizedPlaylistName = normalizeText(cleanPlaylistName)
             if (cleanPlaylistName.isNotEmpty()) {
                 candidateDirs.add(File(baseDir, "[Subtitles] $cleanPlaylistName"))
                 candidateDirs.add(File(baseDir, cleanPlaylistName))
+                
+                // Fuzzy match candidate directories across device public roots
+                if (normalizedPlaylistName.length > 2) {
+                    val searchRoots = mutableSetOf<File>()
+                    searchRoots.add(File(baseDir))
+                    searchRoots.add(File(App.videoDownloadDir))
+                    searchRoots.add(File(App.audioDownloadDir))
+                    searchRoots.add(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS))
+                    searchRoots.add(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_MOVIES))
+                    searchRoots.add(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_MUSIC))
+
+                    val playlistTokens = normalizedPlaylistName.split(" ").filter { it.length > 2 }
+                    
+                    searchRoots.forEach { root ->
+                        if (root.exists() && root.isDirectory) {
+                            root.listFiles()?.forEach { dir ->
+                                if (dir.isDirectory) {
+                                    val dirNameNormalized = normalizeText(dir.name)
+                                    val cleanDirName = dirNameNormalized.removePrefix("subtitles").trim()
+                                    
+                                    if (cleanDirName.contains(normalizedPlaylistName) || normalizedPlaylistName.contains(cleanDirName)) {
+                                         candidateDirs.add(dir)
+                                    } else if (playlistTokens.isNotEmpty()) {
+                                        val matchCount = playlistTokens.count { cleanDirName.contains(it) }
+                                        if (matchCount >= (playlistTokens.size * 0.6).toInt().coerceAtLeast(1)) {
+                                            candidateDirs.add(dir)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             // Also search parent directory of baseDir if customized
@@ -178,7 +217,14 @@ object PlaylistVerifier {
                     // Strategy 2: Numeric Playlist Index Match
                     if (!isMatched && index > 0) {
                         if (indexPatterns.any { it.containsMatchIn(fileName) }) {
-                            isMatched = true
+                            if (titleTokens.isNotEmpty()) {
+                                val matchCount = titleTokens.count { normalizedFileName.contains(it) }
+                                if (matchCount >= 1) {
+                                    isMatched = true
+                                }
+                            } else {
+                                isMatched = true
+                            }
                         }
                     }
 

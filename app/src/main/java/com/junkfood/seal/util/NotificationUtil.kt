@@ -71,7 +71,7 @@ object NotificationUtil {
 
     private val mainActivityPendingIntent: PendingIntent by lazy {
         val launchIntent = Intent(context, com.junkfood.seal.MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
         PendingIntent.getActivity(
             context,
