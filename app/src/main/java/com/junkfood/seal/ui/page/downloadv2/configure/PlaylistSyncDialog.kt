@@ -449,7 +449,7 @@ fun PlaylistSyncDialog(
                                     item.copy(preferences = effectivePrefs)
                                 }
                                 PlaylistVerifier.enqueueMissingItems(itemsWithQuality, downloader)
-                                com.junkfood.seal.App.context.makeToast("تمت إضافة ${result.missingItems.size} ملف مفقود إلى قائمة التنزيل")
+                                com.junkfood.seal.util.ToastUtil.makeToast("تمت إضافة ${result.missingItems.size} ملف مفقود إلى قائمة التنزيل")
                                 onDismissRequest()
                             }
                         },

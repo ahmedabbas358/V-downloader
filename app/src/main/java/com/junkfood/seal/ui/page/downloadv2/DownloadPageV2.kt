@@ -130,7 +130,6 @@ import com.junkfood.seal.ui.page.downloadv2.menu.ViewOptionsState
 import com.junkfood.seal.ui.svg.DynamicColorImageVectors
 import com.junkfood.seal.ui.svg.drawablevectors.download
 import com.junkfood.seal.ui.theme.SealTheme
-import com.junkfood.seal.util.DownloadUtil
 import com.junkfood.seal.util.FileUtil
 import com.junkfood.seal.util.getErrorReport
 import com.junkfood.seal.util.makeToast
