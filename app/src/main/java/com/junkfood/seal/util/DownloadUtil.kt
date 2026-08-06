@@ -268,6 +268,7 @@ object DownloadUtil {
         val forceIpv4: Boolean,
         val mergeAudioStream: Boolean,
         val mergeToMkv: Boolean,
+        val removeMusic: Boolean = false,
     ) {
         companion object {
             val EMPTY =
@@ -325,6 +326,7 @@ object DownloadUtil {
                     mergeAudioStream = false,
                     mergeToMkv = false,
                     useCustomAudioPreset = false,
+                    removeMusic = false,
                 )
 
             fun createFromPreferences(): DownloadPreferences {
@@ -386,6 +388,7 @@ object DownloadUtil {
                     mergeAudioStream = false,
                     mergeToMkv =
                         (downloadSubtitle && embedSubtitle) || MERGE_OUTPUT_MKV.getBoolean(),
+                    removeMusic = REMOVE_MUSIC.getBoolean(),
                 )
             }
         }
@@ -468,7 +471,9 @@ object DownloadUtil {
         if (trimmed.isEmpty() || trimmed.equals("all", ignoreCase = true)) return "all"
         val langs = trimmed.split(",").map { it.trim() }.filter { it.isNotEmpty() }
         if (langs.isEmpty()) return "all"
-        return langs.flatMap { l -> listOf(l, "$l-.*", ".*-$l") }.distinct().joinToString(",")
+        return langs.flatMap { l ->
+            listOf(l, ".*-$l", "$l-orig", "$l-[A-Za-z]{2,3}", "$l-Hans", "$l-Hant")
+        }.distinct().joinToString(",")
     }
 
     private fun YoutubeDLRequest.enableAria2c(): YoutubeDLRequest =
@@ -799,6 +804,12 @@ object DownloadUtil {
 
                     if (rateLimit && maxDownloadRate.isNumberInRange(1, 1000000)) {
                         addOption("-r", "${maxDownloadRate}K")
+                    }
+
+                    if (removeMusic) {
+                        val vocalFilter = "highpass=f=100,lowpass=f=3600,afftdn=nr=15:nf=-35:tn=1,equalizer=f=250:width_type=h:width=200:g=-6,equalizer=f=1200:width_type=h:width=1500:g=5,dynaudnorm=f=150:g=15:peak=0.95"
+                        addOption("--postprocessor-args", "ExtractAudio:-af $vocalFilter")
+                        addOption("--postprocessor-args", "ffmpeg:-af $vocalFilter")
                     }
 
                     // Smart retry scheme ensuring downloads do not fail due to transient errors or broken items

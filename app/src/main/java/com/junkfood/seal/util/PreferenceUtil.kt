@@ -36,6 +36,7 @@ const val CUSTOM_COMMAND = "custom_command"
 const val CONCURRENT = "concurrent_fragments"
 const val MAX_CONCURRENT_DOWNLOADS = "max_concurrent_downloads"
 const val EXTRACT_AUDIO = "extract_audio"
+const val REMOVE_MUSIC = "remove_music"
 const val THUMBNAIL = "create_thumbnail"
 const val YT_DLP_VERSION = "yt-dlp_init"
 const val YT_DLP_AUTO_UPDATE = "yt-dlp_update"
@@ -870,7 +871,7 @@ object PreferenceStrings {
     fun getSubtitlePresetText(preferences: DownloadUtil.DownloadPreferences): String {
         return with(preferences) {
             val lang = subtitleLanguage.ifEmpty { "en" }
-            stringResource(id = R.string.download_subtitles) + " ($lang)"
+            stringResource(id = R.string.subtitle_language) + " ($lang)"
         }
     }
 }

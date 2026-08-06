@@ -43,14 +43,17 @@ fun Context.makeToast(message: String) {
 
 private const val GIGA_BYTES = 1024f * 1024f * 1024f
 private const val MEGA_BYTES = 1024f * 1024f
+private const val KILO_BYTES = 1024f
 
 @Composable
 fun Number?.toFileSizeText(): String {
     if (this == null || this.toFloat() <= 0f) return stringResource(id = R.string.unknown)
 
-    return this.toFloat().run {
-        if (this > GIGA_BYTES) stringResource(R.string.filesize_gb).format(this / GIGA_BYTES)
-        else stringResource(R.string.filesize_mb).format(this / MEGA_BYTES)
+    val bytes = this.toFloat()
+    return when {
+        bytes >= GIGA_BYTES -> stringResource(R.string.filesize_gb).format(bytes / GIGA_BYTES)
+        bytes >= MEGA_BYTES -> stringResource(R.string.filesize_mb).format(bytes / MEGA_BYTES)
+        else -> "%.1f KB".format(bytes / KILO_BYTES)
     }
 }
 

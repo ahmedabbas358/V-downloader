@@ -38,6 +38,10 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.List
+import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material3.SmallFloatingActionButton
+import com.junkfood.seal.ui.page.downloadv2.configure.PlaylistSyncDialog
+import com.junkfood.seal.util.DownloadUtil
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.FileDownload
@@ -310,6 +314,7 @@ fun DownloadPageImplV2(
     var sortOption by remember { mutableStateOf(SortOption.DateNewest) }
     var viewOptions by remember { mutableStateOf(ViewOptionsState()) }
     var isMenuSheetOpen by remember { mutableStateOf(false) }
+    var showPlaylistSyncDialog by remember { mutableStateOf(false) }
     var selectedTasks by remember { mutableStateOf<Set<Task>>(emptySet()) }
     val isSelectionMode = selectedTasks.isNotEmpty()
     val scope = rememberCoroutineScope()
@@ -368,7 +373,40 @@ fun DownloadPageImplV2(
     Scaffold(
         modifier = modifier.fillMaxSize().statusBarsPadding(),
         containerColor = Color.Transparent,
-        floatingActionButton = { FABs(modifier = Modifier, downloadCallback = downloadCallback) },
+        floatingActionButton = {
+            if (isSelectionMode) {
+                SelectionBottomBar(
+                    selectedCount = selectedTasks.size,
+                    onPauseSelected = {
+                        selectedTasks.forEach { onActionPost(it, UiAction.Pause) }
+                        selectedTasks = emptySet()
+                    },
+                    onResumeSelected = {
+                        selectedTasks.filter { taskDownloadStateMap[it]?.downloadState is Task.DownloadState.Restartable }
+                            .forEach { onActionPost(it, UiAction.Resume) }
+                        selectedTasks = emptySet()
+                    },
+                    onCancelSelected = {
+                        selectedTasks.forEach { onActionPost(it, UiAction.Cancel) }
+                        selectedTasks = emptySet()
+                    },
+                    onDeleteSelected = {
+                        selectedTasks.forEach { onActionPost(it, UiAction.Delete) }
+                        selectedTasks = emptySet()
+                    },
+                    onSelectAll = {
+                        selectedTasks = if (selectedTasks.size == filteredMap.size) emptySet() else filteredMap.map { it.first }.toSet()
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+            } else {
+                FABs(
+                    modifier = Modifier,
+                    downloadCallback = downloadCallback,
+                    syncCallback = { showPlaylistSyncDialog = true },
+                )
+            }
+        },
     ) { windowInsetsPadding ->
         val lazyListState = rememberLazyGridState()
         val windowWidthSizeClass = LocalWindowWidthState.current
@@ -403,13 +441,16 @@ fun DownloadPageImplV2(
                         SelectionHeader(
                             selectedCount = selectedTasks.size,
                             onClearSelection = { selectedTasks = emptySet() },
-                            onSelectAll = { selectedTasks = filteredMap.map { it.first }.toSet() },
+                            onSelectAll = {
+                                selectedTasks = if (selectedTasks.size == filteredMap.size) emptySet() else filteredMap.map { it.first }.toSet()
+                            },
                             onDeleteSelected = {
                                 selectedTasks.forEach { onActionPost(it, UiAction.Delete) }
                                 selectedTasks = emptySet()
                             },
                             onResumeSelected = {
-                                selectedTasks.forEach { onActionPost(it, UiAction.Resume) }
+                                selectedTasks.filter { taskDownloadStateMap[it]?.downloadState is Task.DownloadState.Restartable }
+                                    .forEach { onActionPost(it, UiAction.Resume) }
                                 selectedTasks = emptySet()
                             },
                             onCancelSelected = {
@@ -614,11 +655,11 @@ fun DownloadPageImplV2(
                     closeMenu()
                 },
                 onResumeAll = {
-                    filteredMap.forEach { onActionPost(it.first, UiAction.Resume) }
+                    filteredMap.filter { it.second.downloadState is Task.DownloadState.Restartable }.forEach { onActionPost(it.first, UiAction.Resume) }
                     closeMenu()
                 },
                 onRetryFailed = {
-                    filteredMap.filter { it.second.downloadState is Error || it.second.downloadState is Canceled }.forEach { onActionPost(it.first, UiAction.Resume) }
+                    filteredMap.filter { it.second.downloadState is Task.DownloadState.Restartable }.forEach { onActionPost(it.first, UiAction.Resume) }
                     closeMenu()
                 },
                 onCancelSelected = {
@@ -627,7 +668,7 @@ fun DownloadPageImplV2(
                     closeMenu()
                 },
                 onRetryAll = {
-                    filteredMap.forEach { onActionPost(it.first, UiAction.Resume) }
+                    filteredMap.filter { it.second.downloadState is Task.DownloadState.Restartable }.forEach { onActionPost(it.first, UiAction.Resume) }
                     closeMenu()
                 },
                 onDeleteAll = {
@@ -635,7 +676,7 @@ fun DownloadPageImplV2(
                     closeMenu()
                 },
                 onRedownloadAll = {
-                    filteredMap.forEach { onActionPost(it.first, UiAction.Resume) }
+                    filteredMap.filter { it.second.downloadState is Task.DownloadState.Restartable }.forEach { onActionPost(it.first, UiAction.Resume) }
                     closeMenu()
                 },
                 onDeleteHistory = {
@@ -649,6 +690,14 @@ fun DownloadPageImplV2(
                 }
             )
         }
+    }
+
+    if (showPlaylistSyncDialog) {
+        PlaylistSyncDialog(
+            initialUrl = "",
+            preferences = DownloadUtil.DownloadPreferences.createFromPreferences(),
+            onDismissRequest = { showPlaylistSyncDialog = false }
+        )
     }
 
     if (selectedTask != null) {
@@ -699,9 +748,7 @@ private fun SelectionHeader(
         }
         Spacer(modifier = Modifier.width(4.dp))
         Text(
-            // FIX: R.string.selected didn't exist yet (see note at top of file) —
-            // using a literal here until the resource is added.
-            text = "$selectedCount selected",
+            text = "تم تحديد $selectedCount عناصر",
             color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.titleLarge.copy(
                 fontSize = 18.sp,
@@ -719,9 +766,7 @@ private fun SelectionHeader(
         IconButton(onClick = onResumeSelected) {
             Icon(
                 imageVector = androidx.compose.material.icons.Icons.Outlined.Refresh,
-                // FIX: R.string.retry didn't exist yet (see note at top of file) —
-                // using a literal here until the resource is added.
-                contentDescription = "Retry",
+                contentDescription = "إعادة التنزيل",
                 tint = MaterialTheme.colorScheme.onSurface,
             )
         }
@@ -731,6 +776,120 @@ private fun SelectionHeader(
                 contentDescription = stringResource(R.string.delete),
                 tint = MaterialTheme.colorScheme.error,
             )
+        }
+    }
+}
+
+@Composable
+private fun SelectionBottomBar(
+    selectedCount: Int,
+    onPauseSelected: () -> Unit,
+    onResumeSelected: () -> Unit,
+    onCancelSelected: () -> Unit,
+    onDeleteSelected: () -> Unit,
+    onSelectAll: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        tonalElevation = 6.dp,
+        shadowElevation = 8.dp,
+        shape = RoundedCornerShape(16.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onSelectAll)
+                    .padding(6.dp)
+            ) {
+                Icon(
+                    imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Outlined.List,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text("تحديد الكل", style = MaterialTheme.typography.labelSmall)
+            }
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onPauseSelected)
+                    .padding(6.dp)
+            ) {
+                Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Outlined.Pause,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text("إيقاف", style = MaterialTheme.typography.labelSmall)
+            }
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onResumeSelected)
+                    .padding(6.dp)
+            ) {
+                Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Outlined.PlayArrow,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text("استئناف", style = MaterialTheme.typography.labelSmall)
+            }
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onCancelSelected)
+                    .padding(6.dp)
+            ) {
+                Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Outlined.Cancel,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text("إلغاء", style = MaterialTheme.typography.labelSmall)
+            }
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onDeleteSelected)
+                    .padding(6.dp)
+            ) {
+                Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Outlined.Delete,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text("حذف", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+            }
         }
     }
 }
@@ -787,9 +946,24 @@ private fun HeaderExpanded(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun FABs(modifier: Modifier = Modifier, downloadCallback: () -> Unit = {}) {
+fun FABs(
+    modifier: Modifier = Modifier,
+    downloadCallback: () -> Unit = {},
+    syncCallback: () -> Unit = {},
+) {
     val expanded = LocalWindowWidthState.current != WindowWidthSizeClass.Compact
     Column(modifier = modifier.padding(6.dp), horizontalAlignment = Alignment.End) {
+        SmallFloatingActionButton(
+            onClick = syncCallback,
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            modifier = Modifier.padding(vertical = 4.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Sync,
+                contentDescription = "مُزامن قوائم التشغيل الذكي"
+            )
+        }
         FloatingActionButton(
             onClick = downloadCallback,
             content = {
@@ -809,7 +983,7 @@ fun FABs(modifier: Modifier = Modifier, downloadCallback: () -> Unit = {}) {
                     )
                 }
             },
-            modifier = Modifier.padding(vertical = 12.dp),
+            modifier = Modifier.padding(vertical = 4.dp),
         )
     }
 }

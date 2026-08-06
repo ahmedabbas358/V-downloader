@@ -150,7 +150,7 @@ data class Task(
 
                 val videoFormats = formats.filter { it.containsVideo() }
                 val audioOnlyFormats = formats.filter { it.isAudioOnly() }
-                val isSubOnly = preferences?.skipDownload == true && preferences.downloadSubtitle
+                val isSubOnly = (preferences?.skipDownload == true && preferences.downloadSubtitle) || info.title.startsWith("[Subtitle]")
 
                 return ViewState(
                     url = info.webpageUrl ?: info.originalUrl.toString(),
@@ -159,7 +159,7 @@ data class Task(
                     extractorKey = info.extractorKey,
                     duration = if (isSubOnly) 0 else (info.duration?.roundToInt() ?: 0),
                     thumbnailUrl = info.thumbnail.toHttpsUrl(),
-                    fileSizeApprox = info.fileSize ?: info.fileSizeApprox ?: .0,
+                    fileSizeApprox = if (isSubOnly) (45 * 1024.0) else (info.fileSize ?: info.fileSizeApprox ?: .0),
                     videoFormats = if (isSubOnly) emptyList() else videoFormats,
                     audioOnlyFormats = if (isSubOnly) emptyList() else audioOnlyFormats,
                     isSubOnly = isSubOnly,

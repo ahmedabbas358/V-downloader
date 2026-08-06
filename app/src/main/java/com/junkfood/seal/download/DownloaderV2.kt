@@ -480,6 +480,10 @@ class DownloaderV2Impl(
                     val existingFilePath = checkExistingFile(task)
                     if (existingFilePath != null) {
                         Log.d(TAG, "Fast Path: File already exists for ${task.viewState.title} -> $existingFilePath")
+                        val actualLen = java.io.File(existingFilePath).length().toDouble()
+                        if (actualLen > 0) {
+                            task.viewState = task.viewState.copy(fileSizeApprox = actualLen)
+                        }
                         task.downloadState = Completed(existingFilePath)
                         com.junkfood.seal.util.DatabaseUtil.insertDownloadOperation(
                             DownloadOperation(
@@ -559,6 +563,13 @@ class DownloaderV2Impl(
                         .onSuccess { pathList ->
                             val path =
                                 pathList.firstOrNull()
+
+                            if (path != null) {
+                                val actualLen = java.io.File(path).length().toDouble()
+                                if (actualLen > 0) {
+                                    task.viewState = task.viewState.copy(fileSizeApprox = actualLen)
+                                }
+                            }
 
                             task.downloadState =
                                 Completed(path)
@@ -812,9 +823,7 @@ class DownloaderV2Impl(
             }
 
             else -> {
-                throw IllegalStateException(
-                    "Task cannot be restarted from state: $downloadState"
-                )
+                Log.w(TAG, "Task cannot be restarted from state: $downloadState")
             }
         }
     }
@@ -928,7 +937,7 @@ class DownloaderV2Impl(
 
     private fun checkExistingFile(task: Task): String? {
         val preferences = task.preferences
-        val isSubtitleOnly = preferences.skipDownload && preferences.downloadSubtitle
+        val isSubtitleOnly = (preferences.skipDownload && preferences.downloadSubtitle) || task.viewState.title.startsWith("[Subtitle]")
         val playlistType = task.type as? TypeInfo.Playlist
         val playlistTitle = playlistType?.playlistTitle.orEmpty()
         val playlistIndex = playlistType?.index ?: 0
@@ -940,7 +949,8 @@ class DownloaderV2Impl(
             if (preferences.privateDirectory) appContext.filesDir.absolutePath else getVideoDownloadDir(appContext)
         }
 
-        val targetDirFile = if (isSubtitleOnly && cleanPlaylistName.isNotEmpty()) {
+        val candidateDirs = mutableListOf<java.io.File>()
+        val mainTargetDir = if (isSubtitleOnly && cleanPlaylistName.isNotEmpty()) {
             java.io.File(baseDir, "[Subtitles] $cleanPlaylistName")
         } else if (preferences.subdirectoryPlaylistTitle && cleanPlaylistName.isNotEmpty()) {
             java.io.File(baseDir, cleanPlaylistName)
@@ -948,31 +958,81 @@ class DownloaderV2Impl(
             java.io.File(baseDir)
         }
 
-        if (!targetDirFile.exists()) return null
-
-        val files = targetDirFile.listFiles()?.filter { it.isFile && it.length() > 0L } ?: return null
-
-        val prefixPadded = if (playlistIndex > 0) String.format(java.util.Locale.US, "%03d - ", playlistIndex) else ""
-        val rawTitle = task.viewState.title.removePrefix("[Subtitle] ").trim()
-        val cleanTitle = FileUtil.cleanFileName(rawTitle)
-        val videoId = task.info?.id.orEmpty()
-
-        val matchingFile = files.firstOrNull { file ->
-            val fileName = file.name
-            val matchesPrefix = prefixPadded.isNotEmpty() && fileName.startsWith(prefixPadded)
-            val matchesTitle = cleanTitle.isNotEmpty() && fileName.contains(cleanTitle, ignoreCase = true)
-            val matchesId = videoId.isNotEmpty() && fileName.contains(videoId, ignoreCase = true)
-
-            val matches = matchesPrefix || matchesTitle || matchesId
-            if (!matches) return@firstOrNull false
-
-            if (isSubtitleOnly) {
-                fileName.contains(Regex(SUBTITLE_REGEX))
-            } else {
-                !fileName.contains(Regex(THUMBNAIL_REGEX))
+        candidateDirs.add(mainTargetDir)
+        val baseDirFile = java.io.File(baseDir)
+        if (baseDirFile.exists() && !candidateDirs.contains(baseDirFile)) {
+            candidateDirs.add(baseDirFile)
+        }
+        if (cleanPlaylistName.isNotEmpty()) {
+            val subDir = java.io.File(baseDir, "[Subtitles] $cleanPlaylistName")
+            if (subDir.exists() && !candidateDirs.contains(subDir)) {
+                candidateDirs.add(subDir)
+            }
+            val playlistDir = java.io.File(baseDir, cleanPlaylistName)
+            if (playlistDir.exists() && !candidateDirs.contains(playlistDir)) {
+                candidateDirs.add(playlistDir)
             }
         }
 
-        return matchingFile?.absolutePath
+        val rawUrl = task.url.ifEmpty { task.viewState.url }
+        val extractedId = when {
+            rawUrl.contains("v=") -> rawUrl.substringAfter("v=").substringBefore("&").substringBefore("?")
+            rawUrl.contains("youtu.be/") -> rawUrl.substringAfter("youtu.be/").substringBefore("?").substringBefore("&")
+            else -> ""
+        }.ifEmpty { task.info?.id.orEmpty() }
+
+        val rawTitle = task.viewState.title.removePrefix("[Subtitle] ").trim()
+        val normalizedTitle = rawTitle.lowercase(java.util.Locale.US).replace(Regex("[^a-z0-9\\u0600-\\u06FF]"), "")
+        val titleWords = normalizedTitle.chunked(6).filter { it.length >= 4 }
+
+        for (dir in candidateDirs) {
+            if (!dir.exists()) continue
+
+            val files = dir.listFiles()?.filter { file ->
+                file.isFile &&
+                !file.name.endsWith(".part", ignoreCase = true) &&
+                !file.name.endsWith(".ytdl", ignoreCase = true) &&
+                file.length() > (if (isSubtitleOnly) 50L else 1024L)
+            } ?: continue
+
+            for (file in files) {
+                val fileName = file.name
+                val normalizedFileName = fileName.lowercase(java.util.Locale.US).replace(Regex("[^a-z0-9\\u0600-\\u06FF]"), "")
+
+                var matches = false
+
+                // 1. Exact Video ID match
+                if (extractedId.length >= 4 && (fileName.contains(extractedId) || normalizedFileName.contains(extractedId.lowercase()))) {
+                    matches = true
+                }
+
+                // 2. Playlist index regex matching (001 - , 01. , [001], 1_)
+                if (!matches && playlistIndex > 0) {
+                    val indexRegex = Regex("^(?:0*${playlistIndex}[ \\-\\_\\.\\]]|\\[0*${playlistIndex}\\])")
+                    if (indexRegex.containsMatchIn(fileName)) {
+                        matches = true
+                    }
+                }
+
+                // 3. Normalized Title & Token matching
+                if (!matches && normalizedTitle.isNotEmpty() && normalizedFileName.contains(normalizedTitle)) {
+                    matches = true
+                }
+
+                if (!matches && titleWords.isNotEmpty() && titleWords.all { normalizedFileName.contains(it) }) {
+                    matches = true
+                }
+
+                if (!matches) continue
+
+                if (isSubtitleOnly) {
+                    if (fileName.contains(Regex(SUBTITLE_REGEX))) return file.absolutePath
+                } else {
+                    if (!fileName.contains(Regex(THUMBNAIL_REGEX))) return file.absolutePath
+                }
+            }
+        }
+
+        return null
     }
 }

@@ -687,10 +687,12 @@ private fun ConfigurePage(
                         downloadType = selectedType,
                     )
                 )
+                val isPlaylist = selectedType == Playlist || url.contains("list=", ignoreCase = true)
                 onActionPost(
                     Action.DownloadWithPreset(
                         urlList = listOf(url),
                         preferences = preferences.copy(
+                            downloadPlaylist = isPlaylist,
                             extractAudio = selectedType == Audio,
                             skipDownload = selectedType == DownloadType.Subtitle,
                             downloadSubtitle = if (selectedType == DownloadType.Subtitle) true else preferences.downloadSubtitle
@@ -705,8 +707,19 @@ private fun ConfigurePage(
                         downloadType = selectedType,
                     )
                 )
-                if (selectedType == Playlist) {
-                    onActionPost(Action.FetchPlaylist(url = url, preferences = preferences))
+                val isPlaylistUrl = selectedType == Playlist || url.contains("list=", ignoreCase = true)
+                if (isPlaylistUrl) {
+                    onActionPost(
+                        Action.FetchPlaylist(
+                            url = url,
+                            preferences = preferences.copy(
+                                downloadPlaylist = true,
+                                extractAudio = selectedType == Audio,
+                                skipDownload = selectedType == DownloadType.Subtitle,
+                                downloadSubtitle = if (selectedType == DownloadType.Subtitle) true else preferences.downloadSubtitle,
+                            )
+                        )
+                    )
                 } else {
                     onActionPost(
                         Action.FetchFormats(
@@ -858,15 +871,17 @@ private fun AdditionalSettings(
                     )
                 }
 
-                VideoFilterChip(
-                    selected = downloadSubtitle,
-                    enabled = selectedType != Command,
-                    onClick = {
-                        SUBTITLE.updateBoolean(!downloadSubtitle)
-                        onPreferenceUpdate()
-                    },
-                    label = stringResource(id = R.string.download_subtitles),
-                )
+                if (selectedType != DownloadType.Subtitle) {
+                    VideoFilterChip(
+                        selected = downloadSubtitle,
+                        enabled = selectedType != Command,
+                        onClick = {
+                            SUBTITLE.updateBoolean(!downloadSubtitle)
+                            onPreferenceUpdate()
+                        },
+                        label = stringResource(id = R.string.download_subtitles),
+                    )
+                }
                 VideoFilterChip(
                     selected = createThumbnail,
                     enabled = selectedType != Command,
@@ -875,6 +890,16 @@ private fun AdditionalSettings(
                         onPreferenceUpdate()
                     },
                     label = stringResource(R.string.create_thumbnail),
+                )
+                val removeMusic = preference.removeMusic
+                VideoFilterChip(
+                    selected = removeMusic,
+                    enabled = selectedType != Command,
+                    onClick = {
+                        com.junkfood.seal.util.REMOVE_MUSIC.updateBoolean(!removeMusic)
+                        onPreferenceUpdate()
+                    },
+                    label = "تنزيل بدون موسيقى",
                 )
             }
 
