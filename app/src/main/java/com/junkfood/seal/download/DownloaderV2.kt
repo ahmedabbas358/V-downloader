@@ -477,27 +477,6 @@ class DownloaderV2Impl(
                         kotlinx.coroutines.delay(3000L)
                     }
 
-                    val existingFilePath = checkExistingFile(task)
-                    if (existingFilePath != null) {
-                        Log.d(TAG, "Fast Path: File already exists for ${task.viewState.title} -> $existingFilePath")
-                        val actualLen = java.io.File(existingFilePath).length().toDouble()
-                        if (actualLen > 0) {
-                            task.viewState = task.viewState.copy(fileSizeApprox = actualLen)
-                        }
-                        task.downloadState = Completed(existingFilePath)
-                        com.junkfood.seal.util.DatabaseUtil.insertDownloadOperation(
-                            DownloadOperation(
-                                url = task.url,
-                                title = task.viewState.title,
-                                status = "Completed",
-                                timestamp = System.currentTimeMillis(),
-                                filePath = existingFilePath,
-                                playlistIndex = playlistItem.takeIf { it != 0 }
-                            )
-                        )
-                        return@launch
-                    }
-
                     var lastUpdateTime = 0L
                     DownloadUtil
                         .downloadVideo(

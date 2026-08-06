@@ -69,6 +69,18 @@ object NotificationUtil {
         notificationManager.createNotificationChannel(serviceChannel)
     }
 
+    private val mainActivityPendingIntent: PendingIntent by lazy {
+        val launchIntent = Intent(context, com.junkfood.seal.MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        PendingIntent.getActivity(
+            context,
+            0,
+            launchIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+    }
+
     fun notifyProgress(
         title: String,
         notificationId: Int = DEFAULT_NOTIFICATION_ID,
@@ -77,7 +89,7 @@ object NotificationUtil {
         text: String? = null,
     ) {
         if (!NOTIFICATION.getBoolean()) return
-        val pendingIntent =
+        val cancelPendingIntent =
             taskId?.let {
                 Intent(context.applicationContext, NotificationActionReceiver::class.java)
                     .putExtra(TASK_ID_KEY, taskId)
@@ -96,6 +108,7 @@ object NotificationUtil {
         NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_seal)
             .setContentTitle(title)
+            .setContentIntent(mainActivityPendingIntent)
             .setProgress(PROGRESS_MAX, progress, progress <= 0)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -104,7 +117,7 @@ object NotificationUtil {
             .setGroup("DOWNLOADS_GROUP")
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .run {
-                pendingIntent?.let {
+                cancelPendingIntent?.let {
                     addAction(R.drawable.outline_cancel_24, context.getString(R.string.cancel), it)
                 }
                 val notification = build()
@@ -127,12 +140,12 @@ object NotificationUtil {
             NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat_seal)
                 .setContentText(text)
+                .setContentIntent(intent ?: mainActivityPendingIntent)
                 .setOngoing(false)
                 .setAutoCancel(true)
                 .setCategory(NotificationCompat.CATEGORY_STATUS)
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
         title?.let { builder.setContentTitle(title) }
-        intent?.let { builder.setContentIntent(intent) }
         builder.setGroup("DOWNLOADS_GROUP")
         notificationManager.notify(notificationId, builder.build())
         postGroupSummaryNotification()

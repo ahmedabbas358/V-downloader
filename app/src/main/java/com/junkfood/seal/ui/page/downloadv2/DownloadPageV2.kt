@@ -379,32 +379,40 @@ fun DownloadPageImplV2(
     Scaffold(
         modifier = modifier.fillMaxSize().statusBarsPadding(),
         containerColor = Color.Transparent,
+        floatingActionButtonPosition = androidx.compose.material3.FabPosition.Center,
         floatingActionButton = {
             if (isSelectionMode) {
-                SelectionBottomBar(
-                    selectedCount = selectedTasks.size,
-                    onPauseSelected = {
-                        selectedTasks.forEach { onActionPost(it, UiAction.Pause) }
-                        selectedTasks = emptySet()
-                    },
-                    onResumeSelected = {
-                        selectedTasks.filter { taskDownloadStateMap[it]?.downloadState is Task.DownloadState.Restartable }
-                            .forEach { onActionPost(it, UiAction.Resume) }
-                        selectedTasks = emptySet()
-                    },
-                    onCancelSelected = {
-                        selectedTasks.forEach { onActionPost(it, UiAction.Cancel) }
-                        selectedTasks = emptySet()
-                    },
-                    onDeleteSelected = {
-                        selectedTasks.forEach { onActionPost(it, UiAction.Delete) }
-                        selectedTasks = emptySet()
-                    },
-                    onSelectAll = {
-                        selectedTasks = if (selectedTasks.size == filteredMap.size) emptySet() else filteredMap.map { it.first }.toSet()
-                    },
-                    modifier = Modifier.padding(horizontal = 12.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    SelectionBottomBar(
+                        selectedCount = selectedTasks.size,
+                        onPauseSelected = {
+                            selectedTasks.forEach { onActionPost(it, UiAction.Pause) }
+                            selectedTasks = emptySet()
+                        },
+                        onResumeSelected = {
+                            selectedTasks.filter { taskDownloadStateMap[it]?.downloadState is Task.DownloadState.Restartable }
+                                .forEach { onActionPost(it, UiAction.Resume) }
+                            selectedTasks = emptySet()
+                        },
+                        onCancelSelected = {
+                            selectedTasks.forEach { onActionPost(it, UiAction.Cancel) }
+                            selectedTasks = emptySet()
+                        },
+                        onDeleteSelected = {
+                            selectedTasks.forEach { onActionPost(it, UiAction.Delete) }
+                            selectedTasks = emptySet()
+                        },
+                        onSelectAll = {
+                            selectedTasks = if (selectedTasks.size == filteredMap.size) emptySet() else filteredMap.map { it.first }.toSet()
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             } else {
                 FABs(
                     modifier = Modifier,

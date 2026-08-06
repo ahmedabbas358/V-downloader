@@ -76,12 +76,12 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: app/build/outputs/apk/generic/release/*.apk
-          name: V-downloader v2.6.0
+          name: V-downloader v2.6.1
           tag_name: ${{ github.ref_name }}
           draft: false
           prerelease: false
           body: |
-            # 🚀 V-downloader v2.6.0 - التحديث الرئيسي الشامل (Major Release)
+            # 🚀 V-downloader v2.6.1 - التحديث الرئيسي الشامل (Major Release)
 
             > ⚠️ **تنبيه مهم جداً للمستخدمين | Crucial Update Notice:**
             > 🇸🇦 **عربي:** يُنصح بشدة **حذف النسخة القديمة المثبتة على جهازك قبل تثبيت هذا التحديث** (تثبيت جديد وليس تحديث مباشر فوق القديمة) لضمان عمل كافة الميزات والروابط الجديدة بسلاسة دون تعارض!
