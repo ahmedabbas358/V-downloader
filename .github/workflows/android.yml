@@ -1,111 +1,213 @@
 name: Build & Release V-Downloader APKs
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - main
     tags:
-      - 'v*'
+      - "v*"
+
+  workflow_dispatch:
+
+
+permissions:
+  contents: write
+
+
+concurrency:
+  group: vdownloader-build-${{ github.ref }}
+  cancel-in-progress: true
+
 
 jobs:
+
   build:
+
+    name: Build Release APKs
+
     runs-on: ubuntu-latest
 
-    permissions:
-      contents: write
+    timeout-minutes: 45
+
 
     steps:
-      - name: Checkout code
+
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21
+
+
+      - name: Setup JDK 21
         uses: actions/setup-java@v4
+
         with:
-          distribution: 'zulu'
-          java-version: '21'
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Grant execute permission
-        run: chmod +x gradlew
 
-      - name: Build Release APKs
-        run: ./gradlew --no-daemon clean assembleGenericRelease --stacktrace
+
+      - name: Grant execute permission
+        run: chmod +x ./gradlew
+
+
+
+      ##################################################
+      # Release Signing
+      ##################################################
+
+      - name: Prepare release signing
+
+        if: github.event_name != 'pull_request'
+
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+
+        run: |
+
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "Missing KEYSTORE_BASE64 secret"
+            exit 1
+          fi
+
+
+          echo "$KEYSTORE_BASE64" | base64 --decode > release.keystore
+
+
+
+          cat > keystore.properties <<EOF
+
+storeFile=release.keystore
+keyAlias=$KEY_ALIAS
+keyPassword=$KEY_PASSWORD
+storePassword=$STORE_PASSWORD
+
+EOF
+
+
+
+      ##################################################
+      # Build
+      ##################################################
+
+      - name: Clean project
+
+        run: |
+
+          ./gradlew clean --no-daemon
+
+
+
+      - name: Build Generic Release APK
+
+        run: |
+
+          ./gradlew \
+          assembleGenericRelease \
+          --no-daemon \
+          --stacktrace
+
+
+
+      ##################################################
+      # Validate Output
+      ##################################################
 
       - name: List generated APKs
+
         run: |
-          echo "Generated APKs:"
-          find app/build/outputs -type f -name "*.apk"
 
-      # ARM64
-      - name: Upload ARM64 Artifact
+          find app/build/outputs/apk \
+          -type f \
+          -name "*.apk"
+
+
+
+      - name: Verify APK exists
+
+        run: |
+
+          APK_COUNT=$(find app/build/outputs/apk \
+          -name "*.apk" | wc -l)
+
+
+          if [ "$APK_COUNT" -eq 0 ]; then
+
+            echo "No APK generated"
+
+            exit 1
+
+          fi
+
+
+
+      ##################################################
+      # Verify Signing
+      ##################################################
+
+      - name: Verify APK signatures
+
+        run: |
+
+          for apk in $(find app/build/outputs/apk -name "*.apk")
+          do
+
+            echo "Checking $apk"
+
+            $ANDROID_HOME/build-tools/*/apksigner verify "$apk"
+
+          done
+
+
+
+      ##################################################
+      # Upload APKs
+      ##################################################
+
+      - name: Upload APK artifacts
+
         uses: actions/upload-artifact@v4
-        with:
-          name: V-Downloader-arm64-v8a
-          path: app/build/outputs/apk/generic/release/*arm64-v8a*.apk
-          if-no-files-found: ignore
-          retention-days: 20
 
-      # ARMv7
-      - name: Upload ARMv7 Artifact
-        uses: actions/upload-artifact@v4
         with:
-          name: V-Downloader-armeabi-v7a
-          path: app/build/outputs/apk/generic/release/*armeabi-v7a*.apk
-          if-no-files-found: ignore
-          retention-days: 20
 
-      # Universal
-      - name: Upload Universal Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: V-Downloader-universal
-          path: app/build/outputs/apk/generic/release/*universal*.apk
-          if-no-files-found: ignore
-          retention-days: 20
+          name: V-Downloader-APKs
 
-      # GitHub Release creation & APK publishing
-      - name: Create & Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+          path: |
+
+            app/build/outputs/apk/**/*.apk
+
+
+          if-no-files-found: error
+
+
+
+      ##################################################
+      # GitHub Release
+      ##################################################
+
+      - name: Create GitHub Release
+
+        if: startsWith(github.ref, 'refs/tags/v')
+
         uses: softprops/action-gh-release@v2
+
         with:
-          files: app/build/outputs/apk/generic/release/*.apk
-          name: V-downloader v2.6.2
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v2.6.2' }}
-          draft: false
-          prerelease: false
-          body: |
-            # 🚀 V-downloader v2.6.2 - تحديث الإصلاحات الشاملة (The Grand Fixes Update)
 
-            > ⚠️ **تنبيه مهم جداً للمستخدمين | Crucial Update Notice:**
-            > 🇸🇦 **عربي:** يُنصح بشدة **حذف النسخة القديمة المثبتة على جهازك قبل تثبيت هذا التحديث** لضمان عمل كافة الميزات والروابط الجديدة بسلاسة دون تعارض!
-            > 🇬🇧 **English:** It is strongly recommended to **uninstall the previous version before installing this update** to ensure all new features work seamlessly without conflicts!
+          files: |
 
-            ---
+            app/build/outputs/apk/**/*.apk
 
-            ### 🔥 أبرز الميزات الجديدة والتحديثات | Main Release Highlights:
-
-            #### 🧠 1. محرك بحث ذكي متطور (Device-Wide Fuzzy Directory Matching):
-            * **AR:** ميزة البحث الذكي للمجلدات عند استكمال التنزيل؛ يبحث التطبيق الآن في كافة مجلدات الجهاز العامة (تنزيلات، أفلام، موسيقى) ويتغاضى عن الأخطاء الإملائية بنسبة تصل لـ 60% ليجد مجلد قائمة التشغيل بشكل سحري.
-            * **EN:** Advanced Fuzzy Matching that scans all public device folders (Downloads, Movies, Music) to smartly find your playlist folder even with spelling typos!
-
-            #### 🔄 2. إصلاح جذري لمزامنة قوائم التشغيل (Flawless Playlist Synchronization):
-            * **AR:** إصلاح مشكلة الدوران في حلقة مفرغة عند مزامنة عناصر مفقودة (مثل Bilibili و SoundCloud) والتعرف الدقيق على الترقيم المضاف من التطبيق (`001 - `) لمنع تداخل المقاطع.
-            * **EN:** Fixed infinite spinning loop during missing item sync (especially for Bilibili/SoundCloud) and added robust matching for app-added sequence numbers (`001 - `) to prevent cross-playlist collisions.
-
-            #### 🎵 3. إصلاح وضع التنزيل "بدون موسيقى" (Audio Extraction Fix):
-            * **AR:** تحميل الفيديوهات بدون موسيقى يعمل الآن بكفاءة (عبر الفلاتر الصوتية مع الحفاظ على دقة الفيديو) دون التسبب بانهيار التطبيق، مع الحفاظ على صيغة المقاطع الصوتية.
-            * **EN:** "Remove Music" now flawlessly processes videos without causing FFmpeg stream copy crashes, while preserving original formats for audio-only downloads.
-
-            #### 🔔 4. تفاعل احترافي مع الإشعارات (Interactive Notifications):
-            * **AR:** النقر على إشعار "جاري التحميل" أو إشعار "اكتمل التحميل" سيقوم الآن بفتح التطبيق فوراً والتوجه للمقطع المحمل.
-            * **EN:** Tapping on running or completed download notifications now successfully launches the app natively using appropriate intent flags.
-
-            #### 🎨 5. تصميم Social Hub جديد كلياً (Glassmorphism Social Hub):
-            * **AR:** واجهة جديدة احترافية بالكامل للروابط السريعة، بتأثيرات بصرية حديثة، وحقول إدخال ذكية وتفاعلية.
-            * **EN:** Completely redesigned Social Hub with modern glassmorphism aesthetics, dynamic inputs, and smooth interactions.
+          generate_release_notes: true
