@@ -4,303 +4,511 @@ import com.android.build.api.variant.FilterConfiguration
 import java.io.FileInputStream
 import java.util.Properties
 
+
 plugins {
+
     alias(libs.plugins.android.application)
+
     alias(libs.plugins.kotlin.android)
+
     alias(libs.plugins.kotlin.serialization)
+
     alias(libs.plugins.ksp)
+
     alias(libs.plugins.compose.compiler)
+
     alias(libs.plugins.room)
+
     alias(libs.plugins.ktfmt.gradle)
+
 }
 
-val keystorePropertiesFile: File = rootProject.file("keystore.properties")
+
+
+val keystorePropertiesFile =
+    rootProject.file("keystore.properties")
+
+
+
+val keystoreProperties = Properties()
+
+
+
+if (keystorePropertiesFile.exists()) {
+
+    FileInputStream(keystorePropertiesFile).use {
+
+        keystoreProperties.load(it)
+
+    }
+
+}
+
+
 
 val splitApks = true
 
+
+
 val abiCodes = mapOf(
+
     "armeabi-v7a" to 1,
+
     "arm64-v8a" to 2,
+
     "x86" to 3,
+
     "x86_64" to 4
+
 )
 
+
+
 val baseVersionName = currentVersion.name
-val currentVersionCode = currentVersion.code.toInt()
+
+val currentVersionCode =
+    currentVersion.code.toInt()
+
+
 
 android {
 
+
     namespace = "com.junkfood.seal"
+
 
     compileSdk = 35
 
-    if (keystorePropertiesFile.exists()) {
 
-        val keystoreProperties = Properties()
 
-        keystoreProperties.load(
-            FileInputStream(keystorePropertiesFile)
-        )
+    signingConfigs {
 
-        signingConfigs {
+
+        if (keystorePropertiesFile.exists()) {
+
+
             create("githubPublish") {
+
 
                 keyAlias =
                     keystoreProperties["keyAlias"].toString()
 
+
                 keyPassword =
                     keystoreProperties["keyPassword"].toString()
 
+
                 storeFile =
-                    file(keystoreProperties["storeFile"]!!)
+                    file(
+                        keystoreProperties["storeFile"]
+                            .toString()
+                    )
+
 
                 storePassword =
-                    keystoreProperties["storePassword"].toString()
+                    keystoreProperties["storePassword"]
+                        .toString()
+
             }
+
         }
+
     }
 
-
-    buildFeatures {
-        buildConfig = true
-    }
 
 
     defaultConfig {
 
-        applicationId = "com.vdownloader.app"
+
+        applicationId =
+            "com.vdownloader.app"
+
 
         minSdk = 24
 
+
         targetSdk = 35
 
-        versionCode = currentVersionCode
 
-        versionName = baseVersionName
+        versionCode =
+            currentVersionCode
+
+
+        versionName =
+            baseVersionName
+
+
 
         testInstrumentationRunner =
             "androidx.test.runner.AndroidJUnitRunner"
 
+
+
         vectorDrawables {
+
             useSupportLibrary = true
+
         }
+
     }
+
+
+
+
+    buildFeatures {
+
+        buildConfig = true
+
+    }
+
+
+
 
 
     splits {
 
+
         abi {
+
 
             isEnable = splitApks
 
+
             reset()
 
+
             include(
+
                 "armeabi-v7a",
+
                 "arm64-v8a",
+
                 "x86",
+
                 "x86_64"
+
             )
 
+
             isUniversalApk = true
+
+
         }
+
     }
+
+
 
 
     androidComponents {
 
+
         onVariants { variant ->
 
+
             variant.outputs.forEach { output ->
+
 
                 val abi =
                     output.filters
                         .find {
+
                             it.filterType ==
                                 FilterConfiguration.FilterType.ABI
+
                         }
                         ?.identifier
 
 
+
                 output.versionCode.set(
+
                     currentVersionCode +
                         (abiCodes[abi] ?: 0)
+
                 )
+
+
             }
+
+
         }
+
+
     }
 
 
-    room {
-        schemaDirectory(
-            "$projectDir/schemas"
-        )
-    }
 
-
-    ksp {
-        arg(
-            "room.incremental",
-            "true"
-        )
-    }
 
 
     buildTypes {
 
+
         release {
+
 
             isMinifyEnabled = true
 
+
             isShrinkResources = true
 
+
+
             proguardFiles(
+
                 getDefaultProguardFile(
                     "proguard-android-optimize.txt"
                 ),
+
                 "proguard-rules.pro"
+
             )
+
 
 
             if (keystorePropertiesFile.exists()) {
 
+
                 signingConfig =
-                    signingConfigs.getByName(
-                        "githubPublish"
-                    )
+                    signingConfigs
+                        .getByName("githubPublish")
+
 
             } else {
 
-                signingConfig =
-                    signingConfigs.getByName(
-                        "debug"
-                    )
+
+                throw GradleException(
+
+                    """
+                    Release signing configuration missing.
+
+                    Create keystore.properties
+                    and provide the release keystore.
+
+                    """.trimIndent()
+
+                )
+
             }
+
+
         }
+
+
 
 
         debug {
 
-            if (keystorePropertiesFile.exists()) {
-
-                signingConfig =
-                    signingConfigs.getByName(
-                        "githubPublish"
-                    )
-            }
-
 
             resValue(
+
                 "string",
+
                 "app_name",
+
                 "V-Downloader"
+
             )
+
+
         }
+
+
     }
+
+
+
+
 
 
     flavorDimensions += "publishChannel"
 
 
+
+
+
     productFlavors {
 
+
         create("generic") {
+
 
             dimension =
                 "publishChannel"
 
+
             isDefault = true
+
+
         }
+
 
 
         create("githubPreview") {
 
+
             dimension =
                 "publishChannel"
 
+
             resValue(
+
                 "string",
+
                 "app_name",
+
                 "V-Downloader"
+
             )
+
+
         }
+
+
+
 
 
         create("fdroid") {
 
+
             dimension =
                 "publishChannel"
 
+
+
             versionName =
                 "$baseVersionName-(F-Droid)"
+
+
         }
+
+
     }
+
+
+
+
+
+
+    room {
+
+
+        schemaDirectory(
+
+            "$projectDir/schemas"
+
+        )
+
+
+    }
+
+
 
 
     lint {
 
+
         disable.addAll(
+
             listOf(
+
                 "MissingTranslation",
+
                 "ExtraTranslation",
+
                 "MissingQuantity"
+
             )
+
         )
+
+
     }
 
 
-    kotlinOptions {
-
-        freeCompilerArgs =
-            freeCompilerArgs +
-                "-opt-in=kotlin.RequiresOptIn"
-    }
 
 
     packaging {
 
+
         resources {
 
+
             excludes +=
+
                 "/META-INF/{AL2.0,LGPL2.1}"
+
+
         }
+
+
 
 
         jniLibs {
 
+
             useLegacyPackaging = true
+
+
         }
+
+
     }
+
 
 
     androidResources {
 
+
         generateLocaleConfig = true
+
+
     }
+
+
+
 }
 
 
-ktfmt {
-
-    kotlinLangStyle()
-}
 
 
 kotlin {
 
+
     jvmToolchain(21)
+
+
 }
+
+
+
+
+ktfmt {
+
+
+    kotlinLangStyle()
+
+
+}
+
+
 
 
 dependencies {
 
+
     implementation(project(":color"))
 
+
+
     implementation(libs.bundles.core)
+
+
 
     implementation(
         libs.androidx.lifecycle.runtimeCompose
     )
+
 
 
     implementation(
@@ -309,13 +517,18 @@ dependencies {
         )
     )
 
+
+
     implementation(
         libs.bundles.androidxCompose
     )
 
+
+
     implementation(
         libs.bundles.accompanist
     )
+
 
 
     implementation(
@@ -323,9 +536,11 @@ dependencies {
     )
 
 
+
     implementation(
         libs.kotlinx.serialization.json
     )
+
 
 
     implementation(
@@ -333,22 +548,27 @@ dependencies {
     )
 
 
+
     implementation(
         libs.koin.compose
     )
+
 
 
     implementation(
         libs.room.runtime
     )
 
+
     implementation(
         libs.room.ktx
     )
 
+
     ksp(
         libs.room.compiler
     )
+
 
 
     implementation(
@@ -356,9 +576,11 @@ dependencies {
     )
 
 
+
     implementation(
         libs.bundles.youtubedlAndroid
     )
+
 
 
     implementation(
@@ -366,9 +588,11 @@ dependencies {
     )
 
 
+
     implementation(
         libs.androidx.work.runtime.ktx
     )
+
 
 
     implementation(
@@ -376,24 +600,11 @@ dependencies {
     )
 
 
+
     implementation(
         libs.androidx.media3.ui
     )
 
-
-    testImplementation(
-        libs.junit4
-    )
-
-
-    androidTestImplementation(
-        libs.androidx.test.ext
-    )
-
-
-    androidTestImplementation(
-        libs.androidx.test.espresso.core
-    )
 
 
     implementation(
@@ -401,7 +612,27 @@ dependencies {
     )
 
 
+
+    testImplementation(
+        libs.junit4
+    )
+
+
+
+    androidTestImplementation(
+        libs.androidx.test.ext
+    )
+
+
+
+    androidTestImplementation(
+        libs.androidx.test.espresso.core
+    )
+
+
+
     implementation(
         "androidx.core:core-splashscreen:1.0.1"
     )
+
 }
