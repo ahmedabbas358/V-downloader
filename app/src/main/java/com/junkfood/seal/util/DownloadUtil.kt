@@ -187,8 +187,9 @@ object DownloadUtil {
                         addOption("--dump-single-json")
                         addOption("--no-playlist")
                     }
-                    addOption("-R", "1")
-                    addOption("--socket-timeout", "5")
+                    addOption("-R", "5")
+                    addOption("--socket-timeout", "15")
+                    addOption("--extractor-args", "youtube:player_client=android,web,ios")
                 }
             val result = getVideoInfo(request, taskKey)
             
@@ -808,8 +809,10 @@ object DownloadUtil {
                     }
 
                     if (removeMusic) {
-                        val vocalFilter = "highpass=f=100,lowpass=f=3600,afftdn=nr=15:nf=-35:tn=1,equalizer=f=250:width_type=h:width=200:g=-6,equalizer=f=1200:width_type=h:width=1500:g=5,dynaudnorm=f=150:g=15:peak=0.95"
+                        val vocalFilter = "highpass=f=90,lowpass=f=7500,dialoguenhance=original_gain=0.05:dialogue_gain=2.5,equalizer=f=1200:width_type=h:width=1800:g=3.5,equalizer=f=180:width_type=h:width=120:g=-8,dynaudnorm=f=120:g=12:peak=0.95"
                         if (extractAudio) {
+                            addOption("--postprocessor-args", "ExtractAudio:-af $vocalFilter")
+                            addOption("--postprocessor-args", "FFmpegExtractAudio:-af $vocalFilter")
                             addOption("--postprocessor-args", "ffmpeg:-af $vocalFilter")
                         } else {
                             addOption("--postprocessor-args", "ffmpeg:-c:v copy -c:a aac -af $vocalFilter")
@@ -817,10 +820,12 @@ object DownloadUtil {
                     }
 
                     // Smart retry scheme ensuring downloads do not fail due to transient errors or broken items
+                    addOption("--socket-timeout", "15")
                     addOption("--retries", "10")
                     addOption("--fragment-retries", "10")
-                    addOption("--file-access-retries", "5")
+                    addOption("--file-access-retries", "10")
                     addOption("--ignore-errors")
+                    addOption("--extractor-args", "youtube:player_client=android,web,ios")
 
                     if (playlistItem != 0) {
                         addOption("--no-playlist")
@@ -873,6 +878,8 @@ object DownloadUtil {
 
                     if (sdcard) {
                         addOption("-P", context.getSdcardTempDir(videoInfo.id).absolutePath)
+                    } else if (commandDirectory.isNotBlank()) {
+                        addOption("-P", commandDirectory)
                     } else {
                         addOption("-P", pathBuilder.toString())
                     }

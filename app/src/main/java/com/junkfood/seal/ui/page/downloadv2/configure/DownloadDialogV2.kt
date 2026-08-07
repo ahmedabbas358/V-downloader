@@ -601,7 +601,10 @@ private fun ConfigurePage(
                 DownloadTypeSelectionGroup(
                     typeEntries = config.typeEntries,
                     selectedType = selectedType,
-                    onSelect = { selectedType = it },
+                    onSelect = {
+                        selectedType = it
+                        EXTRACT_AUDIO.updateBoolean(it == Audio)
+                    },
                 )
                 Column(modifier = Modifier.animateContentSize()) {
                     if (selectedType != Command) {
@@ -725,7 +728,11 @@ private fun ConfigurePage(
                         Action.FetchFormats(
                             url = url,
                             audioOnly = selectedType == Audio,
-                            preferences = preferences,
+                            preferences = preferences.copy(
+                                extractAudio = selectedType == Audio,
+                                skipDownload = selectedType == DownloadType.Subtitle,
+                                downloadSubtitle = if (selectedType == DownloadType.Subtitle) true else preferences.downloadSubtitle,
+                            ),
                         )
                     )
                 }

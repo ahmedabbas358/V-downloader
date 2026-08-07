@@ -153,15 +153,16 @@ fun FormatPage(
 
     var diffSubtitleLanguages by remember { mutableStateOf(emptySet<String>()) }
 
+    val isAudioSelected = audioOnly || com.junkfood.seal.util.PreferenceUtil.getDownloadType() == com.junkfood.seal.util.DownloadType.Audio || EXTRACT_AUDIO.getBoolean()
     val isSubtitleOnly = com.junkfood.seal.util.PreferenceUtil.getDownloadType() == com.junkfood.seal.util.DownloadType.Subtitle
 
     FormatPageImpl(
         modifier = modifier,
         videoInfo = videoInfo,
         onNavigateBack = onNavigateBack,
-        audioOnly = audioOnly,
+        audioOnly = isAudioSelected,
         isSubtitleOnly = isSubtitleOnly,
-        mergeAudioStream = !audioOnly && mergeAudioStream,
+        mergeAudioStream = !isAudioSelected && mergeAudioStream,
         selectedSubtitleCodes = initialSelectedSubtitles,
         isClippingAvailable = VIDEO_CLIP.getBoolean() && (videoInfo.duration ?: .0) >= 0,
     ) { config ->
@@ -173,7 +174,7 @@ fun FormatPage(
 
             val audioOnlyFormats = formatList.filter { it.isAudioOnly() }
             val videoFormats = formatList.filter { it.containsVideo() }
-            val isAudioOnlyPlaylist = audioOnlyFormats.isNotEmpty() && videoFormats.isEmpty()
+            val isAudioOnlyPlaylist = isAudioSelected || (audioOnlyFormats.isNotEmpty() && videoFormats.isEmpty())
             val mergeAudioStreamPlaylist = audioOnlyFormats.size > 1
             val hasVideoOnlyFormat = videoFormats.any { it.vcodec != "none" && (it.acodec == "none" || it.acodec == null) }
             val rawFormatId = formatList.joinToString(separator = "+") { it.formatId.toString() }
@@ -216,19 +217,29 @@ fun FormatPage(
                     downloader.enqueue(taskWithState.copy(task = updatedTask))
                 }
             } else {
-                downloader.enqueue(
-                    com.junkfood.seal.download.TaskFactory.createWithConfigurations(
-                        videoInfo = videoInfo,
-                        formatList = formatList,
-                        videoClips = videoClips,
-                        splitByChapter = splitByChapter,
-                        newTitle = newTitle,
-                        selectedSubtitles = selectedSubtitles,
-                        selectedAutoCaptions = selectedAutoCaptions,
-                        skipDownload = skipDownload,
-                        subtitleFormat = subtitleFormat,
-                    )
+                val createdTaskWithState = com.junkfood.seal.download.TaskFactory.createWithConfigurations(
+                    videoInfo = videoInfo,
+                    formatList = formatList,
+                    videoClips = videoClips,
+                    splitByChapter = splitByChapter,
+                    newTitle = newTitle,
+                    selectedSubtitles = selectedSubtitles,
+                    selectedAutoCaptions = selectedAutoCaptions,
+                    skipDownload = skipDownload,
+                    subtitleFormat = subtitleFormat,
                 )
+                val finalTask = if (isAudioSelected && !skipDownload) {
+                    createdTaskWithState.copy(
+                        task = createdTaskWithState.task.copy(
+                            preferences = createdTaskWithState.task.preferences.copy(
+                                extractAudio = true
+                            )
+                        )
+                    )
+                } else {
+                    createdTaskWithState
+                }
+                downloader.enqueue(finalTask)
             }
 
             if (diffSubtitleLanguages.isNotEmpty()) {

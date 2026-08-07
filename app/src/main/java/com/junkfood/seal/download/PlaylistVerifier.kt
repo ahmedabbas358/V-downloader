@@ -54,68 +54,78 @@ object PlaylistVerifier {
             val playlistTitle = playlistInfo.title ?: "Playlist"
             val cleanPlaylistName = FileUtil.cleanFileName(playlistTitle)
 
-            // Use the actual user-configured download directories from App companion
-            val defaultBaseDir = if (isAudioOnly) {
-                if (preferences.privateDirectory) context.filesDir.absolutePath else App.audioDownloadDir
-            } else {
-                if (preferences.privateDirectory) context.filesDir.absolutePath else App.videoDownloadDir
-            }
+            val playlistTitle = playlistInfo.title ?: "Playlist"
+            val cleanPlaylistName = FileUtil.cleanFileName(playlistTitle)
 
-            val baseDir = if (!customDirectoryPath.isNullOrBlank()) {
-                val customFile = File(customDirectoryPath)
-                if (customFile.isAbsolute) {
-                    customDirectoryPath
-                } else {
-                    File(defaultBaseDir, customDirectoryPath).absolutePath
+            // Smart directory resolution
+            val userDir = customDirectoryPath?.trim()?.takeIf { it.isNotBlank() }
+            val mainTargetDir: File = when {
+                userDir != null -> {
+                    val directFile = File(userDir)
+                    if (directFile.exists() && directFile.isDirectory) {
+                        directFile
+                    } else {
+                        val relativeFile = File(defaultBaseDir, userDir.removePrefix("/"))
+                        if (relativeFile.exists() && relativeFile.isDirectory) {
+                            relativeFile
+                        } else if (directFile.isAbsolute) {
+                            directFile
+                        } else {
+                            relativeFile
+                        }
+                    }
                 }
-            } else {
-                defaultBaseDir
+                isSubtitleOnly && cleanPlaylistName.isNotEmpty() -> {
+                    File(defaultBaseDir, "[Subtitles] $cleanPlaylistName")
+                }
+                preferences.subdirectoryPlaylistTitle && cleanPlaylistName.isNotEmpty() -> {
+                    File(defaultBaseDir, cleanPlaylistName)
+                }
+                else -> {
+                    File(defaultBaseDir)
+                }
             }
 
-            val mainTargetDir = if (isSubtitleOnly && cleanPlaylistName.isNotEmpty()) {
-                File(baseDir, "[Subtitles] $cleanPlaylistName")
-            } else if (preferences.subdirectoryPlaylistTitle && cleanPlaylistName.isNotEmpty()) {
-                File(baseDir, cleanPlaylistName)
-            } else {
-                File(baseDir)
-            }
+            val baseDirFile = File(defaultBaseDir)
 
             // Gather candidate directories
             val candidateDirs = mutableSetOf<File>()
             candidateDirs.add(mainTargetDir)
-            candidateDirs.add(File(baseDir))
+            candidateDirs.add(baseDirFile)
+
+            if (cleanPlaylistName.isNotEmpty()) {
+                candidateDirs.add(File(baseDirFile, "[Subtitles] $cleanPlaylistName"))
+                candidateDirs.add(File(baseDirFile, cleanPlaylistName))
+            }
+
+            // Parent directories
+            mainTargetDir.parentFile?.let { if (it.exists()) candidateDirs.add(it) }
+            baseDirFile.parentFile?.let { if (it.exists()) candidateDirs.add(it) }
+
+            // Search public roots
+            val searchRoots = listOf(
+                File(App.videoDownloadDir),
+                File(App.audioDownloadDir),
+                android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
+                android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_MOVIES),
+                android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_MUSIC)
+            )
 
             val normalizedPlaylistName = normalizeText(cleanPlaylistName)
-            if (cleanPlaylistName.isNotEmpty()) {
-                candidateDirs.add(File(baseDir, "[Subtitles] $cleanPlaylistName"))
-                candidateDirs.add(File(baseDir, cleanPlaylistName))
-                
-                // Fuzzy match candidate directories across device public roots
-                if (normalizedPlaylistName.length > 2) {
-                    val searchRoots = mutableSetOf<File>()
-                    searchRoots.add(File(baseDir))
-                    searchRoots.add(File(App.videoDownloadDir))
-                    searchRoots.add(File(App.audioDownloadDir))
-                    searchRoots.add(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS))
-                    searchRoots.add(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_MOVIES))
-                    searchRoots.add(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_MUSIC))
-
-                    val playlistTokens = normalizedPlaylistName.split(" ").filter { it.length > 2 }
-                    
-                    searchRoots.forEach { root ->
-                        if (root.exists() && root.isDirectory) {
-                            root.listFiles()?.forEach { dir ->
-                                if (dir.isDirectory) {
-                                    val dirNameNormalized = normalizeText(dir.name)
-                                    val cleanDirName = dirNameNormalized.removePrefix("subtitles").trim()
-                                    
-                                    if (cleanDirName.contains(normalizedPlaylistName) || normalizedPlaylistName.contains(cleanDirName)) {
-                                         candidateDirs.add(dir)
-                                    } else if (playlistTokens.isNotEmpty()) {
-                                        val matchCount = playlistTokens.count { cleanDirName.contains(it) }
-                                        if (matchCount >= (playlistTokens.size * 0.6).toInt().coerceAtLeast(1)) {
-                                            candidateDirs.add(dir)
-                                        }
+            if (normalizedPlaylistName.length > 2) {
+                val playlistTokens = normalizedPlaylistName.split(" ").filter { it.length >= 2 }
+                searchRoots.forEach { root ->
+                    if (root.exists() && root.isDirectory) {
+                        root.listFiles()?.forEach { dir ->
+                            if (dir.isDirectory) {
+                                val dirNameNorm = normalizeText(dir.name)
+                                val cleanDir = dirNameNorm.removePrefix("subtitles").trim()
+                                if (cleanDir.contains(normalizedPlaylistName) || normalizedPlaylistName.contains(cleanDir)) {
+                                    candidateDirs.add(dir)
+                                } else if (playlistTokens.isNotEmpty()) {
+                                    val matchCount = playlistTokens.count { cleanDir.contains(it) }
+                                    if (matchCount >= (playlistTokens.size * 0.5).toInt().coerceAtLeast(1)) {
+                                        candidateDirs.add(dir)
                                     }
                                 }
                             }
@@ -124,28 +134,23 @@ object PlaylistVerifier {
                 }
             }
 
-            // Also search parent directory of baseDir if customized
-            File(baseDir).parentFile?.let { parent ->
-                if (parent.exists()) candidateDirs.add(parent)
-            }
-
-            // Gather all files recursively (up to 3 subfolder levels deep)
+            // Gather all files recursively (up to 4 subfolder levels deep)
             val allCandidateFiles = candidateDirs.flatMap { dir ->
                 if (!dir.exists()) return@flatMap emptyList<File>()
                 dir.walkTopDown()
-                    .maxDepth(3)
+                    .maxDepth(4)
                     .filter { file ->
                         file.isFile &&
                         !file.name.endsWith(".part", ignoreCase = true) &&
                         !file.name.endsWith(".ytdl", ignoreCase = true) &&
                         !file.name.endsWith(".tmp", ignoreCase = true) &&
-                        file.length() > (if (isSubtitleOnly) 30L else 1024L)
+                        file.length() > (if (isSubtitleOnly) 10L else 512L)
                     }
                     .toList()
             }.distinctBy { it.absolutePath }
 
             // Diagnostic logging
-            Log.d(TAG, "scanPlaylist: baseDir=$baseDir, mainTargetDir=${mainTargetDir.absolutePath}")
+            Log.d(TAG, "scanPlaylist: mainTargetDir=${mainTargetDir.absolutePath}")
             Log.d(TAG, "scanPlaylist: candidateDirs=${candidateDirs.map { it.absolutePath }}")
             Log.d(TAG, "scanPlaylist: found ${allCandidateFiles.size} candidate files on disk")
             allCandidateFiles.take(10).forEach { f ->
@@ -154,7 +159,6 @@ object PlaylistVerifier {
 
             val foundItems = mutableListOf<VerificationItem>()
             val missingItems = mutableListOf<VerificationItem>()
-
 
             entries.forEachIndexed { indexZero, entry ->
                 val index = indexZero + 1
@@ -182,30 +186,24 @@ object PlaylistVerifier {
                     }
                 }
 
-                val rawTitleClean = entryTitle.removePrefix("[Subtitle] ").trim()
+                val rawTitleClean = entryTitle.removePrefix("[Subtitle] ").replace(Regex("^#\\d+\\s*"), "").trim()
                 val normalizedTitle = normalizeText(rawTitleClean)
-                val titleTokens = normalizedTitle.split(" ").filter { it.length >= 3 }
-
-                val indexPatterns = listOf(
-                    Regex("^(?:0*${index}[ \\-\\_\\.\\]]|0*${index}\\$)"),
-                    Regex("(?:^|[\\[\\(\\_\\-\\s])0*${index}(?:[\\s\\-\\_\\.\\]\\)]|$)")
-                )
+                val titleTokens = normalizedTitle.split(" ").filter { it.length >= 2 }
 
                 val matchFound = allCandidateFiles.any { file ->
                     val fileName = file.name
-                    val fileNameWithoutExt = file.nameWithoutExtension
-                    val normalizedFileName = normalizeText(fileNameWithoutExt)
-
-                    // Step 1: Type Validation
                     val ext = file.extension.lowercase(Locale.US)
                     val isValidType = if (isSubtitleOnly) {
-                        ext in listOf("srt", "vtt", "ass", "lrc")
+                        ext in listOf("srt", "vtt", "ass", "lrc", "sub", "sbv")
                     } else if (isAudioOnly) {
-                        ext in listOf("mp3", "m4a", "opus", "flac", "wav", "aac", "ogg", "mka", "mp4", "mkv", "webm")
+                        ext in listOf("mp3", "m4a", "opus", "flac", "wav", "aac", "ogg", "mka", "mp4", "mkv", "webm", "3gp", "m4b")
                     } else {
-                        ext in listOf("mp4", "mkv", "webm", "avi", "mov", "flv", "ts")
+                        ext in listOf("mp4", "mkv", "webm", "avi", "mov", "flv", "ts", "m4v", "3gp")
                     }
                     if (!isValidType) return@any false
+
+                    val cleanFileName = cleanFileNameForMatching(fileName)
+                    val normalizedFileName = normalizeText(cleanFileName)
 
                     var isMatched = false
 
@@ -216,7 +214,13 @@ object PlaylistVerifier {
 
                     // Strategy 2: Numeric Playlist Index Match
                     if (!isMatched && index > 0) {
-                        if (indexPatterns.any { it.containsMatchIn(fileName) }) {
+                        val formattedIndex3 = String.format(Locale.US, "%03d", index)
+                        val formattedIndex2 = String.format(Locale.US, "%02d", index)
+                        val indexMatches = fileName.contains(formattedIndex3) ||
+                                fileName.contains(formattedIndex2) ||
+                                Regex("(?:^|[\\[\\(\\_\\-\\s#])0*${index}(?:[\\s\\-\\_\\.\\]\\)]|$)").containsMatchIn(fileName)
+
+                        if (indexMatches) {
                             if (titleTokens.isNotEmpty()) {
                                 val matchCount = titleTokens.count { normalizedFileName.contains(it) }
                                 if (matchCount >= 1) {
@@ -235,10 +239,11 @@ object PlaylistVerifier {
                         }
                     }
 
-                    // Strategy 4: Significant Word Token Match (>= 75% words match)
+                    // Strategy 4: Fuzzy Word Token Match (>= 40% words match)
                     if (!isMatched && titleTokens.isNotEmpty()) {
                         val matchedTokenCount = titleTokens.count { token -> normalizedFileName.contains(token) }
-                        if (matchedTokenCount >= (titleTokens.size * 0.75).toInt().coerceAtLeast(1)) {
+                        val required = (titleTokens.size * 0.4).toInt().coerceAtLeast(1)
+                        if (matchedTokenCount >= required) {
                             isMatched = true
                         }
                     }
@@ -261,6 +266,12 @@ object PlaylistVerifier {
                 missingItems = missingItems
             )
         }
+    }
+
+    private fun cleanFileNameForMatching(fileName: String): String {
+        var name = fileName.substringBeforeLast('.')
+        name = name.replace(Regex("\\.(?:[a-z]{2}(?:-[a-zA-Z]{2,4})?|auto|orig)\$", RegexOption.IGNORE_CASE), "")
+        return name
     }
 
     private fun normalizeText(text: String): String {

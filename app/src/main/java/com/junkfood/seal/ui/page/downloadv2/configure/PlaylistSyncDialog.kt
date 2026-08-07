@@ -481,7 +481,11 @@ fun PlaylistSyncDialog(
                         onClick = {
                             scope.launch {
                                 val itemsWithQuality = result.missingItems.map { item ->
-                                    item.copy(preferences = effectivePrefs)
+                                    item.copy(
+                                        preferences = effectivePrefs.copy(
+                                            commandDirectory = customFolderPath.ifBlank { effectivePrefs.commandDirectory }
+                                        )
+                                    )
                                 }
                                 PlaylistVerifier.enqueueMissingItems(itemsWithQuality, downloader)
                                 ToastUtil.makeToast("تمت إضافة ${result.missingItems.size} ملف مفقود إلى قائمة التنزيل")

@@ -379,13 +379,11 @@ fun DownloadPageImplV2(
     Scaffold(
         modifier = modifier.fillMaxSize().statusBarsPadding(),
         containerColor = Color.Transparent,
-        floatingActionButtonPosition = androidx.compose.material3.FabPosition.End,
+        floatingActionButtonPosition = if (isSelectionMode) androidx.compose.material3.FabPosition.Center else androidx.compose.material3.FabPosition.End,
         floatingActionButton = {
             if (isSelectionMode) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     contentAlignment = Alignment.Center
                 ) {
                     SelectionBottomBar(
@@ -410,7 +408,7 @@ fun DownloadPageImplV2(
                         onSelectAll = {
                             selectedTasks = if (selectedTasks.size == filteredMap.size) emptySet() else filteredMap.map { it.first }.toSet()
                         },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
                     )
                 }
             } else {
@@ -810,14 +808,12 @@ private fun SelectionBottomBar(
         shadowElevation = 8.dp,
         shape = RoundedCornerShape(16.dp),
         modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .padding(horizontal = 24.dp, vertical = 6.dp)
     ) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.SpaceAround,
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(

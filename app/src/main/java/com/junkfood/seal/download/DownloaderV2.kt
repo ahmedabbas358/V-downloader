@@ -323,35 +323,27 @@ class DownloaderV2Impl(
 
     /** Processes pending tasks, prioritizing downloads. */
     private fun doYourWork() {
-        if (
-            taskStateMap.countRunning() >=
-            PreferenceUtil.getMaxConcurrentDownloads()
-        ) {
-            return
-        }
-
-        taskStateMap
-            .entries
-            .sortedBy { (_, state) ->
-                state.downloadState
-            }
-            .firstOrNull { (_, state) ->
-                state.downloadState == ReadyWithInfo ||
-                    state.downloadState == Idle
-            }
-            ?.let { (task, state) ->
-                when (state.downloadState) {
-                    Idle -> task.prepare()
-
-                    ReadyWithInfo -> task.download()
-
-                    else -> {
-                        throw IllegalStateException(
-                            "Unexpected task state: ${state.downloadState}"
-                        )
-                    }
+        val maxConcurrent = PreferenceUtil.getMaxConcurrentDownloads().coerceAtLeast(1)
+        while (taskStateMap.countRunning() < maxConcurrent) {
+            val pendingEntry = taskStateMap
+                .entries
+                .sortedBy { (_, state) ->
+                    state.downloadState
                 }
+                .firstOrNull { (_, state) ->
+                    state.downloadState == ReadyWithInfo ||
+                        state.downloadState == Idle
+                } ?: break
+
+            val (task, state) = pendingEntry
+            when (state.downloadState) {
+                Idle -> task.prepare()
+
+                ReadyWithInfo -> task.download()
+
+                else -> break
             }
+        }
     }
 
     private fun Task.prepare() {
@@ -419,7 +411,7 @@ class DownloaderV2Impl(
                     if (isSubtitlePlaylist) {
                         subtitleMutex.lock()
                         acquiredSubtitleLock = true
-                        kotlinx.coroutines.delay(3000L)
+                        kotlinx.coroutines.delay(100L)
                     }
                     DownloadUtil
                         .fetchVideoInfoFromUrl(
@@ -498,7 +490,7 @@ class DownloaderV2Impl(
                     if (isSubtitlePlaylist) {
                         subtitleMutex.lock()
                         acquiredSubtitleLock = true
-                        kotlinx.coroutines.delay(3000L)
+                        kotlinx.coroutines.delay(100L)
                     }
 
                     var lastUpdateTime = 0L
@@ -990,12 +982,13 @@ class DownloaderV2Impl(
         for (dir in candidateDirs) {
             if (!dir.exists()) continue
 
-            val files = dir.listFiles()?.filter { file ->
+            val files = dir.walkTopDown().maxDepth(3).filter { file ->
                 file.isFile &&
                 !file.name.endsWith(".part", ignoreCase = true) &&
                 !file.name.endsWith(".ytdl", ignoreCase = true) &&
-                file.length() > (if (isSubtitleOnly) 50L else 1024L)
-            } ?: continue
+                !file.name.endsWith(".tmp", ignoreCase = true) &&
+                file.length() > (if (isSubtitleOnly) 10L else 512L)
+            }.toList()
 
             for (file in files) {
                 val fileName = file.name
