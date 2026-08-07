@@ -8,7 +8,6 @@ import com.junkfood.seal.App
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.snapshots.SnapshotStateMap
-import com.junkfood.seal.App
 import com.junkfood.seal.R
 import com.junkfood.seal.database.objects.DownloadOperation
 import com.junkfood.seal.download.Task.DownloadState
