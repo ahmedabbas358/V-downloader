@@ -39,7 +39,6 @@ jobs:
 
       - name: Setup JDK 21
         uses: actions/setup-java@v4
-
         with:
           distribution: temurin
           java-version: "21"
@@ -67,9 +66,6 @@ jobs:
       ##################################################
 
       - name: Prepare release signing
-
-        if: github.event_name != 'pull_request'
-
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
@@ -87,14 +83,11 @@ jobs:
           echo "$KEYSTORE_BASE64" | base64 --decode > release.keystore
 
 
-
           cat > keystore.properties <<EOF
-
 storeFile=release.keystore
 keyAlias=$KEY_ALIAS
 keyPassword=$KEY_PASSWORD
 storePassword=$STORE_PASSWORD
-
 EOF
 
 
@@ -104,32 +97,25 @@ EOF
       ##################################################
 
       - name: Clean project
-
         run: |
-
           ./gradlew clean --no-daemon
 
 
 
       - name: Build Generic Release APK
-
         run: |
-
-          ./gradlew \
-          assembleGenericRelease \
+          ./gradlew assembleGenericRelease \
           --no-daemon \
           --stacktrace
 
 
 
       ##################################################
-      # Validate Output
+      # Validate APK
       ##################################################
 
       - name: List generated APKs
-
         run: |
-
           find app/build/outputs/apk \
           -type f \
           -name "*.apk"
@@ -137,7 +123,6 @@ EOF
 
 
       - name: Verify APK exists
-
         run: |
 
           APK_COUNT=$(find app/build/outputs/apk \
@@ -159,13 +144,12 @@ EOF
       ##################################################
 
       - name: Verify APK signatures
-
         run: |
 
           for apk in $(find app/build/outputs/apk -name "*.apk")
           do
 
-            echo "Checking $apk"
+            echo "Checking signature: $apk"
 
             $ANDROID_HOME/build-tools/*/apksigner verify "$apk"
 
@@ -178,7 +162,6 @@ EOF
       ##################################################
 
       - name: Upload APK artifacts
-
         uses: actions/upload-artifact@v4
 
         with:
@@ -186,9 +169,7 @@ EOF
           name: V-Downloader-APKs
 
           path: |
-
             app/build/outputs/apk/**/*.apk
-
 
           if-no-files-found: error
 
@@ -199,7 +180,6 @@ EOF
       ##################################################
 
       - name: Create GitHub Release
-
         if: startsWith(github.ref, 'refs/tags/v')
 
         uses: softprops/action-gh-release@v2
@@ -207,7 +187,6 @@ EOF
         with:
 
           files: |
-
             app/build/outputs/apk/**/*.apk
 
           generate_release_notes: true
