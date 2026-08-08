@@ -97,8 +97,14 @@ object PlaylistVerifier {
             }
 
             // Parent directories
-            mainTargetDir.parentFile?.let { parent: File -> if (parent.exists()) candidateDirs.add(parent) }
-            baseDirFile.parentFile?.let { parent: File -> if (parent.exists()) candidateDirs.add(parent) }
+            val parent1 = mainTargetDir.parentFile
+            if (parent1 != null && parent1.exists()) {
+                candidateDirs.add(parent1)
+            }
+            val parent2 = baseDirFile.parentFile
+            if (parent2 != null && parent2.exists()) {
+                candidateDirs.add(parent2)
+            }
 
             // Search public roots
             val searchRoots = listOf(
