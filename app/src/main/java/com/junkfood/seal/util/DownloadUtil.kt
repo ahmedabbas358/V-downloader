@@ -111,8 +111,9 @@ object DownloadUtil {
                 addOption("--flat-playlist")
                 addOption("--dump-single-json")
                 addOption("-o", BASENAME)
-                addOption("-R", "1")
-                addOption("--socket-timeout", "5")
+                addOption("-R", "5")
+                addOption("--socket-timeout", "15")
+                addOption("--extractor-args", "youtube:player_client=android,web,ios")
                 downloadPreferences.run {
                     if (extractAudio) {
                         addOption("-x")
