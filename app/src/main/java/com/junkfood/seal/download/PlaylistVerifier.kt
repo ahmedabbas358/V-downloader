@@ -53,6 +53,7 @@ object PlaylistVerifier {
             val isAudioOnly = preferences.extractAudio
             val playlistTitle = playlistInfo.title ?: "Playlist"
             val cleanPlaylistName = FileUtil.cleanFileName(playlistTitle)
+            val defaultBaseDir = if (isAudioOnly) File(App.audioDownloadDir) else File(App.videoDownloadDir)
 
             // Smart directory resolution
             val userDir = customDirectoryPath?.trim()?.takeIf { it.isNotBlank() }
