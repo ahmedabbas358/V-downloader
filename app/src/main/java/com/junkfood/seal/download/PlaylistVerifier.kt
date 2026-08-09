@@ -80,11 +80,11 @@ object PlaylistVerifier {
                     File(defaultBaseDir, cleanPlaylistName)
                 }
                 else -> {
-                    File(defaultBaseDir)
+                    defaultBaseDir
                 }
             }
 
-            val baseDirFile = File(defaultBaseDir)
+            val baseDirFile = defaultBaseDir
 
             // Gather candidate directories
             val candidateDirs = mutableSetOf<File>()
