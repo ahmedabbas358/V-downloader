@@ -413,13 +413,42 @@ class DownloaderV2Impl(
                         acquiredSubtitleLock = true
                         kotlinx.coroutines.delay(100L)
                     }
-                    DownloadUtil
-                        .fetchVideoInfoFromUrl(
-                            url = fetchUrl,
-                            playlistIndex = playlistIndex,
-                            preferences = task.preferences,
-                            taskKey = task.id
-                        )
+                    var retryCount = 0
+                    val maxRetries = 3
+                    var result: Result<VideoInfo>? = null
+                    
+                    while (retryCount <= maxRetries) {
+                        if (retryCount > 0) {
+                            kotlinx.coroutines.delay((1000L * retryCount).coerceAtMost(3000L))
+                        }
+                        
+                        val fetchRes = DownloadUtil
+                            .fetchVideoInfoFromUrl(
+                                url = fetchUrl,
+                                playlistIndex = playlistIndex,
+                                preferences = task.preferences,
+                                taskKey = task.id
+                            )
+                            
+                        if (fetchRes.isSuccess) {
+                            result = fetchRes
+                            break
+                        } else {
+                            val th = fetchRes.exceptionOrNull()
+                            if (th is YoutubeDL.CanceledException) {
+                                result = fetchRes
+                                break
+                            }
+                            // If we hit the max retries, break and report the error
+                            if (retryCount == maxRetries) {
+                                result = fetchRes
+                                break
+                            }
+                            retryCount++
+                        }
+                    }
+                    
+                    result!!
                         .onSuccess { videoInfo ->
                             task.info = videoInfo
                             task.downloadState = ReadyWithInfo

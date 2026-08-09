@@ -138,6 +138,18 @@ object PlaylistVerifier {
                 }
             }
 
+            // Explicitly add specific subdirectories to bypass potential Scoped Storage walkTopDown limitations
+            if (cleanPlaylistName.isNotEmpty()) {
+                val subtitleDir = File(defaultBaseDir, "[Subtitles] $cleanPlaylistName")
+                if (mainTargetDir.absolutePath != subtitleDir.absolutePath && baseDirFile.absolutePath != subtitleDir.absolutePath) {
+                    candidateDirs.add(subtitleDir)
+                }
+                val videoDir = File(defaultBaseDir, cleanPlaylistName)
+                if (mainTargetDir.absolutePath != videoDir.absolutePath && baseDirFile.absolutePath != videoDir.absolutePath) {
+                    candidateDirs.add(videoDir)
+                }
+            }
+
             // Gather all files recursively (up to 4 subfolder levels deep)
             val allCandidateFiles = candidateDirs.flatMap { dir ->
                 if (!dir.exists()) return@flatMap emptyList<File>()
@@ -274,7 +286,7 @@ object PlaylistVerifier {
 
     private fun cleanFileNameForMatching(fileName: String): String {
         var name = fileName.substringBeforeLast('.')
-        name = name.replace(Regex("\\.(?:[a-z]{2}(?:-[a-zA-Z]{2,4})?|auto|orig)\$", RegexOption.IGNORE_CASE), "")
+        name = name.replace(Regex("\\.(?:[a-z]{2}(?:-[a-zA-Z]{2,4})*|auto|orig)\\$", RegexOption.IGNORE_CASE), "")
         return name
     }
 

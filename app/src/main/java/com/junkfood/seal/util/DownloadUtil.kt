@@ -810,13 +810,18 @@ object DownloadUtil {
                     }
 
                     if (removeMusic) {
-                        val vocalFilter = "highpass=f=90,lowpass=f=7500,dialoguenhance=original_gain=0.05:dialogue_gain=2.5,equalizer=f=1200:width_type=h:width=1800:g=3.5,equalizer=f=180:width_type=h:width=120:g=-8,dynaudnorm=f=120:g=12:peak=0.95"
+                        val vocalFilter = "pan=1c|c0=0.5*c0+0.5*c1,highpass=f=200,lowpass=f=3000,dialoguenhance=original_gain=0.05:dialogue_gain=3.0,dynaudnorm=f=150:g=15:peak=0.9"
+                        val subtitleStreamArg = if (downloadSubtitle && embedSubtitle) "-c:s copy " else ""
                         if (extractAudio) {
+                            // Force ffmpeg conversion to guarantee the filter is applied
+                            if (!useCustomAudioPreset) {
+                                addOption("--audio-format", "mp3")
+                            }
                             addOption("--postprocessor-args", "ExtractAudio:-af $vocalFilter")
                             addOption("--postprocessor-args", "FFmpegExtractAudio:-af $vocalFilter")
-                            addOption("--postprocessor-args", "ffmpeg:-af $vocalFilter")
+                            addOption("--postprocessor-args", "ffmpeg:${subtitleStreamArg}-af $vocalFilter")
                         } else {
-                            addOption("--postprocessor-args", "ffmpeg:-c:v copy -c:a aac -af $vocalFilter")
+                            addOption("--postprocessor-args", "ffmpeg:-c:v copy -c:a aac ${subtitleStreamArg}-af $vocalFilter")
                         }
                     }
 
