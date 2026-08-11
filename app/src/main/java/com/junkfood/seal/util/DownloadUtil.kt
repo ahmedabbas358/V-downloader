@@ -487,13 +487,14 @@ object DownloadUtil {
 
     private fun buildSubLangsOption(rawLang: String): String {
         val trimmed = rawLang.trim()
-        if (trimmed.isEmpty() || trimmed.equals("all", ignoreCase = true)) return "all"
+        if (trimmed.isEmpty() || trimmed.equals("all", ignoreCase = true)) return "ar,en"
         val langs = trimmed.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-        if (langs.isEmpty()) return "all"
+        if (langs.isEmpty()) return "ar,en"
         val expanded = langs.flatMap { l ->
-            listOf(l, ".*-$l", "$l-orig", "$l-[A-Za-z]{2,3}", "$l-Hans", "$l-Hant")
+            if (l.equals("all", ignoreCase = true)) listOf("all")
+            else listOf(l, ".*-$l", "$l-orig", "$l-.*")
         }.distinct().joinToString(",")
-        return "$expanded,ar,en,all"
+        return expanded
     }
 
     private fun YoutubeDLRequest.enableAria2c(): YoutubeDLRequest =
