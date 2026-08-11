@@ -1004,9 +1004,9 @@ class DownloaderV2Impl(
             else -> ""
         }.ifEmpty { task.info?.id.orEmpty() }
 
-        val rawTitle = task.viewState.title.removePrefix("[Subtitle] ").trim()
-        val normalizedTitle = rawTitle.lowercase(java.util.Locale.US).replace(Regex("[^a-z0-9\\u0600-\\u06FF]"), "")
-        val titleWords = normalizedTitle.chunked(6).filter { it.length >= 4 }
+        val rawTitle = task.viewState.title.removePrefix("[Subtitle] ").replace(Regex("^#\\d+\\s*"), "").trim()
+        val normalizedTitle = rawTitle.lowercase(java.util.Locale.US).replace(Regex("[^a-z0-9\\u0600-\\u06FF\\s]"), "").trim()
+        val titleWords = normalizedTitle.split("\\s+".toRegex()).filter { it.length >= 2 }
 
         for (dir in candidateDirs) {
             if (!dir.exists()) continue
@@ -1021,7 +1021,7 @@ class DownloaderV2Impl(
 
             for (file in files) {
                 val fileName = file.name
-                val normalizedFileName = fileName.lowercase(java.util.Locale.US).replace(Regex("[^a-z0-9\\u0600-\\u06FF]"), "")
+                val normalizedFileName = fileName.lowercase(java.util.Locale.US).replace(Regex("[^a-z0-9\\u0600-\\u06FF\\s]"), "").trim()
 
                 var matches = false
 
@@ -1032,19 +1032,35 @@ class DownloaderV2Impl(
 
                 // 2. Playlist index regex matching (001 - , 01. , [001], 1_)
                 if (!matches && playlistIndex > 0) {
-                    val indexRegex = Regex("^(?:0*${playlistIndex}[ \\-\\_\\.\\]]|\\[0*${playlistIndex}\\])")
-                    if (indexRegex.containsMatchIn(fileName)) {
-                        matches = true
+                    val formattedIndex3 = String.format(java.util.Locale.US, "%03d", playlistIndex)
+                    val formattedIndex2 = String.format(java.util.Locale.US, "%02d", playlistIndex)
+                    val indexMatches = fileName.contains(formattedIndex3) ||
+                            fileName.contains(formattedIndex2) ||
+                            Regex("(?:^|[\\[\\(\\_\\-\\s#])0*${playlistIndex}(?:[\\s\\-\\_\\.\\]\\)]|$)").containsMatchIn(fileName)
+                            
+                    if (indexMatches) {
+                        if (titleWords.isNotEmpty()) {
+                            val matchCount = titleWords.count { normalizedFileName.contains(it) }
+                            if (matchCount >= 1) {
+                                matches = true
+                            }
+                        } else {
+                            matches = true
+                        }
                     }
                 }
 
                 // 3. Normalized Title & Token matching
-                if (!matches && normalizedTitle.isNotEmpty() && normalizedFileName.contains(normalizedTitle)) {
+                if (!matches && normalizedTitle.length >= 4 && normalizedFileName.contains(normalizedTitle)) {
                     matches = true
                 }
 
-                if (!matches && titleWords.isNotEmpty() && titleWords.all { normalizedFileName.contains(it) }) {
-                    matches = true
+                if (!matches && titleWords.isNotEmpty()) {
+                    val matchedTokenCount = titleWords.count { normalizedFileName.contains(it) }
+                    val required = (titleWords.size * 0.85).toInt().coerceAtLeast(1)
+                    if (matchedTokenCount >= required) {
+                        matches = true
+                    }
                 }
 
                 if (!matches) continue
