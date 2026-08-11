@@ -937,7 +937,7 @@ object DownloadUtil {
                         if (splitByChapter) {
                             OUTPUT_TEMPLATE_SPLIT
                         } else if (videoClips.isEmpty()) {
-                            if ((downloadPlaylist || isFallback) && (playlistNumbering || (skipDownload && downloadSubtitle)) && playlistItem != 0) {
+                            if ((downloadPlaylist || isFallback || playlistItem != 0) && (playlistNumbering || (skipDownload && downloadSubtitle)) && playlistItem != 0) {
                                 val prefix = String.format(java.util.Locale.US, "%03d - ", playlistItem)
                                 val fileNameStart = outputTemplate.lastIndexOf('/').takeIf { it >= 0 }?.plus(1) ?: 0
                                 outputTemplate.replaceRange(fileNameStart, fileNameStart, prefix)

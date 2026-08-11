@@ -109,15 +109,19 @@ object PlaylistVerifier {
             // Gather candidate directories
             val candidateDirs = mutableSetOf<File>()
             candidateDirs.add(mainTargetDir)
-            candidateDirs.add(baseDirFile)
-            candidateDirs.addAll(searchRoots)
 
-            if (cleanPlaylistName.isNotEmpty()) {
-                candidateDirs.add(File(baseDirFile, "[Subtitles] $cleanPlaylistName"))
-                candidateDirs.add(File(baseDirFile, cleanPlaylistName))
-                searchRoots.forEach { root ->
-                    candidateDirs.add(File(root, "[Subtitles] $cleanPlaylistName"))
-                    candidateDirs.add(File(root, cleanPlaylistName))
+            if (mainTargetDir.exists() && mainTargetDir.isDirectory) {
+                // If main target playlist directory exists, focus search strictly on it
+                mainTargetDir.walkTopDown().maxDepth(3).filter { it.isDirectory }.forEach { candidateDirs.add(it) }
+            } else {
+                candidateDirs.add(baseDirFile)
+                if (cleanPlaylistName.isNotEmpty()) {
+                    candidateDirs.add(File(baseDirFile, "[Subtitles] $cleanPlaylistName"))
+                    candidateDirs.add(File(baseDirFile, cleanPlaylistName))
+                    searchRoots.forEach { root ->
+                        candidateDirs.add(File(root, "[Subtitles] $cleanPlaylistName"))
+                        candidateDirs.add(File(root, cleanPlaylistName))
+                    }
                 }
             }
 
@@ -214,7 +218,9 @@ object PlaylistVerifier {
 
                 val rawTitleClean = entryTitle.removePrefix("[Subtitle] ").replace(Regex("^#\\d+\\s*"), "").trim()
                 val normalizedTitle = normalizeText(rawTitleClean)
+                val stopWords = setOf("the", "and", "or", "for", "in", "on", "at", "to", "a", "an", "is", "of", "with", "this", "that", "from", "by", "video", "audio", "hd", "mp4", "m4a", "ep", "part", "vol", "ch", "chapter", "episode", "full", "official", "arabic", "english")
                 val titleTokens = normalizedTitle.split(" ").filter { it.length >= 2 }
+                val significantTokens = titleTokens.filter { it.length >= 3 && it !in stopWords }
 
                 val matchFound = allCandidateFiles.any { file ->
                     val fileName = file.name
@@ -247,8 +253,9 @@ object PlaylistVerifier {
                                 Regex("(?:^|[\\[\\(\\_\\-\\s#])0*${index}(?:[\\s\\-\\_\\.\\]\\)]|$)").containsMatchIn(fileName)
 
                         if (indexMatches) {
-                            if (titleTokens.isNotEmpty()) {
-                                val matchCount = titleTokens.count { normalizedFileName.contains(it) }
+                            val tokensToCheck = if (significantTokens.isNotEmpty()) significantTokens else titleTokens
+                            if (tokensToCheck.isNotEmpty()) {
+                                val matchCount = tokensToCheck.count { normalizedFileName.contains(it) }
                                 if (matchCount >= 1) {
                                     isMatched = true
                                 }
@@ -265,12 +272,15 @@ object PlaylistVerifier {
                         }
                     }
 
-                    // Strategy 4: Fuzzy Word Token Match (>= 85% words match)
-                    if (!isMatched && titleTokens.isNotEmpty()) {
-                        val matchedTokenCount = titleTokens.count { token -> normalizedFileName.contains(token) }
-                        val required = (titleTokens.size * 0.85).toInt().coerceAtLeast(1)
-                        if (matchedTokenCount >= required) {
-                            isMatched = true
+                    // Strategy 4: Fuzzy Word Token Match (>= 75% significant words match)
+                    if (!isMatched) {
+                        val tokensToCheck = if (significantTokens.isNotEmpty()) significantTokens else titleTokens
+                        if (tokensToCheck.isNotEmpty()) {
+                            val matchedTokenCount = tokensToCheck.count { token -> normalizedFileName.contains(token) }
+                            val required = (tokensToCheck.size * 0.75).toInt().coerceAtLeast(1)
+                            if (matchedTokenCount >= required) {
+                                isMatched = true
+                            }
                         }
                     }
 
