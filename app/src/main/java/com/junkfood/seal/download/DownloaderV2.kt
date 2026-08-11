@@ -533,40 +533,38 @@ class DownloaderV2Impl(
                             skipDownload = task.preferences.skipDownload,
                             isFallback = (task.type as? TypeInfo.Playlist)?.isFallback ?: false,
                             fallbackPlaylistTitle = (task.type as? TypeInfo.Playlist)?.playlistTitle ?: "",
-                            progressCallback = {
-                                    progressPercentage,
-                                    _,
-                                    text ->
+                            progressCallback = { progressPercentage, _, text ->
+                                val isMerging = text.contains("Merger", ignoreCase = true) ||
+                                        text.contains("ffmpeg", ignoreCase = true) ||
+                                        text.contains("Postprocessor", ignoreCase = true) ||
+                                        text.contains("Merging", ignoreCase = true) ||
+                                        text.contains("ExtractAudio", ignoreCase = true)
+
+                                val effectiveProgress = when {
+                                    isMerging -> 0.95f
+                                    else -> (progressPercentage / 100f).coerceIn(0f, 0.99f)
+                                }
+                                val effectiveText = if (isMerging) "جاري دمج الصوت والفيديو..." else text
 
                                 val currentTime = System.currentTimeMillis()
-                                if (currentTime - lastUpdateTime > 250L || progressPercentage == 100f) {
+                                if (currentTime - lastUpdateTime > 250L || isMerging) {
                                     lastUpdateTime = currentTime
-                                    val progress =
-                                        progressPercentage / 100f
 
-                                    when (
-                                        val previousState =
-                                            task.downloadState
-                                    ) {
+                                    when (val previousState = task.downloadState) {
                                         is Running -> {
-                                            task.downloadState =
-                                                previousState.copy(
-                                                    progress = progress,
-                                                    progressText = text
-                                                )
+                                            task.downloadState = previousState.copy(
+                                                progress = effectiveProgress,
+                                                progressText = effectiveText
+                                            )
 
                                             NotificationUtil.notifyProgress(
-                                                notificationId =
-                                                    task.notificationId,
-                                                progress =
-                                                    progressPercentage.toInt(),
-                                                text = text,
-                                                title =
-                                                    task.viewState.title,
+                                                notificationId = task.notificationId,
+                                                progress = (effectiveProgress * 100).toInt(),
+                                                text = effectiveText,
+                                                title = task.viewState.title,
                                                 taskId = task.id
                                             )
                                         }
-
                                         else -> Unit
                                     }
                                 }

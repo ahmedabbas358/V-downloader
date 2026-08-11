@@ -151,7 +151,11 @@ fun IconDescription(modifier: Modifier = Modifier, icon: ImageVector, descriptio
 @Composable
 fun FirstRunGuide(onFinished: () -> Unit) {
     var step by rememberSaveable { mutableIntStateOf(0) }
-    var selectedLocale by remember { mutableStateOf<Locale?>(null) }
+    val currentLocale = remember {
+        val locales = AppCompatDelegate.getApplicationLocales()
+        if (!locales.isEmpty) locales.get(0) else PreferenceUtil.getLocaleFromPreference()
+    }
+    var selectedLocale by rememberSaveable { mutableStateOf<Locale?>(currentLocale) }
     val languageOptions =
         remember {
             listOf(null, Locale("ar"), Locale("en", "US"), Locale.getDefault())

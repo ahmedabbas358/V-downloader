@@ -454,9 +454,12 @@ fun ActionSheetInfo(modifier: Modifier = Modifier, task: Task, viewState: ViewSt
                 },
             )
 
+            val duration = info.duration ?: 0.0
+
             videoFormats?.forEachIndexed { _index, fmt ->
                 val index = _index + 1
-                val fileSizeText = (fmt.fileSize ?: fmt.fileSizeApprox).toFileSizeText()
+                val estimatedSize = fmt.fileSize ?: fmt.fileSizeApprox ?: (fmt.effectiveBitrate.takeIf { it > 0.0 }?.times(duration * 125))
+                val fileSizeText = estimatedSize.toFileSizeText()
                 val bitRateText = fmt.vbr.toBitrateText()
                 val codecText = fmt.vcodec?.substringBefore(delimiter = ".") ?: ""
 
@@ -484,7 +487,8 @@ fun ActionSheetInfo(modifier: Modifier = Modifier, task: Task, viewState: ViewSt
 
             audioFormats.forEachIndexed { _index, fmt ->
                 val index = _index + 1
-                val fileSizeText = (fmt.fileSize ?: fmt.fileSizeApprox).toFileSizeText()
+                val estimatedSize = fmt.fileSize ?: fmt.fileSizeApprox ?: (fmt.effectiveBitrate.takeIf { it > 0.0 }?.times(duration * 125))
+                val fileSizeText = estimatedSize.toFileSizeText()
                 val bitRateText = fmt.abr.toBitrateText()
                 val codecText = fmt.acodec?.substringBefore(delimiter = ".") ?: ""
 

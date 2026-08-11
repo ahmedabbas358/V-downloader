@@ -827,10 +827,9 @@ object DownloadUtil {
                     }
 
                     if (removeMusic) {
-                        val vocalFilter = "pan=1c|c0=0.5*c0+0.5*c1,highpass=f=200,lowpass=f=3000,dialoguenhance=original_gain=0.05:dialogue_gain=3.0,dynaudnorm=f=150:g=15:peak=0.9"
+                        val vocalFilter = "highpass=f=200,lowpass=f=3000,dynaudnorm=f=150:g=15:peak=0.9"
                         val subtitleStreamArg = if (downloadSubtitle && embedSubtitle) "-c:s copy " else ""
                         if (extractAudio) {
-                            // Force ffmpeg conversion to guarantee the filter is applied
                             if (!useCustomAudioPreset) {
                                 addOption("--audio-format", "mp3")
                             }
@@ -848,8 +847,8 @@ object DownloadUtil {
                     addOption("--fragment-retries", "10")
                     addOption("--file-access-retries", "10")
                     
-                    // Bypass YouTube's recent 403 blocks on audio streams by prioritizing ios/tv clients
-                    addOption("--extractor-args", "youtube:player_client=ios,tv,web")
+                    // Bypass YouTube's recent 403 blocks on audio streams without triggering PO Token errors
+                    addOption("--extractor-args", "youtube:player_client=mweb,web,tv")
                     
                     addOption("--ignore-errors")
 
