@@ -847,6 +847,10 @@ object DownloadUtil {
                     addOption("--retries", "10")
                     addOption("--fragment-retries", "10")
                     addOption("--file-access-retries", "10")
+                    
+                    // Bypass YouTube's recent 403 blocks on audio streams by prioritizing ios/tv clients
+                    addOption("--extractor-args", "youtube:player_client=ios,tv,web")
+                    
                     addOption("--ignore-errors")
 
 
