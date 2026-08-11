@@ -483,7 +483,8 @@ fun PlaylistSyncDialog(
                                 val itemsWithQuality = result.missingItems.map { item ->
                                     item.copy(
                                         preferences = effectivePrefs.copy(
-                                            commandDirectory = customFolderPath.ifBlank { effectivePrefs.commandDirectory }
+                                            commandDirectory = customFolderPath.ifBlank { result.targetDirectory },
+                                            subdirectoryPlaylistTitle = false
                                         )
                                     )
                                 }

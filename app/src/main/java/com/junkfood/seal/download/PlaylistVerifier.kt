@@ -143,7 +143,7 @@ object PlaylistVerifier {
                                 candidateDirs.add(dir)
                             } else if (playlistTokens.isNotEmpty()) {
                                 val matchCount = playlistTokens.count { dirNameNorm.contains(it) }
-                                if (matchCount >= (playlistTokens.size * 0.4).toInt().coerceAtLeast(1)) {
+                                if (matchCount >= (playlistTokens.size * 0.65).toInt().coerceAtLeast(1)) {
                                     candidateDirs.add(dir)
                                 }
                             }
@@ -265,10 +265,10 @@ object PlaylistVerifier {
                         }
                     }
 
-                    // Strategy 4: Fuzzy Word Token Match (>= 40% words match)
+                    // Strategy 4: Fuzzy Word Token Match (>= 85% words match)
                     if (!isMatched && titleTokens.isNotEmpty()) {
                         val matchedTokenCount = titleTokens.count { token -> normalizedFileName.contains(token) }
-                        val required = (titleTokens.size * 0.4).toInt().coerceAtLeast(1)
+                        val required = (titleTokens.size * 0.85).toInt().coerceAtLeast(1)
                         if (matchedTokenCount >= required) {
                             isMatched = true
                         }
