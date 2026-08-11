@@ -368,13 +368,13 @@ private fun FormatPageImpl(
             .sortedWith(
                 compareByDescending<Format> { it.height ?: 0 }
                     .thenByDescending { it.fps ?: 0.0 }
-                    .thenByDescending { it.effectiveBitrate }
+                    .thenByDescending { it.tbr ?: it.vbr ?: it.abr ?: 0.0 }
             )
     }
     val audioOnlyFormats = remember(videoInfo.formats) {
         videoInfo.formats.orEmpty()
             .filter { it.isAudioOnly() && it.containsAudio() }
-            .sortedByDescending { it.effectiveBitrate }
+            .sortedByDescending { it.tbr ?: it.abr ?: 0.0 }
     }
 
     val duration = videoInfo.duration ?: 0.0
