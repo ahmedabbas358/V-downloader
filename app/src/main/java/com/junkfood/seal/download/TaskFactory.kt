@@ -60,7 +60,7 @@ object TaskFactory {
                 .run {
                     copy(
                         formatIdString = if (skipDownload) "" else formatId,
-                        videoClips = if (skipDownload) emptyList() else videoClips,
+                        videoClips = if (skipDownload) emptyList() else videoClips.filter { it.end > it.start },
                         splitByChapter = if (skipDownload) false else splitByChapter,
                         newTitle = newTitle,
                         mergeAudioStream = if (skipDownload) false else mergeAudioStream,

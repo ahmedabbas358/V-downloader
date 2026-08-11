@@ -182,19 +182,27 @@ fun FormatPage(
             
             val fallbackSpec = when {
                 isAudioOnlyPlaylist -> "bestaudio/best"
-                maxSelectedHeight != null && maxSelectedHeight > 0 -> "bestvideo[height<=$maxSelectedHeight]+bestaudio/best"
+                maxSelectedHeight != null && maxSelectedHeight > 0 -> "bestvideo[height<=$maxSelectedHeight]+bestaudio/bestvideo+bestaudio/best"
                 hasVideoOnlyFormat -> "bestvideo+bestaudio/best"
                 else -> "best"
             }
 
             val formatId = if (rawFormatId.isNotEmpty()) {
-                if (hasVideoOnlyFormat && audioOnlyFormats.isEmpty()) {
+                if (isAudioSelected) {
+                    audioOnlyFormats.joinToString("+") { it.formatId.toString() }.ifEmpty { rawFormatId }
+                } else if (hasVideoOnlyFormat && audioOnlyFormats.isEmpty()) {
                     "$rawFormatId+bestaudio/$fallbackSpec"
                 } else {
                     "$rawFormatId/$fallbackSpec"
                 }
             } else {
                 fallbackSpec
+            }
+
+            val playlistFormatId = when {
+                isAudioOnlyPlaylist -> "bestaudio/best"
+                maxSelectedHeight != null && maxSelectedHeight > 0 -> "bestvideo[height<=$maxSelectedHeight]+bestaudio/bestvideo+bestaudio/best"
+                else -> fallbackSpec
             }
 
             if (playlistTasks != null) {
@@ -204,14 +212,16 @@ fun FormatPage(
                     val updatedTask = taskWithState.task.copy(
                         preferences = taskWithState.task.preferences.copy(
                             skipDownload = isSubOnly,
-                            formatIdString = if (isSubOnly) "" else formatId,
+                            formatIdString = if (isSubOnly) "" else playlistFormatId,
                             extractAudio = if (isSubOnly) false else (taskWithState.task.preferences.extractAudio || isAudioOnlyPlaylist),
                             mergeAudioStream = if (isSubOnly) false else mergeAudioStreamPlaylist,
                             downloadSubtitle = true,
                             convertSubtitle = subtitleFormat,
                             autoSubtitle = if (hasSelectedSubs) selectedAutoCaptions.isNotEmpty() else true,
                             autoTranslatedSubtitles = true,
-                            subtitleLanguage = if (hasSelectedSubs) (selectedSubtitles + selectedAutoCaptions).joinToString(",") else taskWithState.task.preferences.subtitleLanguage
+                            subtitleLanguage = if (hasSelectedSubs) (selectedSubtitles + selectedAutoCaptions).joinToString(",") else taskWithState.task.preferences.subtitleLanguage,
+                            splitByChapter = if (isSubOnly) false else splitByChapter,
+                            newTitle = newTitle
                         )
                     )
                     downloader.enqueue(taskWithState.copy(task = updatedTask))
