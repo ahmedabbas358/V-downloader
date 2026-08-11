@@ -107,18 +107,13 @@ object DownloadUtil {
             ToastUtil.makeToastSuspend(context.getString(R.string.fetching_playlist_info))
             val request = YoutubeDLRequest(playlistURL)
             with(request) {
-                //            addOption("--compat-options", "no-youtube-unavailable-videos")
                 addOption("--flat-playlist")
                 addOption("--dump-single-json")
                 addOption("-o", BASENAME)
                 addOption("-R", "5")
                 addOption("--socket-timeout", "15")
-                addOption("--extractor-args", "youtube:player_client=android,web,ios")
+
                 downloadPreferences.run {
-                    if (extractAudio) {
-                        addOption("-x")
-                    }
-                    applyFormatSorter(this, toFormatSorter())
                     if (proxy) {
                         enableProxy(proxyUrl)
                     }
@@ -149,7 +144,20 @@ object DownloadUtil {
         request.runCatching {
             val response: YoutubeDLResponse =
                 YoutubeDL.getInstance().execute(request, taskKey, null)
-            jsonFormat.decodeFromString(response.out)
+            val jsonLines = response.out.lines()
+                .map { it.trim() }
+                .filter { it.startsWith("{") && it.endsWith("}") }
+            var decodedInfo: VideoInfo? = null
+            for (line in jsonLines) {
+                try {
+                    val candidate = jsonFormat.decodeFromString<VideoInfo>(line)
+                    if (!candidate.id.isNullOrEmpty() || !candidate.title.isNullOrEmpty()) {
+                        decodedInfo = candidate
+                        break
+                    }
+                } catch (_: Exception) { }
+            }
+            decodedInfo ?: jsonFormat.decodeFromString(response.out.trim())
         }
 
     @CheckResult
@@ -166,10 +174,6 @@ object DownloadUtil {
                     if (restrictFilenames) {
                         addOption("--restrict-filenames")
                     }
-                    if (extractAudio) {
-                        addOption("-x")
-                    }
-                    applyFormatSorter(this@with, toFormatSorter())
                     if (cookies) {
                         enableCookies(userAgentString)
                     }
@@ -190,10 +194,23 @@ object DownloadUtil {
                     }
                     addOption("-R", "5")
                     addOption("--socket-timeout", "15")
-                    addOption("--extractor-args", "youtube:player_client=android,web,ios")
+
                 }
-            val result = getVideoInfo(request, taskKey)
+            var result = getVideoInfo(request, taskKey)
             
+            if (result.isFailure && playlistIndex != null) {
+                val fallbackRequest = YoutubeDLRequest(url).apply {
+                    addOption("--playlist-items", playlistIndex)
+                    addOption("--dump-json")
+                    addOption("-R", "3")
+                    addOption("--socket-timeout", "20")
+                }
+                val retryResult = getVideoInfo(fallbackRequest, taskKey)
+                if (retryResult.isSuccess) {
+                    result = retryResult
+                }
+            }
+
             if (result.isFailure) {
                 if (url.contains("instagram.com", ignoreCase = true) || url.contains("tiktok.com", ignoreCase = true)) {
                     val cobaltUrl = kotlinx.coroutines.runBlocking { com.junkfood.seal.util.CobaltEngine.fetchVideoUrl(url) }
@@ -831,7 +848,7 @@ object DownloadUtil {
                     addOption("--fragment-retries", "10")
                     addOption("--file-access-retries", "10")
                     addOption("--ignore-errors")
-                    addOption("--extractor-args", "youtube:player_client=android,web,ios")
+
 
                     if (playlistItem != 0) {
                         addOption("--no-playlist")
