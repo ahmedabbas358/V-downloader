@@ -144,8 +144,10 @@ class DownloaderV2Impl(
 
     private val subtitleMutex = kotlinx.coroutines.sync.Mutex()
 
+    @OptIn(kotlinx.coroutines.FlowPreview::class)
     private val snapshotFlow =
         snapshotFlow { taskStateMap.toMap() }
+            .kotlinx.coroutines.flow.sample(500)
 
     override fun prioritize(task: Task) {
         priorityTaskIds.add(task.id)
@@ -403,7 +405,7 @@ class DownloaderV2Impl(
     }
 
     private fun Task.prepare() {
-        check(downloadState == Idle)
+        if (downloadState != Idle) return
 
         // Auto-skip if the file already exists on disk
         val existingPath = checkExistingFile(this)
@@ -436,7 +438,7 @@ class DownloaderV2Impl(
     }
 
     private fun Task.fetchInfo() {
-        check(downloadState == Idle)
+        if (downloadState != Idle) return
 
         val task = this
         val taskInfo = task.type
@@ -567,7 +569,7 @@ class DownloaderV2Impl(
     }
 
     private fun Task.download() {
-        check(downloadState == ReadyWithInfo && info != null)
+        if (downloadState != ReadyWithInfo || info == null) return
 
         // Keep an explicit reference because this Task is used
         // inside nested Result callbacks.
@@ -682,7 +684,7 @@ class DownloaderV2Impl(
                                 }
                                 com.junkfood.seal.util.MusicRemovalEngine.processFiles(
                                     filePaths = pathList,
-                                    isAudioOnly = task.preferences.extractAudio || (task.info?.vcodec == "none" && task.info?.formats.orEmpty().none { it.containsVideo() }),
+                                    isAudioOnly = DownloadUtil.isAudioOnlyDownload(task.preferences, task.info ?: VideoInfo(id = task.id)),
                                     onProgress = { percent, msg ->
                                         when (val previousState = task.downloadState) {
                                             is Running -> {
@@ -784,15 +786,19 @@ class DownloaderV2Impl(
                                 return@onFailure
                             }
 
-                            val retries = (retryCountMap[task.id] ?: 0) + 1
-                            retryCountMap[task.id] = retries
+                            if (throwable is IllegalStateException && throwable.message?.contains("FFmpeg", ignoreCase = true) == true) {
+                                // Skip retries for missing FFmpeg
+                            } else {
+                                val retries = (retryCountMap[task.id] ?: 0) + 1
+                                retryCountMap[task.id] = retries
 
-                            if (retries < 3) {
-                                val oldState = taskStateMap[task]
-                                if (oldState != null) {
-                                    taskStateMap[task] = oldState.copy(downloadState = Idle)
-                                    doYourWork()
-                                    return@onFailure
+                                if (retries < 3) {
+                                    val oldState = taskStateMap[task]
+                                    if (oldState != null) {
+                                        taskStateMap[task] = oldState.copy(downloadState = Idle)
+                                        doYourWork()
+                                        return@onFailure
+                                    }
                                 }
                             }
 
@@ -980,8 +986,7 @@ class DownloaderV2Impl(
      * @see Task.TypeInfo.CustomCommand
      */
     private fun Task.execute() {
-        check(downloadState == Idle)
-        check(type is TypeInfo.CustomCommand)
+        if (downloadState != Idle || type !is TypeInfo.CustomCommand) return
 
         val task = this
         val template = type.template
@@ -1083,11 +1088,9 @@ class DownloaderV2Impl(
 
     private fun checkExistingFile(task: Task): String? {
         val preferences = task.preferences
-        val isSubtitleOnly = (preferences.skipDownload && preferences.downloadSubtitle) || task.viewState.title.startsWith("[Subtitle]")
+        val isSubtitleOnly = preferences.skipDownload && preferences.downloadSubtitle
         val playlistType = task.type as? TypeInfo.Playlist
-        val playlistTitle = playlistType?.playlistTitle.orEmpty()
-        val playlistIndex = playlistType?.index ?: 0
-        val cleanPlaylistName = FileUtil.cleanFileName(playlistTitle)
+        val cleanPlaylistName = FileUtil.cleanFileName(playlistType?.playlistTitle.orEmpty())
 
         val baseDir = if (preferences.extractAudio) {
             if (preferences.privateDirectory) appContext.filesDir.absolutePath else getAudioDownloadDir(appContext)
@@ -1096,102 +1099,52 @@ class DownloaderV2Impl(
         }
 
         val candidateDirs = mutableListOf<java.io.File>()
-        val mainTargetDir = if (isSubtitleOnly && cleanPlaylistName.isNotEmpty()) {
-            java.io.File(baseDir, "[Subtitles] $cleanPlaylistName")
+        if (isSubtitleOnly && cleanPlaylistName.isNotEmpty()) {
+            candidateDirs.add(java.io.File(baseDir, "[Subtitles] $cleanPlaylistName"))
         } else if (preferences.subdirectoryPlaylistTitle && cleanPlaylistName.isNotEmpty()) {
-            java.io.File(baseDir, cleanPlaylistName)
-        } else {
-            java.io.File(baseDir)
+            candidateDirs.add(java.io.File(baseDir, cleanPlaylistName))
         }
-
-        candidateDirs.add(mainTargetDir)
-        val baseDirFile = java.io.File(baseDir)
-        if (baseDirFile.exists() && !candidateDirs.contains(baseDirFile)) {
-            candidateDirs.add(baseDirFile)
-        }
-        if (cleanPlaylistName.isNotEmpty()) {
-            val subDir = java.io.File(baseDir, "[Subtitles] $cleanPlaylistName")
-            if (subDir.exists() && !candidateDirs.contains(subDir)) {
-                candidateDirs.add(subDir)
-            }
-            val playlistDir = java.io.File(baseDir, cleanPlaylistName)
-            if (playlistDir.exists() && !candidateDirs.contains(playlistDir)) {
-                candidateDirs.add(playlistDir)
-            }
-        }
+        candidateDirs.add(java.io.File(baseDir))
 
         val rawUrl = task.url.ifEmpty { task.viewState.url }
         val extractedId = when {
             rawUrl.contains("v=") -> rawUrl.substringAfter("v=").substringBefore("&").substringBefore("?")
             rawUrl.contains("youtu.be/") -> rawUrl.substringAfter("youtu.be/").substringBefore("?").substringBefore("&")
+            rawUrl.contains("/shorts/") -> rawUrl.substringAfter("/shorts/").substringBefore("?").substringBefore("&")
             else -> ""
         }.ifEmpty { task.info?.id.orEmpty() }
 
         val rawTitle = task.viewState.title.removePrefix("[Subtitle] ").replace(Regex("^#\\d+\\s*"), "").trim()
-        val normalizedTitle = rawTitle.lowercase(java.util.Locale.US).replace(Regex("[^a-z0-9\\u0600-\\u06FF\\s]"), "").trim()
-        val titleWords = normalizedTitle.split("\\s+".toRegex()).filter { it.length >= 2 }
+        val isUrlTitle = rawTitle.startsWith("http://", ignoreCase = true) || rawTitle.startsWith("https://", ignoreCase = true)
+        val cleanTitleStr = if (!isUrlTitle) FileUtil.cleanFileName(rawTitle) else ""
 
         for (dir in candidateDirs) {
-            if (!dir.exists()) continue
+            if (!dir.exists() || !dir.isDirectory) continue
 
-            val files = dir.walkTopDown().maxDepth(3).filter { file ->
+            val files = dir.walkTopDown().maxDepth(2).filter { file ->
                 file.isFile &&
                 !file.name.endsWith(".part", ignoreCase = true) &&
                 !file.name.endsWith(".ytdl", ignoreCase = true) &&
                 !file.name.endsWith(".tmp", ignoreCase = true) &&
-                file.length() > (if (isSubtitleOnly) 10L else 512L)
+                file.length() > (if (isSubtitleOnly) 10L else 1024L)
             }.toList()
 
             for (file in files) {
                 val fileName = file.name
-                val normalizedFileName = fileName.lowercase(java.util.Locale.US).replace(Regex("[^a-z0-9\\u0600-\\u06FF\\s]"), "").trim()
+                val isSubFile = fileName.contains(Regex(SUBTITLE_REGEX))
 
-                var matches = false
+                if (isSubtitleOnly && !isSubFile) continue
+                if (!isSubtitleOnly && isSubFile) continue
+                if (!isSubtitleOnly && fileName.contains(Regex(THUMBNAIL_REGEX))) continue
 
-                // 1. Exact Video ID match
-                if (extractedId.length >= 4 && (fileName.contains(extractedId) || normalizedFileName.contains(extractedId.lowercase()))) {
-                    matches = true
+                // 1. Exact Video ID match (minimum 5 chars)
+                if (extractedId.length >= 5 && fileName.contains(extractedId)) {
+                    return file.absolutePath
                 }
 
-                // 2. Playlist index regex matching (001 - , 01. , [001], 1_)
-                if (!matches && playlistIndex > 0) {
-                    val formattedIndex3 = String.format(java.util.Locale.US, "%03d", playlistIndex)
-                    val formattedIndex2 = String.format(java.util.Locale.US, "%02d", playlistIndex)
-                    val indexMatches = fileName.contains(formattedIndex3) ||
-                            fileName.contains(formattedIndex2) ||
-                            Regex("(?:^|[\\[\\(\\_\\-\\s#])0*${playlistIndex}(?:[\\s\\-\\_\\.\\]\\)]|$)").containsMatchIn(fileName)
-                            
-                    if (indexMatches) {
-                        if (titleWords.isNotEmpty()) {
-                            val matchCount = titleWords.count { normalizedFileName.contains(it) }
-                            if (matchCount >= 1) {
-                                matches = true
-                            }
-                        } else {
-                            matches = true
-                        }
-                    }
-                }
-
-                // 3. Normalized Title & Token matching
-                if (!matches && normalizedTitle.length >= 4 && normalizedFileName.contains(normalizedTitle)) {
-                    matches = true
-                }
-
-                if (!matches && titleWords.isNotEmpty()) {
-                    val matchedTokenCount = titleWords.count { normalizedFileName.contains(it) }
-                    val required = (titleWords.size * 0.85).toInt().coerceAtLeast(1)
-                    if (matchedTokenCount >= required) {
-                        matches = true
-                    }
-                }
-
-                if (!matches) continue
-
-                if (isSubtitleOnly) {
-                    if (fileName.contains(Regex(SUBTITLE_REGEX))) return file.absolutePath
-                } else {
-                    if (!fileName.contains(Regex(THUMBNAIL_REGEX))) return file.absolutePath
+                // 2. Strict cleaned title match (only if not a raw URL)
+                if (cleanTitleStr.length >= 6 && fileName.contains(cleanTitleStr)) {
+                    return file.absolutePath
                 }
             }
         }

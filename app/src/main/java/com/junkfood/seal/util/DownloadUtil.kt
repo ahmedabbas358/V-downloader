@@ -11,13 +11,13 @@ import com.junkfood.seal.App
 import com.junkfood.seal.App.Companion.audioDownloadDir
 import com.junkfood.seal.App.Companion.context
 import com.junkfood.seal.App.Companion.videoDownloadDir
-import com.junkfood.seal.Downloader
-import com.junkfood.seal.Downloader.onProcessEnded
-import com.junkfood.seal.Downloader.onProcessStarted
-import com.junkfood.seal.Downloader.onTaskEnded
-import com.junkfood.seal.Downloader.onTaskError
-import com.junkfood.seal.Downloader.onTaskStarted
-import com.junkfood.seal.Downloader.toNotificationId
+import com.junkfood.seal.CustomCommandRunner
+import com.junkfood.seal.CustomCommandRunner.onProcessEnded
+import com.junkfood.seal.CustomCommandRunner.onProcessStarted
+import com.junkfood.seal.CustomCommandRunner.onTaskEnded
+import com.junkfood.seal.CustomCommandRunner.onTaskError
+import com.junkfood.seal.CustomCommandRunner.onTaskStarted
+import com.junkfood.seal.CustomCommandRunner.toNotificationId
 import com.junkfood.seal.R
 import com.junkfood.seal.database.objects.CommandTemplate
 import com.junkfood.seal.database.objects.DownloadedVideoInfo
@@ -112,6 +112,8 @@ object DownloadUtil {
                 addOption("-o", BASENAME)
                 addOption("-R", "3")
                 addOption("--socket-timeout", "20")
+                addOption("--extractor-args", "youtube:player_client=android_creator,android,web,tv_embedded,ios")
+                addOption("--no-check-certificates")
                 downloadPreferences.run {
                     if (extractAudio) {
                         addOption("-x")
@@ -188,6 +190,8 @@ object DownloadUtil {
                     }
                     addOption("-R", "3")
                     addOption("--socket-timeout", "20")
+                    addOption("--extractor-args", "youtube:player_client=android_creator,android,web,tv_embedded,ios")
+                    addOption("--no-check-certificates")
                 }
             val result = getVideoInfo(request, taskKey)
             
@@ -471,7 +475,7 @@ object DownloadUtil {
         val langs = trimmed.split(",").map { it.trim() }.filter { it.isNotEmpty() }
         if (langs.isEmpty()) return "all"
         return langs.flatMap { l ->
-            if (l.contains("-") || l.contains(".*")) {
+            if (l == "all" || l.contains("-") || l.contains(".*")) {
                 listOf(l)
             } else {
                 listOf(l, "$l-.*", "$l-orig")
@@ -480,7 +484,7 @@ object DownloadUtil {
     }
 
     private fun YoutubeDLRequest.enableAria2c(): YoutubeDLRequest =
-        this.addOption("--downloader", "libaria2c.so")
+        this.addOption("--CustomCommandRunner", "libaria2c.so")
 
     private fun YoutubeDLRequest.addOptionsForVideoDownloads(
         downloadPreferences: DownloadPreferences
@@ -629,6 +633,24 @@ object DownloadUtil {
             this.toAudioFormatSorter(),
             delimiter = ",",
         )
+
+    fun isAudioOnlyDownload(preferences: DownloadPreferences, videoInfo: VideoInfo): Boolean {
+        if (preferences.skipDownload) return false
+        if (preferences.extractAudio) return true
+        val fmtId = preferences.formatIdString
+        if (fmtId.isNotEmpty()) {
+            val selectedFmts = fmtId.split("+")
+            val formats = videoInfo.formats.orEmpty()
+            val hasVideo = selectedFmts.any { id ->
+                formats.find { it.formatId.toString() == id }?.containsVideo() == true
+            }
+            val hasAudio = selectedFmts.any { id ->
+                formats.find { it.formatId.toString() == id }?.isAudioOnly() == true
+            }
+            if (!hasVideo && hasAudio) return true
+        }
+        return videoInfo.vcodec == "none" && videoInfo.formats.orEmpty().none { it.containsVideo() }
+    }
 
     private fun YoutubeDLRequest.addOptionsForAudioDownloads(
         id: String,
@@ -814,6 +836,8 @@ object DownloadUtil {
                     addOption("--fragment-retries", "10")
                     addOption("--file-access-retries", "5")
                     addOption("--ignore-errors")
+                    addOption("--extractor-args", "youtube:player_client=android_creator,android,web,tv_embedded,ios")
+                    addOption("--no-check-certificates")
 
                     if (playlistItem != 0) {
                         addOption("--no-playlist")
@@ -841,7 +865,7 @@ object DownloadUtil {
                         addOption("--concurrent-fragments", concurrentFragments)
                     }
 
-                    val isAudioDownload = !skipDownload && (extractAudio || (videoInfo.vcodec == "none" && videoInfo.formats.orEmpty().none { it.containsVideo() }))
+                    val isAudioDownload = isAudioOnlyDownload(downloadPreferences, videoInfo)
                     val basePath = if (commandDirectory.isNotBlank()) {
                         commandDirectory
                     } else if (privateDirectory) {
@@ -985,6 +1009,7 @@ object DownloadUtil {
                         title = fileName,
                         downloadDir = downloadPath,
                         isSubtitleOnly = skipDownload,
+                        videoId = videoInfo.id,
                     )
                     .run {
                         val finalPaths = this
@@ -1049,7 +1074,7 @@ object DownloadUtil {
         downloadPreferences: DownloadPreferences = DownloadPreferences.createFromPreferences(),
     ) {
         downloadPreferences.run {
-            val taskId = Downloader.makeKey(url = url, templateName = template.name)
+            val taskId = CustomCommandRunner.makeKey(url = url, templateName = template.name)
             val notificationId = taskId.toNotificationId()
             val urlList = url.split(Regex("[\n ]")).filter { it.isNotBlank() }
 
@@ -1093,7 +1118,7 @@ object DownloadUtil {
                                 taskUrl = url,
                                 text = text,
                             )
-                            Downloader.updateTaskOutput(
+                            CustomCommandRunner.updateTaskOutput(
                                 template = template,
                                 url = url,
                                 line = text,

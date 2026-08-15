@@ -54,8 +54,11 @@ object PlaylistVerifier {
         customDirectoryPath: String? = null
     ): Result<ScanResult> = withContext(Dispatchers.IO) {
         runCatching {
+            val cleanUrl = com.junkfood.seal.util.findURLsFromString(playlistUrl, firstMatchOnly = true).firstOrNull()
+                ?: playlistUrl.trim().removeSurrounding("'", "'").removeSurrounding("\"", "\"")
+
             val infoResult = DownloadUtil.getPlaylistOrVideoInfo(
-                playlistURL = playlistUrl,
+                playlistURL = cleanUrl,
                 downloadPreferences = preferences,
             )
             val info = infoResult.getOrThrow()

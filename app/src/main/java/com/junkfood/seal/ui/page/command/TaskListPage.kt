@@ -58,7 +58,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.junkfood.seal.Downloader
+import com.junkfood.seal.CustomCommandRunner
 import com.junkfood.seal.R
 import com.junkfood.seal.database.objects.CommandTemplate
 import com.junkfood.seal.ui.common.HapticFeedback.slightHapticFeedback
@@ -133,14 +133,14 @@ fun TaskListPage(onNavigateBack: () -> Unit, onNavigateToDetail: (Int) -> Unit) 
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(
-                Downloader.mutableTaskList.values.toList().sortedBy { it.state.toStatus() },
+                CustomCommandRunner.mutableTaskList.values.toList().sortedBy { it.state.toStatus() },
                 key = { it.toKey() },
             ) {
                 it.run {
                     CustomCommandTaskItem(
                         status = state.toStatus(),
                         progress =
-                            if (state is Downloader.CustomCommandTask.State.Running)
+                            if (state is CustomCommandRunner.CustomCommandTask.State.Running)
                                 state.progress / 100f
                             else 0f,
                         progressText = currentLine,
@@ -214,7 +214,7 @@ fun TaskListPage(onNavigateBack: () -> Unit, onNavigateToDetail: (Int) -> Unit) 
                             FilledButtonWithIcon(
                                 onClick = {
                                     view.slightHapticFeedback()
-                                    Downloader.executeCommandWithUrl(url)
+                                    CustomCommandRunner.executeCommandWithUrl(url)
                                     onDismissRequest()
                                 },
                                 icon = Icons.Outlined.DownloadDone,
@@ -242,12 +242,12 @@ fun TaskListPage(onNavigateBack: () -> Unit, onNavigateToDetail: (Int) -> Unit) 
         )
 }
 
-private fun Downloader.CustomCommandTask.State.toStatus(): TaskStatus =
+private fun CustomCommandRunner.CustomCommandTask.State.toStatus(): TaskStatus =
     when (this) {
-        Downloader.CustomCommandTask.State.Canceled -> TaskStatus.CANCELED
-        Downloader.CustomCommandTask.State.Completed -> TaskStatus.FINISHED
-        is Downloader.CustomCommandTask.State.Error -> TaskStatus.ERROR
-        is Downloader.CustomCommandTask.State.Running -> TaskStatus.RUNNING
+        CustomCommandRunner.CustomCommandTask.State.Canceled -> TaskStatus.CANCELED
+        CustomCommandRunner.CustomCommandTask.State.Completed -> TaskStatus.FINISHED
+        is CustomCommandRunner.CustomCommandTask.State.Error -> TaskStatus.ERROR
+        is CustomCommandRunner.CustomCommandTask.State.Running -> TaskStatus.RUNNING
     }
 
 @Composable

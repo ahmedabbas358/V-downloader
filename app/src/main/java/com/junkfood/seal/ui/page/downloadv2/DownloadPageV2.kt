@@ -562,7 +562,7 @@ fun DownloadPageImplV2(
                     columns = GridCells.Adaptive(240.dp),
                     contentPadding =
                         windowInsetsPadding +
-                            PaddingValues(start = 20.dp, end = 20.dp, bottom = 80.dp),
+                            PaddingValues(start = 20.dp, end = 20.dp, bottom = 128.dp),
                     horizontalArrangement = Arrangement.spacedBy(24.dp),
                 ) {
                     if (filteredMap.isNotEmpty()) {
@@ -1129,11 +1129,15 @@ fun FABs(
     syncCallback: () -> Unit = {},
 ) {
     val expanded = LocalWindowWidthState.current != WindowWidthSizeClass.Compact
-    Column(modifier = modifier.padding(6.dp), horizontalAlignment = Alignment.End) {
+    Column(
+        modifier = modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+        horizontalAlignment = Alignment.End
+    ) {
         SmallFloatingActionButton(
             onClick = syncCallback,
             containerColor = MaterialTheme.colorScheme.secondaryContainer,
             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
             modifier = Modifier.padding(vertical = 4.dp),
         ) {
             Icon(
@@ -1143,6 +1147,9 @@ fun FABs(
         }
         FloatingActionButton(
             onClick = downloadCallback,
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
             content = {
                 if (expanded) {
                     Row(

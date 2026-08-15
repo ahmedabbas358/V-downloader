@@ -491,12 +491,13 @@ private fun VideoInfoLabel(modifier: Modifier = Modifier, duration: Int, fileSiz
 @Composable
 fun CardStateIndicator(modifier: Modifier = Modifier, downloadState: Task.DownloadState) {
     Surface(
-        modifier = modifier.padding(vertical = 12.dp, horizontal = 8.dp),
+        modifier = modifier.padding(8.dp),
         color = LabelContainerColor,
-        shape = MaterialTheme.shapes.extraSmall,
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+        tonalElevation = 2.dp,
     ) {
         CardItemStateText(
-            modifier = Modifier.padding(horizontal = 4.dp),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             downloadState = downloadState,
         )
     }
@@ -573,14 +574,14 @@ fun ListItemStateText(
                 is FetchingInfo,
                 Idle,
                 ReadyWithInfo -> {
-                    CircularProgressIndicator(modifier = sizeModifier, strokeWidth = 2.5.dp)
+                    CircularProgressIndicator(modifier = sizeModifier, strokeWidth = 2.dp)
                 }
                 is Running -> {
                     val progress = downloadState.progress
                     CircularProgressIndicator(
                         progress = { progress },
                         modifier = sizeModifier,
-                        strokeWidth = 2.5.dp,
+                        strokeWidth = 2.dp,
                     )
                 }
             }
@@ -681,10 +682,14 @@ fun ActionButton(
                 }
             }
         }
-        is FetchingInfo,
+        is FetchingInfo -> {
+            // Subtle loading indicator without blocking thumbnail
+            FetchingInfoIndicator(modifier = modifier) { onActionPost(UiAction.Cancel) }
+        }
         ReadyWithInfo,
         Idle -> {
-            ProgressButton(modifier = modifier, progress = -1f) { onActionPost(UiAction.Cancel) }
+            // Don't obscure thumbnail with giant pause icon for queued items
+            Unit
         }
         is Running -> {
             ProgressButton(modifier = modifier, progress = downloadState.progress) {
@@ -692,6 +697,26 @@ fun ActionButton(
             }
         }
     }
+
+@Composable
+private fun FetchingInfoIndicator(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val background = ActionButtonContainerColor
+
+    Box(
+        modifier =
+            modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .drawBehind { drawCircle(background) }
+                .clickable(onClickLabel = stringResource(R.string.cancel), onClick = onClick)
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(28.dp).align(Alignment.Center),
+            color = ActionButtonContentColor,
+            strokeWidth = 3.dp,
+        )
+    }
+}
 
 @Composable
 private fun ResumeButton(
@@ -707,7 +732,7 @@ private fun ResumeButton(
                 .size(IconButtonSize)
                 .clip(CircleShape)
                 .drawBehind { drawCircle(background) }
-                .clickable(onClickLabel = stringResource(R.string.cancel), onClick = onClick)
+                .clickable(onClickLabel = stringResource(R.string.resume), onClick = onClick)
     ) {
         if (progress != null) {
             CircularProgressIndicator(
@@ -719,8 +744,8 @@ private fun ResumeButton(
             )
         }
         Icon(
-            imageVector = Icons.Rounded.Download,
-            contentDescription = stringResource(R.string.restart),
+            imageVector = Icons.Rounded.PlayArrow,
+            contentDescription = stringResource(R.string.resume),
             modifier = Modifier.size(IconSize).align(Alignment.Center),
             tint = ActionButtonContentColor,
         )
@@ -737,7 +762,7 @@ fun RestartButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
                 .size(IconButtonSize)
                 .clip(CircleShape)
                 .drawBehind { drawCircle(background) }
-                .clickable(onClickLabel = stringResource(R.string.cancel), onClick = onClick)
+                .clickable(onClickLabel = stringResource(R.string.restart), onClick = onClick)
     ) {
         Icon(
             imageVector = Icons.Rounded.RestartAlt,
@@ -802,7 +827,7 @@ private fun ProgressButton(modifier: Modifier = Modifier, progress: Float, onCli
                 .size(IconButtonSize)
                 .clip(CircleShape)
                 .drawBehind { drawCircle(background) }
-                .clickable(onClickLabel = stringResource(R.string.cancel), onClick = onClick)
+                .clickable(onClickLabel = stringResource(R.string.pause), onClick = onClick)
     ) {
         if (progress < 0) {
             CircularProgressIndicator(
@@ -821,7 +846,7 @@ private fun ProgressButton(modifier: Modifier = Modifier, progress: Float, onCli
         }
         Icon(
             imageVector = Icons.Rounded.Pause,
-            contentDescription = null,
+            contentDescription = stringResource(R.string.pause),
             modifier = Modifier.align(Alignment.Center).size(IconSize),
             tint = ActionButtonContentColor,
         )

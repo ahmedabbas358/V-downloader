@@ -45,7 +45,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.junkfood.seal.Downloader
+import com.junkfood.seal.CustomCommandRunner
 import com.junkfood.seal.R
 import com.junkfood.seal.ui.component.ButtonChip
 
@@ -56,7 +56,7 @@ private const val TAG = "TaskLogPage"
 fun TaskLogPage(onNavigateBack: () -> Unit, taskHashCode: Int) {
     Log.d(TAG, "TaskLogPage: $taskHashCode")
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
-    val task = Downloader.mutableTaskList.values.find { it.hashCode() == taskHashCode } ?: return
+    val task = CustomCommandRunner.mutableTaskList.values.find { it.hashCode() == taskHashCode } ?: return
     val clipboardManager = LocalClipboardManager.current
     var expandLog by remember { mutableStateOf(false) }
     Scaffold(
@@ -96,7 +96,7 @@ fun TaskLogPage(onNavigateBack: () -> Unit, taskHashCode: Int) {
                         ) {
                             onCopyLog(clipboardManager)
                         }
-                        if (state is Downloader.CustomCommandTask.State.Error)
+                        if (state is CustomCommandRunner.CustomCommandTask.State.Error)
                             ButtonChip(
                                 icon = Icons.Outlined.ErrorOutline,
                                 label = stringResource(id = R.string.copy_error_report),
@@ -104,7 +104,7 @@ fun TaskLogPage(onNavigateBack: () -> Unit, taskHashCode: Int) {
                             ) {
                                 onCopyError(clipboardManager)
                             }
-                        if (state is Downloader.CustomCommandTask.State.Running)
+                        if (state is CustomCommandRunner.CustomCommandTask.State.Running)
                             ButtonChip(
                                 icon = Icons.Outlined.Cancel,
                                 label = stringResource(id = R.string.cancel),
@@ -113,8 +113,8 @@ fun TaskLogPage(onNavigateBack: () -> Unit, taskHashCode: Int) {
                                 onCancel()
                             }
                         if (
-                            state is Downloader.CustomCommandTask.State.Canceled ||
-                                state is Downloader.CustomCommandTask.State.Error
+                            state is CustomCommandRunner.CustomCommandTask.State.Canceled ||
+                                state is CustomCommandRunner.CustomCommandTask.State.Error
                         )
                             ButtonChip(
                                 icon = Icons.Outlined.RestartAlt,

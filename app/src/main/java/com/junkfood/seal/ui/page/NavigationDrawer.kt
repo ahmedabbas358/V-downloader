@@ -175,11 +175,68 @@ fun NavigationDrawerSheetContent(
                 .verticalScroll(rememberScrollState())
                 .systemBarsPadding()
     ) {
-        Spacer(Modifier.height(72.dp))
+        Spacer(Modifier.height(16.dp))
+
+        // Premium Drawer Header Card
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 2.dp,
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Surface(
+                    modifier = Modifier.size(48.dp),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Filled.Download,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "V-Downloader",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                            fontSize = 18.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Surface(
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                    ) {
+                        Text(
+                            text = "Smart Media Downloader",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        )
+                    }
+                }
+            }
+        }
+
         ProvideTextStyle(MaterialTheme.typography.labelLarge) {
             NavigationDrawerItem(
-                label = { Text(stringResource(R.string.download_queue)) },
+                label = { Text(stringResource(R.string.download_queue), fontWeight = androidx.compose.ui.text.font.FontWeight.Medium) },
                 icon = { Icon(Icons.Filled.Download, null) },
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
                 onClick = {
                     scope
                         .launch { onDismissRequest() }
@@ -188,15 +245,18 @@ fun NavigationDrawerSheetContent(
                 selected = currentRoute == Route.HOME,
                 colors = androidx.compose.material3.NavigationDrawerItemDefaults.colors(
                     unselectedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unselectedIconColor = MaterialTheme.colorScheme.onSurface,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     selectedContainerColor = MaterialTheme.colorScheme.primaryContainer
                 )
             )
+            Spacer(Modifier.height(4.dp))
+
             NavigationDrawerItem(
-                label = { Text("Social Hub") },
+                label = { Text("Social Hub", fontWeight = androidx.compose.ui.text.font.FontWeight.Medium) },
                 icon = { Icon(Icons.Outlined.Explore, null) },
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
                 onClick = {
                     scope
                         .launch { onDismissRequest() }
@@ -205,16 +265,18 @@ fun NavigationDrawerSheetContent(
                 selected = currentRoute == Route.SOCIAL_HUB,
                 colors = androidx.compose.material3.NavigationDrawerItemDefaults.colors(
                     unselectedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unselectedIconColor = MaterialTheme.colorScheme.onSurface,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     selectedContainerColor = MaterialTheme.colorScheme.primaryContainer
                 )
             )
+            Spacer(Modifier.height(4.dp))
 
             NavigationDrawerItem(
-                label = { Text(stringResource(R.string.downloads_history)) },
+                label = { Text(stringResource(R.string.downloads_history), fontWeight = androidx.compose.ui.text.font.FontWeight.Medium) },
                 icon = { Icon(Icons.Outlined.VideoLibrary, null) },
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
                 onClick = {
                     scope
                         .launch { onDismissRequest() }
@@ -223,15 +285,18 @@ fun NavigationDrawerSheetContent(
                 selected = currentRoute == Route.DOWNLOADS,
                 colors = androidx.compose.material3.NavigationDrawerItemDefaults.colors(
                     unselectedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unselectedIconColor = MaterialTheme.colorScheme.onSurface,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     selectedContainerColor = MaterialTheme.colorScheme.primaryContainer
                 )
             )
+            Spacer(Modifier.height(4.dp))
+
             NavigationDrawerItem(
-                label = { Text(stringResource(R.string.custom_command)) },
+                label = { Text(stringResource(R.string.custom_command), fontWeight = androidx.compose.ui.text.font.FontWeight.Medium) },
                 icon = { Icon(Icons.Outlined.Terminal, null) },
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
                 onClick = {
                     scope
                         .launch { onDismissRequest() }
@@ -240,15 +305,18 @@ fun NavigationDrawerSheetContent(
                 selected = currentRoute == Route.TASK_LIST,
                 colors = androidx.compose.material3.NavigationDrawerItemDefaults.colors(
                     unselectedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unselectedIconColor = MaterialTheme.colorScheme.onSurface,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     selectedContainerColor = MaterialTheme.colorScheme.primaryContainer
                 )
             )
+            Spacer(Modifier.height(4.dp))
+
             NavigationDrawerItem(
-                label = { Text(stringResource(R.string.settings)) },
+                label = { Text(stringResource(R.string.settings), fontWeight = androidx.compose.ui.text.font.FontWeight.Medium) },
                 icon = { Icon(Icons.Outlined.Settings, null) },
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
                 onClick = {
                     scope
                         .launch { onDismissRequest() }
@@ -257,7 +325,7 @@ fun NavigationDrawerSheetContent(
                 selected = currentRoute == Route.SETTINGS_PAGE,
                 colors = androidx.compose.material3.NavigationDrawerItemDefaults.colors(
                     unselectedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unselectedIconColor = MaterialTheme.colorScheme.onSurface,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     selectedContainerColor = MaterialTheme.colorScheme.primaryContainer
@@ -265,23 +333,29 @@ fun NavigationDrawerSheetContent(
             )
 
             if (showQuickSettings) {
-                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                Spacer(Modifier.height(8.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
 
-                Column(
-                    modifier = Modifier.padding(start = 16.dp).padding(top = 16.dp, bottom = 12.dp),
-                    verticalArrangement = Arrangement.Center,
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         stringResource(R.string.settings),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.tertiary,
-                        modifier = Modifier,
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                            letterSpacing = 0.5.sp
+                        ),
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
 
                 NavigationDrawerItem(
                     label = { Text(stringResource(R.string.general_settings)) },
                     icon = { Icon(Icons.Rounded.SettingsApplications, null) },
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
                     onClick = {
                         scope
                             .launch { onDismissRequest() }
@@ -292,10 +366,12 @@ fun NavigationDrawerSheetContent(
                     },
                     selected = currentRoute == Route.GENERAL_DOWNLOAD_PREFERENCES,
                 )
+                Spacer(Modifier.height(2.dp))
 
                 NavigationDrawerItem(
                     label = { Text(stringResource(R.string.download_directory)) },
                     icon = { Icon(Icons.Rounded.Folder, null) },
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
                     onClick = {
                         scope
                             .launch { onDismissRequest() }
@@ -306,10 +382,12 @@ fun NavigationDrawerSheetContent(
                     },
                     selected = currentRoute == Route.DOWNLOAD_DIRECTORY,
                 )
+                Spacer(Modifier.height(2.dp))
 
                 NavigationDrawerItem(
                     label = { Text(stringResource(R.string.cookies)) },
                     icon = { Icon(Icons.Rounded.Cookie, null) },
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
                     onClick = {
                         scope
                             .launch { onDismissRequest() }
@@ -320,10 +398,12 @@ fun NavigationDrawerSheetContent(
                     },
                     selected = currentRoute == Route.COOKIE_PROFILE,
                 )
+                Spacer(Modifier.height(2.dp))
 
                 NavigationDrawerItem(
                     label = { Text(stringResource(R.string.trouble_shooting)) },
                     icon = { Icon(Icons.Rounded.BugReport, null) },
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
                     onClick = {
                         scope
                             .launch { onDismissRequest() }
@@ -334,10 +414,12 @@ fun NavigationDrawerSheetContent(
                     },
                     selected = currentRoute == Route.TROUBLESHOOTING,
                 )
+                Spacer(Modifier.height(2.dp))
 
                 NavigationDrawerItem(
                     label = { Text(stringResource(R.string.about)) },
                     icon = { Icon(Icons.Rounded.Info, null) },
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
                     onClick = {
                         scope
                             .launch { onDismissRequest() }
@@ -351,7 +433,9 @@ fun NavigationDrawerSheetContent(
             }
         }
         Spacer(Modifier.weight(1f))
+        Spacer(Modifier.height(16.dp))
         footer?.invoke()
+        Spacer(Modifier.height(8.dp))
     }
 }
 

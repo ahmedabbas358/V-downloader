@@ -88,10 +88,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.junkfood.seal.R
 import com.junkfood.seal.download.DownloaderV2
 import com.junkfood.seal.download.PlaylistVerifier
-import com.junkfood.seal.ui.common.glassmorphism
 import com.junkfood.seal.ui.common.hapticClickable
 import com.junkfood.seal.ui.page.downloadv2.configure.DownloadDialogViewModel
 import com.junkfood.seal.util.DownloadUtil
@@ -103,6 +103,7 @@ import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
 data class PlatformItem(val name: String, val category: String)
+data class CategoryItem(val key: String, val label: String)
 
 val socialPlatforms = listOf(
     // Social
@@ -167,6 +168,16 @@ val socialPlatforms = listOf(
     PlatformItem("9GAG", "Media"),
 )
 
+val platformCategories = listOf(
+    CategoryItem("All", "الكل"),
+    CategoryItem("Social", "شبكات اجتماعية"),
+    CategoryItem("Video", "فيديو وبث"),
+    CategoryItem("Music", "صوت وموسيقى"),
+    CategoryItem("Education", "تعليم ومعرفة"),
+    CategoryItem("News", "أخبار ومقالات"),
+    CategoryItem("Media", "وسائط أخرى"),
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SocialHubPage(
@@ -212,7 +223,8 @@ fun SocialHubPage(
                 selectedTabIndex = selectedMainTab,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(14.dp)),
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
             ) {
                 Tab(
                     selected = selectedMainTab == 0,
@@ -314,20 +326,18 @@ private fun EmbeddedPlaylistSyncView(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(MaterialTheme.shapes.extraLarge)
-                .glassmorphism()
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f))
-                .padding(16.dp)
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 2.dp
         ) {
-            Column {
+            Column(modifier = Modifier.padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Surface(
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(44.dp)
                     ) {
                         Icon(
                             Icons.Outlined.Sync,
@@ -372,7 +382,8 @@ private fun EmbeddedPlaylistSyncView(
                             IconButton(onClick = {
                                 val clip = clipboardManager.getText()?.text?.trim().orEmpty()
                                 if (clip.isNotBlank()) {
-                                    playlistUrl = clip
+                                    val clean = com.junkfood.seal.util.findURLsFromString(clip, firstMatchOnly = true).firstOrNull() ?: clip
+                                    playlistUrl = clean
                                     scanResult = null
                                 }
                             }) {
@@ -465,7 +476,6 @@ private fun EmbeddedPlaylistSyncView(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-
                 Button(
                     onClick = {
                         if (playlistUrl.isBlank()) {
@@ -495,7 +505,7 @@ private fun EmbeddedPlaylistSyncView(
                     },
                     enabled = playlistUrl.isNotBlank() && !isScanning,
                     modifier = Modifier.fillMaxWidth().height(52.dp),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(14.dp)
                 ) {
                     if (isScanning) {
                         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
@@ -512,7 +522,7 @@ private fun EmbeddedPlaylistSyncView(
                     Spacer(modifier = Modifier.height(12.dp))
                     Surface(
                         color = MaterialTheme.colorScheme.errorContainer,
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -531,7 +541,8 @@ private fun EmbeddedPlaylistSyncView(
 
             Surface(
                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(18.dp),
+                tonalElevation = 2.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
@@ -555,6 +566,7 @@ private fun EmbeddedPlaylistSyncView(
                     ) {
                         Card(
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                            shape = RoundedCornerShape(14.dp),
                             modifier = Modifier.weight(1f)
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
@@ -572,6 +584,7 @@ private fun EmbeddedPlaylistSyncView(
                         }
                         Card(
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                            shape = RoundedCornerShape(14.dp),
                             modifier = Modifier.weight(1f)
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
@@ -593,7 +606,8 @@ private fun EmbeddedPlaylistSyncView(
 
                     PrimaryTabRow(
                         selectedTabIndex = resultTab,
-                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)),
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer
                     ) {
                         Tab(
                             selected = resultTab == 0,
@@ -639,7 +653,7 @@ private fun EmbeddedPlaylistSyncView(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(240.dp)
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .clip(RoundedCornerShape(12.dp))
                                     .background(MaterialTheme.colorScheme.surfaceContainerLow)
                                     .padding(4.dp)
                             ) {
@@ -659,8 +673,8 @@ private fun EmbeddedPlaylistSyncView(
                                             }
                                         )
                                         Surface(
-                                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f),
-                                            shape = RoundedCornerShape(4.dp)
+                                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f),
+                                            shape = RoundedCornerShape(6.dp)
                                         ) {
                                             Text(
                                                 text = String.format("#%03d", item.index),
@@ -709,7 +723,7 @@ private fun EmbeddedPlaylistSyncView(
                                 },
                                 enabled = selectedMissingIndices.isNotEmpty(),
                                 modifier = Modifier.fillMaxWidth().height(50.dp),
-                                shape = RoundedCornerShape(12.dp)
+                                shape = RoundedCornerShape(14.dp)
                             ) {
                                 Icon(Icons.Default.Download, contentDescription = null)
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -718,7 +732,7 @@ private fun EmbeddedPlaylistSyncView(
                         } else {
                             Surface(
                                 color = MaterialTheme.colorScheme.primaryContainer,
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoundedCornerShape(14.dp),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
@@ -736,7 +750,7 @@ private fun EmbeddedPlaylistSyncView(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(240.dp)
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .clip(RoundedCornerShape(12.dp))
                                     .background(MaterialTheme.colorScheme.surfaceContainerLow)
                                     .padding(6.dp)
                             ) {
@@ -749,7 +763,7 @@ private fun EmbeddedPlaylistSyncView(
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Surface(
                                                 color = MaterialTheme.colorScheme.primaryContainer,
-                                                shape = RoundedCornerShape(4.dp)
+                                                shape = RoundedCornerShape(6.dp)
                                             ) {
                                                 Text(
                                                     text = String.format("#%03d", item.index),
@@ -790,7 +804,7 @@ private fun EmbeddedPlaylistSyncView(
                         } else {
                             Surface(
                                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoundedCornerShape(14.dp),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
@@ -806,7 +820,7 @@ private fun EmbeddedPlaylistSyncView(
             }
         }
 
-        Spacer(modifier = Modifier.height(80.dp))
+        Spacer(modifier = Modifier.height(100.dp))
     }
 }
 
@@ -820,8 +834,6 @@ private fun UniversalExtractorView(
     var selectedCategory by remember { mutableStateOf("All") }
     var searchQuery by remember { mutableStateOf("") }
 
-    val categories = listOf("All", "Social", "Video", "Music", "Education", "News", "Media")
-
     val filteredPlatforms = remember(selectedCategory, searchQuery) {
         socialPlatforms.filter { platform ->
             (selectedCategory == "All" || platform.category.equals(selectedCategory, ignoreCase = true)) &&
@@ -833,25 +845,27 @@ private fun UniversalExtractorView(
         modifier = Modifier.fillMaxSize()
     ) {
         // Universal Extractor Card
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(MaterialTheme.shapes.extraLarge)
-                .glassmorphism()
-                .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f))
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 2.dp
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(MaterialTheme.shapes.medium)
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.size(40.dp)
                     ) {
-                        Icon(Icons.Outlined.Explore, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Icon(
+                            Icons.Outlined.Explore,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(9.dp)
+                        )
                     }
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
                     Text(
                         "المستخرج الذكي الشامل (Deep Extractor)",
                         style = MaterialTheme.typography.titleMedium,
@@ -863,7 +877,7 @@ private fun UniversalExtractorView(
                 Text(
                     "الصق أي رابط من أي منصة أو موقع ويب لاستخراج ملفات الفيديو، الصوت، والترجمة بدقة فائقة.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.85f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(14.dp))
                 OutlinedTextField(
@@ -872,7 +886,7 @@ private fun UniversalExtractorView(
                     modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text("https://example.com/video") },
                     singleLine = true,
-                    shape = MaterialTheme.shapes.large,
+                    shape = RoundedCornerShape(12.dp),
                     trailingIcon = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (urlInput.isNotEmpty()) {
@@ -883,7 +897,8 @@ private fun UniversalExtractorView(
                             IconButton(onClick = {
                                 val clip = clipboardManager.getText()?.text?.trim().orEmpty()
                                 if (clip.isNotBlank()) {
-                                    urlInput = clip
+                                    val clean = com.junkfood.seal.util.findURLsFromString(clip, firstMatchOnly = true).firstOrNull() ?: clip
+                                    urlInput = clean
                                 }
                             }) {
                                 Icon(Icons.Default.ContentPaste, contentDescription = "لصق من الحافظة", tint = MaterialTheme.colorScheme.primary)
@@ -905,7 +920,7 @@ private fun UniversalExtractorView(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp),
-                    shape = MaterialTheme.shapes.large,
+                    shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
@@ -925,54 +940,68 @@ private fun UniversalExtractorView(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            categories.forEach { cat ->
+            platformCategories.forEach { cat ->
                 FilterChip(
-                    selected = selectedCategory == cat,
-                    onClick = { selectedCategory = cat },
-                    label = { Text(cat) }
+                    selected = selectedCategory == cat.key,
+                    onClick = { selectedCategory = cat.key },
+                    label = { Text(cat.label, fontWeight = if (selectedCategory == cat.key) FontWeight.Bold else FontWeight.Normal) },
+                    shape = RoundedCornerShape(10.dp)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         LazyVerticalGrid(
             columns = GridCells.Adaptive(100.dp),
             modifier = Modifier.fillMaxSize(),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(bottom = 80.dp)
+            contentPadding = PaddingValues(bottom = 100.dp)
         ) {
             items(filteredPlatforms) { platform ->
-                Box(
+                Surface(
                     modifier = Modifier
                         .aspectRatio(1.1f)
-                        .clip(MaterialTheme.shapes.large)
-                        .glassmorphism()
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
                         .hapticClickable {
-                            context.makeToast("الصق رابط من $platform.name في المستخرج أعلاه")
+                            val clip = clipboardManager.getText()?.text?.trim().orEmpty()
+                            if (clip.isNotBlank() && Patterns.WEB_URL.matcher(clip).matches()) {
+                                urlInput = clip
+                                context.makeToast("تم لصق الرابط من الحافظة: $clip")
+                            } else {
+                                context.makeToast("الصق رابط من ${platform.name} في المستخرج أعلاه")
+                            }
                         },
-                    contentAlignment = Alignment.Center
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    tonalElevation = 1.dp
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center,
-                        modifier = Modifier.padding(6.dp)
+                        modifier = Modifier.padding(8.dp)
                     ) {
-                        Icon(
-                            Icons.Outlined.Language,
-                            contentDescription = null,
-                            modifier = Modifier.size(28.dp),
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Outlined.Language,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             platform.name,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -984,4 +1013,3 @@ private fun UniversalExtractorView(
         }
     }
 }
-

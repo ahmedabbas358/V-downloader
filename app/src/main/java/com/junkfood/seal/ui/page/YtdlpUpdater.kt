@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.junkfood.seal.Downloader
+import com.junkfood.seal.CustomCommandRunner
 import com.junkfood.seal.util.PreferenceUtil
 import com.junkfood.seal.util.PreferenceUtil.getBoolean
 import com.junkfood.seal.util.PreferenceUtil.getLong
@@ -20,10 +20,10 @@ import kotlinx.coroutines.withContext
 @Composable
 fun YtdlpUpdater() {
 
-    val downloaderState by Downloader.downloaderState.collectAsStateWithLifecycle()
+    val downloaderState by CustomCommandRunner.downloaderState.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
-        if (downloaderState !is Downloader.State.Idle) return@LaunchedEffect
+        if (downloaderState !is CustomCommandRunner.State.Idle) return@LaunchedEffect
 
         if (!YT_DLP_AUTO_UPDATE.getBoolean() && YT_DLP_VERSION.getString().isNotEmpty())
             return@LaunchedEffect
@@ -40,10 +40,10 @@ fun YtdlpUpdater() {
         }
 
         runCatching {
-                Downloader.updateState(state = Downloader.State.Updating)
+                CustomCommandRunner.updateState(state = CustomCommandRunner.State.Updating)
                 withContext(Dispatchers.IO) { UpdateUtil.updateYtDlp() }
             }
             .onFailure { it.printStackTrace() }
-        Downloader.updateState(state = Downloader.State.Idle)
+        CustomCommandRunner.updateState(state = CustomCommandRunner.State.Idle)
     }
 }

@@ -37,10 +37,10 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** Singleton Downloader for state holder & perform downloads, used by `Activity` & `Service` */
-object Downloader {
+/** Singleton CustomCommandRunner for state holder & perform downloads, used by `Activity` & `Service` */
+object CustomCommandRunner {
 
-    private const val TAG = "Downloader"
+    private const val TAG = "CustomCommandRunner"
     private const val MAX_RETRY_ATTEMPTS = 3
     private const val RETRY_BASE_DELAY_MS = 2000L
 

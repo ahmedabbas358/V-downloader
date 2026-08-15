@@ -91,7 +91,7 @@ import com.google.accompanist.permissions.PermissionStatus
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.junkfood.seal.App
-import com.junkfood.seal.Downloader
+import com.junkfood.seal.CustomCommandRunner
 import com.junkfood.seal.R
 import com.junkfood.seal.download.DownloaderV2
 import com.junkfood.seal.ui.common.HapticFeedback.longPressHapticFeedback
@@ -133,19 +133,19 @@ fun DownloadPage(
     navigateToFormatPage: () -> Unit = {},
     onNavigateToTaskList: () -> Unit = {},
     onNavigateToCookieGeneratorPage: (String) -> Unit = {},
-    downloader: DownloaderV2 = koinInject(),
+    CustomCommandRunner: DownloaderV2 = koinInject(),
     homePageViewModel: HomePageViewModel = koinViewModel(),
     dialogViewModel: DownloadDialogViewModel = koinViewModel(),
 ) {
 
     val scope = rememberCoroutineScope()
-    val downloaderState by Downloader.downloaderState.collectAsStateWithLifecycle()
-    val taskState by Downloader.taskState.collectAsStateWithLifecycle()
+    val downloaderState by CustomCommandRunner.downloaderState.collectAsStateWithLifecycle()
+    val taskState by CustomCommandRunner.taskState.collectAsStateWithLifecycle()
     val viewState by homePageViewModel.viewStateFlow.collectAsStateWithLifecycle()
-    val playlistInfo by Downloader.playlistResult.collectAsStateWithLifecycle()
+    val playlistInfo by CustomCommandRunner.playlistResult.collectAsStateWithLifecycle()
     val videoInfo by homePageViewModel.videoInfoFlow.collectAsStateWithLifecycle()
-    val errorState by Downloader.errorState.collectAsStateWithLifecycle()
-    val processCount by Downloader.processCount.collectAsStateWithLifecycle()
+    val errorState by CustomCommandRunner.errorState.collectAsStateWithLifecycle()
+    val processCount by CustomCommandRunner.processCount.collectAsStateWithLifecycle()
 
     var showNotificationDialog by remember { mutableStateOf(false) }
     val notificationPermission =
@@ -245,7 +245,7 @@ fun DownloadPage(
     }
     var showOutput by remember { mutableStateOf(DEBUG.getBoolean()) }
     LaunchedEffect(downloaderState) {
-        showOutput = DEBUG.getBoolean() && downloaderState !is Downloader.State.Idle
+        showOutput = DEBUG.getBoolean() && downloaderState !is CustomCommandRunner.State.Idle
     }
     if (viewState.isUrlSharingTriggered) {
         homePageViewModel.onShareIntentConsumed()
@@ -275,12 +275,12 @@ fun DownloadPage(
                     )
                     .let { homePageViewModel.updateUrl(it) }
             },
-            cancelCallback = { Downloader.cancelDownload() },
-            onVideoCardClicked = { Downloader.openDownloadResult() },
+            cancelCallback = { CustomCommandRunner.cancelDownload() },
+            onVideoCardClicked = { CustomCommandRunner.openDownloadResult() },
             onUrlChanged = { url -> homePageViewModel.updateUrl(url) },
         ) {
             Column {
-                downloader.getTaskStateMap().forEach { (task, state) ->
+                CustomCommandRunner.getTaskStateMap().forEach { (task, state) ->
                     Text(state.viewState.toString(), maxLines = 2)
                     Text(state.toString())
                     Spacer(Modifier.height(12.dp))
@@ -339,10 +339,10 @@ fun DownloadPage(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadPageImpl(
-    downloaderState: Downloader.State,
-    taskState: Downloader.DownloadTaskItem,
+    downloaderState: CustomCommandRunner.State,
+    taskState: CustomCommandRunner.DownloadTaskItem,
     viewState: HomePageViewModel.ViewState,
-    errorState: Downloader.ErrorState,
+    errorState: CustomCommandRunner.ErrorState,
     showVideoCard: Boolean = false,
     showOutput: Boolean = false,
     showDownloadProgress: Boolean = false,
@@ -362,8 +362,8 @@ fun DownloadPageImpl(
     val clipboardManager = LocalClipboardManager.current
 
     val showCancelButton =
-        downloaderState is Downloader.State.DownloadingPlaylist ||
-            downloaderState is Downloader.State.DownloadingVideo
+        downloaderState is CustomCommandRunner.State.DownloadingPlaylist ||
+            downloaderState is CustomCommandRunner.State.DownloadingVideo
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
@@ -465,16 +465,16 @@ fun DownloadPageImpl(
             modifier = Modifier.padding(it).fillMaxSize().verticalScroll(rememberScrollState())
         ) {
             TitleWithProgressIndicator(
-                showProgressIndicator = downloaderState is Downloader.State.FetchingInfo,
-                isDownloadingPlaylist = downloaderState is Downloader.State.DownloadingPlaylist,
+                showProgressIndicator = downloaderState is CustomCommandRunner.State.FetchingInfo,
+                isDownloadingPlaylist = downloaderState is CustomCommandRunner.State.DownloadingPlaylist,
                 showDownloadText = showCancelButton,
                 currentIndex =
                     downloaderState.run {
-                        if (this is Downloader.State.DownloadingPlaylist) currentItem else 0
+                        if (this is CustomCommandRunner.State.DownloadingPlaylist) currentItem else 0
                     },
                 downloadItemCount =
                     downloaderState.run {
-                        if (this is Downloader.State.DownloadingPlaylist) itemCount else 0
+                        if (this is CustomCommandRunner.State.DownloadingPlaylist) itemCount else 0
                     },
             )
 
@@ -489,8 +489,8 @@ fun DownloadPageImpl(
                                 thumbnailUrl = thumbnailUrl,
                                 progress = progress,
                                 showCancelButton =
-                                    downloaderState is Downloader.State.DownloadingPlaylist ||
-                                        downloaderState is Downloader.State.DownloadingVideo,
+                                    downloaderState is CustomCommandRunner.State.DownloadingPlaylist ||
+                                        downloaderState is CustomCommandRunner.State.DownloadingVideo,
                                 onCancel = cancelCallback,
                                 fileSizeApprox = fileSizeApprox,
                                 duration = duration,
@@ -503,7 +503,7 @@ fun DownloadPageImpl(
                         url = viewState.url,
                         progress = progress,
                         showDownloadProgress = showDownloadProgress && !showVideoCard,
-                        error = errorState != Downloader.ErrorState.None,
+                        error = errorState != CustomCommandRunner.ErrorState.None,
                         showCancelButton = showCancelButton && !showVideoCard,
                         onCancel = cancelCallback,
                         onDone = downloadCallback,
@@ -525,7 +525,7 @@ fun DownloadPageImpl(
                         )
                     }
                 }
-                AnimatedVisibility(visible = errorState != Downloader.ErrorState.None) {
+                AnimatedVisibility(visible = errorState != CustomCommandRunner.ErrorState.None) {
                     ErrorMessage(title = errorState.title, errorReport = errorState.report) {
                         view.longPressHapticFeedback()
                         clipboardManager.setText(
@@ -780,11 +780,11 @@ fun DownloadPagePreview() {
     PreviewThemeLight {
         Column() {
             DownloadPageImpl(
-                downloaderState = Downloader.State.DownloadingVideo,
-                taskState = Downloader.DownloadTaskItem(),
+                downloaderState = CustomCommandRunner.State.DownloadingVideo,
+                taskState = CustomCommandRunner.DownloadTaskItem(),
                 viewState = HomePageViewModel.ViewState(),
                 errorState =
-                    Downloader.ErrorState.DownloadError(url = "", report = ERROR_REPORT_SAMPLE),
+                    CustomCommandRunner.ErrorState.DownloadError(url = "", report = ERROR_REPORT_SAMPLE),
                 processCount = 99,
                 isPreview = true,
                 showDownloadProgress = true,

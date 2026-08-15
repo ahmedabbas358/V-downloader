@@ -72,7 +72,7 @@ class App : Application() {
             modules(
                 module {
                     single<DownloaderV2> { DownloaderV2Impl(androidContext()) }
-                    viewModel { DownloadDialogViewModel(downloader = get()) }
+                    viewModel { DownloadDialogViewModel(CustomCommandRunner = get()) }
                     viewModel { HomePageViewModel(downloaderV2 = get()) }
                     viewModel { CookiesViewModel() }
                     viewModel { VideoListViewModel() }

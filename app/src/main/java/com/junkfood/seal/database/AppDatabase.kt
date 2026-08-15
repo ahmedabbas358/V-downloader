@@ -18,6 +18,7 @@ import com.junkfood.seal.database.objects.OptionShortcut
             CookieProfile::class,
             OptionShortcut::class,
             DownloadOperation::class,
+            com.junkfood.seal.database.objects.Subscription::class,
         ],
     version = 9,
     autoMigrations =

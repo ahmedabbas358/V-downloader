@@ -123,53 +123,91 @@ object FileUtil {
         }
 
     @CheckResult
-    fun scanFileToMediaLibraryPostDownload(title: String, downloadDir: String, isSubtitleOnly: Boolean = false): List<String> {
-        val cleanedTitle = cleanFileName(title)
+    fun scanFileToMediaLibraryPostDownload(
+        title: String,
+        downloadDir: String,
+        isSubtitleOnly: Boolean = false,
+        videoId: String? = null
+    ): List<String> {
+        val cleanTitleStr = title.removePrefix("[Subtitle] ").replace(Regex("^#\\d+\\s*"), "").trim()
+        val cleanedTitle = cleanFileName(cleanTitleStr)
         val shortTitle = if (cleanedTitle.length > 8) cleanedTitle.take(8) else cleanedTitle
+        val normalizedTitle = cleanTitleStr.lowercase(java.util.Locale.US).replace(Regex("[^a-z0-9\\u0600-\\u06FF\\s]"), "").trim()
+        val titleWords = normalizedTitle.split("\\s+".toRegex()).filter { it.length >= 2 }
+        val fiveMinutesAgo = System.currentTimeMillis() - (5 * 60 * 1000L)
 
-        if (isSubtitleOnly) {
-            try {
-                val subFiles = File(downloadDir).walkTopDown().filter {
-                    it.isFile && (it.name.endsWith(".srt", ignoreCase = true) || it.name.endsWith(".vtt", ignoreCase = true) || it.name.endsWith(".ass", ignoreCase = true))
-                }.toList()
-                val grouped = subFiles.groupBy { it.name.replace(Regex("""\.(?:[a-zA-Z0-9_\-]+)+$"""), "") }
-                grouped.values.forEach { group ->
-                    if (group.size > 1) {
-                        val primary = group.find { !it.name.contains(Regex("""\.[a-z]{2,3}-[a-zA-Z]{2,4}\.""")) }
-                        if (primary != null) {
-                            group.filter { it != primary && it.name.contains(Regex("""\.[a-z]{2,3}-[a-zA-Z]{2,4}\.""")) }.forEach { redundant ->
-                                redundant.delete()
-                            }
-                        }
-                    }
+        val targetDir = File(downloadDir)
+        if (!targetDir.exists()) return emptyList()
+
+        val allFiles = targetDir.walkTopDown()
+            .filter { file ->
+                file.isFile &&
+                !file.name.endsWith(".part", ignoreCase = true) &&
+                !file.name.endsWith(".ytdl", ignoreCase = true) &&
+                !file.name.endsWith(".tmp", ignoreCase = true) &&
+                file.length() > (if (isSubtitleOnly) 5L else 512L)
+            }
+            .toList()
+
+        // 1. Filter by specific matching criteria
+        val matchedFiles = allFiles.filter { file ->
+            val name = file.name
+            val path = file.absolutePath
+            val normalizedName = name.lowercase(java.util.Locale.US).replace(Regex("[^a-z0-9\\u0600-\\u06FF\\s]"), "").trim()
+
+            val isSubFile = name.contains(Regex(SUBTITLE_REGEX))
+            if (isSubtitleOnly && !isSubFile) return@filter false
+            if (!isSubtitleOnly && isSubFile) return@filter false
+
+            var isMatch = false
+
+            // Match by Video ID
+            if (!videoId.isNullOrBlank() && videoId.length >= 4 && (name.contains(videoId) || path.contains(videoId))) {
+                isMatch = true
+            }
+
+            // Match by exact/cleaned title
+            if (!isMatch && (path.contains(cleanTitleStr) || name.contains(cleanedTitle) || (shortTitle.isNotEmpty() && name.contains(shortTitle)))) {
+                isMatch = true
+            }
+
+            // Match by normalized words
+            if (!isMatch && titleWords.isNotEmpty()) {
+                val matchedCount = titleWords.count { normalizedName.contains(it) }
+                if (matchedCount >= (titleWords.size * 0.7).toInt().coerceAtLeast(1)) {
+                    isMatch = true
                 }
-            } catch (_: Exception) {}
+            }
+
+            isMatch
+        }.map { it.absolutePath }.toMutableList()
+
+        // 2. Fallback: If no files matched by name, check files modified within the last 5 minutes in targetDir
+        if (matchedFiles.isEmpty()) {
+            val recentlyModified = allFiles.filter { file ->
+                val name = file.name
+                val isSubFile = name.contains(Regex(SUBTITLE_REGEX))
+                val typeMatches = if (isSubtitleOnly) isSubFile else !isSubFile && !name.contains(Regex(THUMBNAIL_REGEX))
+                typeMatches && file.lastModified() >= fiveMinutesAgo
+            }.sortedByDescending { it.lastModified() }
+            .map { it.absolutePath }
+
+            matchedFiles.addAll(recentlyModified)
         }
 
-        return File(downloadDir)
-            .walkTopDown()
-            .filter { file ->
-                if (!file.isFile) return@filter false
-                val name = file.name
-                val path = file.absolutePath
-                val isMatchingTitle = path.contains(title) ||
-                        name.contains(cleanedTitle) ||
-                        (shortTitle.isNotEmpty() && name.contains(shortTitle))
+        if (matchedFiles.isNotEmpty()) {
+            try {
+                MediaScannerConnection.scanFile(context, matchedFiles.toTypedArray(), null, null)
+            } catch (e: Exception) {
+                Log.e(TAG, "MediaScannerConnection error: ${e.message}")
+            }
+        }
 
-                if (isSubtitleOnly) {
-                    isMatchingTitle && name.contains(Regex(SUBTITLE_REGEX))
-                } else {
-                    isMatchingTitle
-                }
-            }
-            .map { it.absolutePath }
-            .toMutableList()
-            .apply {
-                MediaScannerConnection.scanFile(context, this.toList().toTypedArray(), null, null)
-                removeAll {
-                    it.contains(Regex(THUMBNAIL_REGEX)) || (!isSubtitleOnly && it.contains(Regex(SUBTITLE_REGEX)))
-                }
-            }
+        matchedFiles.removeAll {
+            it.contains(Regex(THUMBNAIL_REGEX)) || (!isSubtitleOnly && it.contains(Regex(SUBTITLE_REGEX)))
+        }
+
+        return matchedFiles
     }
 
     fun scanDownloadDirectoryToMediaLibrary(downloadDir: String) =

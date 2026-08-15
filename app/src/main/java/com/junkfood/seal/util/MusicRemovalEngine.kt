@@ -11,31 +11,36 @@ object MusicRemovalEngine {
     private const val TAG = "MusicRemovalEngine"
 
     /**
-     * Primary precision acoustic vocal isolation filter:
-     * - stereotools: Emphasizes center mono voice while attenuating wide stereo backing music.
-     * - highpass/lowpass: Filters out sub-bass below 90Hz and harsh cymbals above 7.2kHz.
-     * - equalizer: Suppresses 250Hz rhythm mud while boosting 2.2kHz vocal formant frequencies.
-     * - volume: Compensates gain for pristine, loud speech clarity.
+     * Advanced Precision Studio Vocal Extractor Filter Tiers:
+     *
+     * Tier 1 (Pro Center-Channel Vocal Isolation & Formant Preservation):
+     * - stereotools: Attenuates 94% of stereo side instrumentation/synths/reverb while keeping 100% true center vocal at 1.0 gain to prevent clipping.
+     * - highpass/lowpass: Filters out sub-bass below 80Hz while preserving full vocal air and brilliance up to 14kHz.
+     * - equalizer: Suppresses 130Hz rhythm/bass mud by -5dB, while boosting natural vocal presence at 2.8kHz by +2.0dB.
+     * - alimiter: Studio peak limiter (limit 0.98, attack 5ms, release 50ms) to ensure zero digital clipping and smooth dynamics.
      */
     private const val FILTER_TIER_1 =
-        "stereotools=mlev=1.6:slev=0.1,highpass=f=90,lowpass=f=7200,equalizer=f=250:t=o:w=1:g=-6,equalizer=f=2200:t=o:w=1:g=5,volume=1.3"
+        "stereotools=mlev=1.0:slev=0.06,highpass=f=80:p=2,lowpass=f=14000:p=2,equalizer=f=130:t=q:w=1.2:g=-5,equalizer=f=2800:t=q:w=1.0:g=2.0,alimiter=limit=0.98:attack=5:release=50"
 
     /**
-     * Secondary fallback filter (Phase Inversion Center Channel Extractor):
+     * Tier 2 (Phase Inversion Center Channel + Speech Clarifier):
+     * - pan: Subtracts 75% out-of-phase stereo channels to isolate center vocals cleanly.
+     * - equalizer: Smooth vocal formant enhancement at 2.5kHz with gentle lowpass at 13.5kHz.
      */
     private const val FILTER_TIER_2 =
-        "pan=stereo|c0=c0-0.65*c1|c1=c1-0.65*c0,highpass=f=100,lowpass=f=7000,volume=1.4"
+        "pan=stereo|c0=c0-0.75*c1|c1=c1-0.75*c0,highpass=f=85:p=2,lowpass=f=13500:p=2,equalizer=f=140:t=q:w=1.2:g=-4,equalizer=f=2500:t=q:w=1.0:g=2.5,alimiter=limit=0.98:attack=5:release=50"
 
     /**
-     * Tertiary fallback filter (Standard Voice Bandpass):
+     * Tier 3 (Adaptive Speech Bandpass & Harmonic Clarity):
+     * - Isolates the human vocal fundamental and harmonics from 90Hz to 12kHz with dynamic peak limiting.
      */
     private const val FILTER_TIER_3 =
-        "highpass=f=120,lowpass=f=6500,volume=1.5"
+        "highpass=f=90:p=2,lowpass=f=12000:p=2,equalizer=f=150:t=q:w=1.5:g=-6,equalizer=f=2200:t=q:w=1.0:g=2.0,alimiter=limit=0.98:attack=5:release=50"
 
     private val VOCAL_FILTERS = listOf(FILTER_TIER_1, FILTER_TIER_2, FILTER_TIER_3)
 
     private val VIDEO_EXTENSIONS = setOf("mp4", "mkv", "webm", "mov", "avi", "flv", "m4v", "ts")
-    private val AUDIO_EXTENSIONS = setOf("mp3", "m4a", "opus", "ogg", "flac", "wav", "aac", "wma")
+    private val AUDIO_EXTENSIONS = setOf("mp3", "m4a", "opus", "ogg", "flac", "wav", "aac", "wma", "mka", "m4b")
 
     fun isVideoFile(file: File): Boolean {
         val ext = file.extension.lowercase(Locale.ROOT)
@@ -118,7 +123,7 @@ object MusicRemovalEngine {
             }
 
             val progressPercent = ((index.toFloat() / total) * 100f)
-            onProgress?.invoke(progressPercent, "جاري إزالة الموسيقى وعزل الصوت: ${file.name}...")
+            onProgress?.invoke(progressPercent, "جاري عزل الصوت وإزالة الموسيقى: ${file.name}...")
 
             val resultFile = processSingleFile(file, isAudioOnly)
             processedPaths.add(resultFile.absolutePath)
@@ -130,12 +135,12 @@ object MusicRemovalEngine {
     /**
      * Processes a single audio or video file with cascading FFmpeg vocal isolation.
      */
-    fun processSingleFile(inputFile: File, isAudioOnly: Boolean = false): File {
+    suspend fun processSingleFile(inputFile: File, isAudioOnly: Boolean = false): File {
         return try {
             val ffmpegBin = getFFmpegExecutable()
             if (ffmpegBin == null) {
                 Log.e(TAG, "FFmpeg binary not found. Skipping vocal isolation for: ${inputFile.name}")
-                return inputFile
+                throw IllegalStateException("مكتبة FFmpeg غير متوفرة! لا يمكن عزل الصوت، يرجى التثبيت من الإعدادات.")
             }
 
             val isVideo = !isAudioOnly && isVideoFile(inputFile)
@@ -158,7 +163,7 @@ object MusicRemovalEngine {
                     command.add("-c:a")
                     command.add("aac")
                     command.add("-b:a")
-                    command.add("192k")
+                    command.add("256k")
                     command.add("-af")
                     command.add(filter)
                 } else {
@@ -168,23 +173,33 @@ object MusicRemovalEngine {
                             command.add("-c:a")
                             command.add("libmp3lame")
                             command.add("-b:a")
-                            command.add("192k")
+                            command.add("256k")
                         }
                         "m4a", "aac" -> {
                             command.add("-c:a")
                             command.add("aac")
                             command.add("-b:a")
-                            command.add("192k")
+                            command.add("256k")
                         }
                         "opus", "ogg" -> {
                             command.add("-c:a")
                             command.add("libopus")
                             command.add("-b:a")
-                            command.add("128k")
+                            command.add("160k")
+                        }
+                        "wav" -> {
+                            command.add("-c:a")
+                            command.add("pcm_s16le")
+                        }
+                        "flac" -> {
+                            command.add("-c:a")
+                            command.add("flac")
                         }
                         else -> {
+                            command.add("-c:a")
+                            command.add("aac")
                             command.add("-b:a")
-                            command.add("192k")
+                            command.add("256k")
                         }
                     }
                     command.add("-af")
@@ -195,7 +210,14 @@ object MusicRemovalEngine {
 
                 Log.d(TAG, "Executing FFmpeg Vocal Filter Tier ${tierIndex + 1}: ${command.joinToString(" ")}")
 
-                val success = runFFmpegProcess(ffmpegBin, command)
+                val success = try {
+                    runFFmpegProcess(ffmpegBin, command)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    if (tempOutputFile.exists()) {
+                        tempOutputFile.delete()
+                    }
+                    throw e
+                }
 
                 if (success && tempOutputFile.exists() && tempOutputFile.length() > 0L) {
                     Log.d(TAG, "Vocal isolation succeeded on Tier ${tierIndex + 1} for ${inputFile.name}")
@@ -235,13 +257,15 @@ object MusicRemovalEngine {
 
             Log.w(TAG, "All vocal isolation tiers failed. Retaining original file.")
             inputFile
+        } catch (e: IllegalStateException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Unexpected error in processSingleFile for ${inputFile.name}", e)
-            inputFile
+            throw Exception("حدث خطأ غير متوقع أثناء محاولة عزل الصوت: ${e.message}", e)
         }
     }
 
-    private fun runFFmpegProcess(ffmpegBin: File, command: List<String>): Boolean {
+    private suspend fun runFFmpegProcess(ffmpegBin: File, command: List<String>): Boolean {
         return try {
             val processBuilder = ProcessBuilder(command)
             val env = processBuilder.environment()
@@ -269,9 +293,20 @@ object MusicRemovalEngine {
             }
             readerThread.start()
 
-            val exitCode = process.waitFor()
+            val exitCode = try {
+                kotlinx.coroutines.runInterruptible {
+                    process.waitFor()
+                }
+            } finally {
+                if (process.isAlive) {
+                    process.destroy()
+                }
+            }
             readerThread.join(1000L)
             exitCode == 0
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            Log.w(TAG, "FFmpeg process was cancelled by coroutine.")
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Error executing FFmpeg process", e)
             false

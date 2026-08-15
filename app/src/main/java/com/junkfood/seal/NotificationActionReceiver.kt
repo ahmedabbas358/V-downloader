@@ -101,7 +101,6 @@ class NotificationActionReceiver : BroadcastReceiver(), KoinComponent {
             Log.d(TAG, "Task (id:$taskId) was canceled.")
         } else {
             YoutubeDL.destroyProcessById(taskId)
-            Downloader.onProcessCanceled(taskId)
         }
     }
 
