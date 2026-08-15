@@ -657,6 +657,10 @@ class DownloaderV2Impl(
                                 if (!firstFile.exists() || firstFile.length() == 0L) {
                                     throw Exception("Downloaded file is empty or does not exist (0 bytes).")
                                 }
+                            } else {
+                                if (pathList.isEmpty()) {
+                                    throw Exception("لم يتم العثور على ملف ترجمة متاح لهذا المقطع للتحميل (No subtitle file was downloaded)")
+                                }
                             }
 
                             if (task.preferences.removeMusic && !task.preferences.skipDownload && pathList.isNotEmpty()) {

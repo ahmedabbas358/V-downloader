@@ -11,19 +11,28 @@ object MusicRemovalEngine {
     private const val TAG = "MusicRemovalEngine"
 
     /**
-     * Precision-engineered multi-stage acoustic vocal isolation filter:
-     * 1. Center-Channel Vocal Extraction (stereotools): Emphasizes center mono voice (mlev=1.4) while substantially
-     *    attenuating wide-panned stereo instruments and backing music (slev=0.1).
-     * 2. Vocal Bandpass (highpass/lowpass): Eliminates sub-bass and heavy bass rumble below 85 Hz, and attenuates
-     *    high-frequency cymbals, synths, and noise above 7500 Hz.
-     * 3. Formant & Speech Clarity EQ: Cuts muddy 250 Hz rhythmic instrument resonance (-5 dB), boosts 2.2 kHz
-     *    speech clarity/intelligibility (+4 dB), and tames harsh 6 kHz frequency spikes (-4 dB).
-     * 4. Adaptive FFT Denoising (afftdn): Dynamically tracks and suppresses background instrumental noise.
-     * 5. Dynamic Audio Normalization (dynaudnorm): Ensures consistent, crystal-clear voice volume across the track
-     *    without clipping.
+     * Primary precision acoustic vocal isolation filter:
+     * - stereotools: Emphasizes center mono voice while attenuating wide stereo backing music.
+     * - highpass/lowpass: Filters out sub-bass below 90Hz and harsh cymbals above 7.2kHz.
+     * - equalizer: Suppresses 250Hz rhythm mud while boosting 2.2kHz vocal formant frequencies.
+     * - volume: Compensates gain for pristine, loud speech clarity.
      */
-    const val VOCAL_ISOLATION_FILTER =
-        "stereotools=mlev=1.4:slev=0.1,highpass=f=85,lowpass=f=7500,equalizer=f=250:width_type=h:width=150:g=-5,equalizer=f=2200:width_type=h:width=1200:g=4,afftdn=nr=16:nf=-38:tn=1,dynaudnorm=f=150:g=15:peak=0.95"
+    private const val FILTER_TIER_1 =
+        "stereotools=mlev=1.6:slev=0.1,highpass=f=90,lowpass=f=7200,equalizer=f=250:t=o:w=1:g=-6,equalizer=f=2200:t=o:w=1:g=5,volume=1.3"
+
+    /**
+     * Secondary fallback filter (Phase Inversion Center Channel Extractor):
+     */
+    private const val FILTER_TIER_2 =
+        "pan=stereo|c0=c0-0.65*c1|c1=c1-0.65*c0,highpass=f=100,lowpass=f=7000,volume=1.4"
+
+    /**
+     * Tertiary fallback filter (Standard Voice Bandpass):
+     */
+    private const val FILTER_TIER_3 =
+        "highpass=f=120,lowpass=f=6500,volume=1.5"
+
+    private val VOCAL_FILTERS = listOf(FILTER_TIER_1, FILTER_TIER_2, FILTER_TIER_3)
 
     private val VIDEO_EXTENSIONS = setOf("mp4", "mkv", "webm", "mov", "avi", "flv", "m4v", "ts")
     private val AUDIO_EXTENSIONS = setOf("mp3", "m4a", "opus", "ogg", "flac", "wav", "aac", "wma")
@@ -62,7 +71,20 @@ object MusicRemovalEngine {
         // Deep search within packages directory if not found in standard paths
         val packagesDir = File(appContext.noBackupFilesDir, "youtubedl-android/packages")
         if (packagesDir.exists()) {
-            val found = packagesDir.walkTopDown().maxDepth(4).firstOrNull {
+            val found = packagesDir.walkTopDown().maxDepth(5).firstOrNull {
+                (it.name == "ffmpeg" || it.name == "libffmpeg.so") && it.isFile
+            }
+            if (found != null) {
+                if (!found.canExecute()) {
+                    found.setExecutable(true, false)
+                }
+                return found
+            }
+        }
+
+        val filesDir = appContext.filesDir
+        if (filesDir.exists()) {
+            val found = filesDir.walkTopDown().maxDepth(3).firstOrNull {
                 (it.name == "ffmpeg" || it.name == "libffmpeg.so") && it.isFile
             }
             if (found != null) {
@@ -96,7 +118,7 @@ object MusicRemovalEngine {
             }
 
             val progressPercent = ((index.toFloat() / total) * 100f)
-            onProgress?.invoke(progressPercent, "جاري إزالة الموسيقى: ${file.name}...")
+            onProgress?.invoke(progressPercent, "جاري إزالة الموسيقى وعزل الصوت: ${file.name}...")
 
             val resultFile = processSingleFile(file, isAudioOnly)
             processedPaths.add(resultFile.absolutePath)
@@ -106,7 +128,7 @@ object MusicRemovalEngine {
     }
 
     /**
-     * Processes a single audio or video file with FFmpeg vocal isolation.
+     * Processes a single audio or video file with cascading FFmpeg vocal isolation.
      */
     fun processSingleFile(inputFile: File, isAudioOnly: Boolean = false): File {
         return try {
@@ -117,106 +139,102 @@ object MusicRemovalEngine {
             }
 
             val isVideo = !isAudioOnly && isVideoFile(inputFile)
-            val tempOutputFile = File(
-                inputFile.parentFile ?: context.cacheDir,
-                "vocal_isolated_${System.currentTimeMillis()}_${inputFile.name}"
-            )
 
-            val command = mutableListOf<String>()
-            command.add(ffmpegBin.absolutePath)
-            command.add("-y")
-            command.add("-i")
-            command.add(inputFile.absolutePath)
+            for ((tierIndex, filter) in VOCAL_FILTERS.withIndex()) {
+                val tempOutputFile = File(
+                    inputFile.parentFile ?: context.cacheDir,
+                    "vocal_isolated_${System.currentTimeMillis()}_${inputFile.name}"
+                )
 
-            if (isVideo) {
-                // For video: Copy video stream without re-encoding, filter audio stream
-                command.add("-c:v")
-                command.add("copy")
-                command.add("-c:a")
-                command.add("aac")
-                command.add("-b:a")
-                command.add("192k")
-                command.add("-af")
-                command.add(VOCAL_ISOLATION_FILTER)
-            } else {
-                // For audio: Apply vocal isolation filter and encode based on format
-                val ext = inputFile.extension.lowercase(Locale.ROOT)
-                when (ext) {
-                    "mp3" -> {
-                        command.add("-c:a")
-                        command.add("libmp3lame")
-                        command.add("-b:a")
-                        command.add("192k")
+                val command = mutableListOf<String>()
+                command.add(ffmpegBin.absolutePath)
+                command.add("-y")
+                command.add("-i")
+                command.add(inputFile.absolutePath)
+
+                if (isVideo) {
+                    command.add("-c:v")
+                    command.add("copy")
+                    command.add("-c:a")
+                    command.add("aac")
+                    command.add("-b:a")
+                    command.add("192k")
+                    command.add("-af")
+                    command.add(filter)
+                } else {
+                    val ext = inputFile.extension.lowercase(Locale.ROOT)
+                    when (ext) {
+                        "mp3" -> {
+                            command.add("-c:a")
+                            command.add("libmp3lame")
+                            command.add("-b:a")
+                            command.add("192k")
+                        }
+                        "m4a", "aac" -> {
+                            command.add("-c:a")
+                            command.add("aac")
+                            command.add("-b:a")
+                            command.add("192k")
+                        }
+                        "opus", "ogg" -> {
+                            command.add("-c:a")
+                            command.add("libopus")
+                            command.add("-b:a")
+                            command.add("128k")
+                        }
+                        else -> {
+                            command.add("-b:a")
+                            command.add("192k")
+                        }
                     }
-                    "m4a", "aac" -> {
-                        command.add("-c:a")
-                        command.add("aac")
-                        command.add("-b:a")
-                        command.add("192k")
-                    }
-                    "opus", "ogg" -> {
-                        command.add("-c:a")
-                        command.add("libopus")
-                        command.add("-b:a")
-                        command.add("128k")
-                    }
-                    else -> {
-                        command.add("-b:a")
-                        command.add("192k")
-                    }
+                    command.add("-af")
+                    command.add(filter)
                 }
-                command.add("-af")
-                command.add(VOCAL_ISOLATION_FILTER)
-            }
 
-            command.add(tempOutputFile.absolutePath)
+                command.add(tempOutputFile.absolutePath)
 
-            Log.d(TAG, "Executing MusicRemovalEngine FFmpeg command: ${command.joinToString(" ")}")
+                Log.d(TAG, "Executing FFmpeg Vocal Filter Tier ${tierIndex + 1}: ${command.joinToString(" ")}")
 
-            val success = runFFmpegProcess(ffmpegBin, command)
+                val success = runFFmpegProcess(ffmpegBin, command)
 
-            if (success && tempOutputFile.exists() && tempOutputFile.length() > 0L) {
-                Log.d(TAG, "Vocal isolation succeeded for ${inputFile.name}. Swapping files...")
-                val targetPath = inputFile.absolutePath
-                val backupFile = File(inputFile.parentFile, "backup_${System.currentTimeMillis()}_${inputFile.name}")
-                
-                val renamed = inputFile.renameTo(backupFile)
-                if (renamed) {
-                    val replaced = tempOutputFile.renameTo(File(targetPath))
-                    if (replaced) {
-                        backupFile.delete()
-                        File(targetPath)
+                if (success && tempOutputFile.exists() && tempOutputFile.length() > 0L) {
+                    Log.d(TAG, "Vocal isolation succeeded on Tier ${tierIndex + 1} for ${inputFile.name}")
+                    val targetPath = inputFile.absolutePath
+                    val backupFile = File(inputFile.parentFile, "backup_${System.currentTimeMillis()}_${inputFile.name}")
+
+                    val renamed = inputFile.renameTo(backupFile)
+                    if (renamed) {
+                        val replaced = tempOutputFile.renameTo(File(targetPath))
+                        if (replaced) {
+                            backupFile.delete()
+                            return File(targetPath)
+                        } else {
+                            try {
+                                tempOutputFile.copyTo(File(targetPath), overwrite = true)
+                                tempOutputFile.delete()
+                                backupFile.delete()
+                                return File(targetPath)
+                            } catch (e: Exception) {
+                                backupFile.renameTo(File(targetPath))
+                            }
+                        }
                     } else {
-                        // Fallback copy
                         try {
                             tempOutputFile.copyTo(File(targetPath), overwrite = true)
                             tempOutputFile.delete()
-                            backupFile.delete()
-                            File(targetPath)
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Failed to copy temp file to target", e)
-                            backupFile.renameTo(File(targetPath))
-                            inputFile
-                        }
+                            return File(targetPath)
+                        } catch (_: Exception) {}
                     }
                 } else {
-                    // If rename failed, try direct copy
-                    try {
-                        tempOutputFile.copyTo(File(targetPath), overwrite = true)
+                    if (tempOutputFile.exists()) {
                         tempOutputFile.delete()
-                        File(targetPath)
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Direct copy fallback failed", e)
-                        inputFile
                     }
+                    Log.w(TAG, "Tier ${tierIndex + 1} failed for ${inputFile.name}, trying next fallback tier...")
                 }
-            } else {
-                Log.w(TAG, "FFmpeg vocal isolation failed for ${inputFile.name}. Keeping original file.")
-                if (tempOutputFile.exists()) {
-                    tempOutputFile.delete()
-                }
-                inputFile
             }
+
+            Log.w(TAG, "All vocal isolation tiers failed. Retaining original file.")
+            inputFile
         } catch (e: Exception) {
             Log.e(TAG, "Unexpected error in processSingleFile for ${inputFile.name}", e)
             inputFile
@@ -240,7 +258,6 @@ object MusicRemovalEngine {
             processBuilder.redirectErrorStream(true)
             val process = processBuilder.start()
 
-            // Read output stream in background to prevent process blocking
             val readerThread = Thread {
                 try {
                     process.inputStream.bufferedReader().useLines { lines ->

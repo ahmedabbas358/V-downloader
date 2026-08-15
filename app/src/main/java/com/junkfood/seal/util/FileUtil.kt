@@ -152,10 +152,15 @@ object FileUtil {
                 if (!file.isFile) return@filter false
                 val name = file.name
                 val path = file.absolutePath
-                path.contains(title) ||
-                    name.contains(cleanedTitle) ||
-                    (shortTitle.isNotEmpty() && name.contains(shortTitle)) ||
-                    (isSubtitleOnly && name.contains(Regex(SUBTITLE_REGEX)))
+                val isMatchingTitle = path.contains(title) ||
+                        name.contains(cleanedTitle) ||
+                        (shortTitle.isNotEmpty() && name.contains(shortTitle))
+
+                if (isSubtitleOnly) {
+                    isMatchingTitle && name.contains(Regex(SUBTITLE_REGEX))
+                } else {
+                    isMatchingTitle
+                }
             }
             .map { it.absolutePath }
             .toMutableList()

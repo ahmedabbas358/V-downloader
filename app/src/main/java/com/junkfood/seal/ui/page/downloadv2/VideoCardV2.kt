@@ -470,12 +470,12 @@ private fun VideoInfoLabel(modifier: Modifier = Modifier, duration: Int, fileSiz
         color = LabelContainerColor,
         shape = MaterialTheme.shapes.extraSmall,
     ) {
-        val fileSizeText = if (showSize) fileSizeApprox.toFileSizeText() else ""
+        val fileSizeText = if (showSize && fileSizeApprox > 0.0) fileSizeApprox.toFileSizeText() else ""
         val durationText = if (showDuration && duration > 0) duration.toDurationText() else ""
         val text = buildString {
-            if (showSize) append(fileSizeText)
-            if (showSize && showDuration && fileSizeText.isNotBlank() && durationText.isNotBlank()) append("  ")
-            if (showDuration) append(durationText)
+            if (fileSizeText.isNotBlank()) append(fileSizeText)
+            if (fileSizeText.isNotBlank() && durationText.isNotBlank()) append("  ")
+            if (durationText.isNotBlank()) append(durationText)
         }
         if (text.isNotBlank()) {
             Text(

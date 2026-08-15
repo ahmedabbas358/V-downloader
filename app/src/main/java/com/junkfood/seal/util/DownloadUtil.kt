@@ -489,9 +489,7 @@ object DownloadUtil {
             if (downloadPreferences.skipDownload) {
                 addOption("--skip-download")
                 addOption("--write-subs")
-                if (downloadPreferences.autoSubtitle || downloadPreferences.autoTranslatedSubtitles) {
-                    addOption("--write-auto-subs")
-                }
+                addOption("--write-auto-subs")
                 val langOption = buildSubLangsOption(downloadPreferences.subtitleLanguage)
                 addOption("--sub-langs", langOption)
                 when (downloadPreferences.convertSubtitle) {
@@ -501,8 +499,6 @@ object DownloadUtil {
                     CONVERT_LRC -> addOption("--convert-subs", "lrc")
                     else -> addOption("--convert-subs", "srt")
                 }
-                addOption("--sleep-subtitles", "2")
-                addOption("--sleep-requests", "1")
                 return@apply
             }
 
@@ -512,7 +508,7 @@ object DownloadUtil {
                 addOption("--no-embed-info-json")
                 if (formatIdString.isNotEmpty()) {
                     val finalFormat = if (!formatIdString.contains("+") && !formatIdString.contains("ba") && !formatIdString.contains("bestaudio") && !formatIdString.contains("/") && !formatIdString.contains("best")) {
-                        "$formatIdString+ba/b"
+                        "$formatIdString+bestaudio/best"
                     } else {
                         formatIdString
                     }
@@ -522,12 +518,12 @@ object DownloadUtil {
                     }
                 } else {
                     val formatSelector = when (videoResolution) {
-                        1 -> "bv*[height<=2160]+ba/b[height<=2160]/b"
-                        2 -> "bv*[height<=1440]+ba/b[height<=1440]/b"
-                        3 -> "bv*[height<=1080]+ba/b[height<=1080]/b"
-                        4 -> "bv*[height<=720]+ba/b[height<=720]/b"
-                        5 -> "bv*[height<=480]+ba/b[height<=480]/b"
-                        6 -> "bv*[height<=360]+ba/b[height<=360]/b"
+                        1 -> "bv*[height<=2160]+ba/b[height<=2160]/bv*+ba/b"
+                        2 -> "bv*[height<=1440]+ba/b[height<=1440]/bv*+ba/b"
+                        3 -> "bv*[height<=1080]+ba/b[height<=1080]/bv*+ba/b"
+                        4 -> "bv*[height<=720]+ba/b[height<=720]/bv*+ba/b"
+                        5 -> "bv*[height<=480]+ba/b[height<=480]/bv*+ba/b"
+                        6 -> "bv*[height<=360]+ba/b[height<=360]/bv*+ba/b"
                         7 -> "wv*+wa/w/b"
                         else -> "bv*+ba/b"
                     }
@@ -536,9 +532,7 @@ object DownloadUtil {
                 }
                 if (downloadSubtitle) {
                     addOption("--write-subs")
-                    if (autoSubtitle || autoTranslatedSubtitles || subtitleLanguage.isNotEmpty()) {
-                        addOption("--write-auto-subs")
-                    }
+                    addOption("--write-auto-subs")
                     val langOption = buildSubLangsOption(subtitleLanguage)
                     addOption("--sub-langs", langOption)
                     if (embedSubtitle) {
@@ -551,12 +545,12 @@ object DownloadUtil {
                         CONVERT_LRC -> addOption("--convert-subs", "lrc")
                         else -> addOption("--convert-subs", "srt")
                     }
-                    addOption("--sleep-subtitles", "3")
-                    addOption("--sleep-requests", "2")
                 }
                 if (mergeToMkv) {
                     addOption("--remux-video", "mkv")
                     addOption("--merge-output-format", "mkv")
+                } else {
+                    addOption("--merge-output-format", "mp4/mkv")
                 }
                 if (embedThumbnail) {
                     addOption("--embed-thumbnail")
