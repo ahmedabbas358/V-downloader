@@ -109,6 +109,16 @@ fun WelcomeDialog(onClick: () -> Unit) {
                         description = stringResource(R.string.feature_subtitles_desc),
                     )
                     IconDescription(
+                        icon = Icons.Outlined.SettingsSuggest,
+                        title = stringResource(R.string.setting_guide_ytdlp_title),
+                        description = stringResource(R.string.setting_guide_ytdlp_desc),
+                    )
+                    IconDescription(
+                        icon = Icons.Outlined.FileDownload,
+                        title = stringResource(R.string.setting_guide_storage_title),
+                        description = stringResource(R.string.setting_guide_storage_desc),
+                    )
+                    IconDescription(
                         icon = Icons.Outlined.Downloading,
                         title = stringResource(R.string.perm_battery_title),
                         description = stringResource(R.string.battery_settings_desc),

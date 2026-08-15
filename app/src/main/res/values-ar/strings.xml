@@ -530,4 +530,15 @@
     <string name="notif_action_retry">إعادة المحاولة</string>
     <string name="notif_action_report">نسخ الخطأ</string>
     <string name="notif_download_success">اكتمل التنزيل بنجاح. انقر للفتح أو المشاركة.</string>
+
+    <string name="onboarding_settings_title">دليل التثبيت والإعدادات المهمة</string>
+    <string name="onboarding_settings_desc">كيفية التحكم في الإعدادات المهمة وضبط المحرك ومسارات التخزين.</string>
+    <string name="setting_guide_ytdlp_title">تحديث محرك التنزيل وحل المشاكل</string>
+    <string name="setting_guide_ytdlp_desc">احرص على تحديث yt-dlp من الإعدادات لضمان التوافق مع كافة المواقع وحل أي مشكلة فوراً.</string>
+    <string name="setting_guide_storage_title">مسار التخزين وتنظيم المجلدات</string>
+    <string name="setting_guide_storage_desc">حدد مجلد التنزيل المفضل وفعل خيار إنشاء مجلد فرعي لكل قائمة لتنظيم ملفاتك.</string>
+    <string name="setting_guide_aria2c_title">تسريع التنزيل المتعدد (Aria2c)</string>
+    <string name="setting_guide_aria2c_desc">فعل ميزة التنزيل المتعدد لتسريع التحميل حتى 8 أضعاف عبر تجزئة الملفات.</string>
+    <string name="setting_guide_cookies_title">الكوكيز ومصادقة الحسابات</string>
+    <string name="setting_guide_cookies_desc">اربط حسابك لتنزيل الفيديوهات الخاصة، مقاطع الأعضاء، أو المحتوى المقيد بالعمر.</string>
 </resources>

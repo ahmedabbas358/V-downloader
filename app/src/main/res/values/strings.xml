@@ -536,4 +536,15 @@
     <string name="notif_action_retry">Retry</string>
     <string name="notif_action_report">Copy Report</string>
     <string name="notif_download_success">Download complete. Tap to open or share.</string>
+
+    <string name="onboarding_settings_title">Essential Settings &amp; Setup</string>
+    <string name="onboarding_settings_desc">How to configure, optimize, and control essential app functions.</string>
+    <string name="setting_guide_ytdlp_title">Engine Updates &amp; Troubleshooting</string>
+    <string name="setting_guide_ytdlp_desc">Keep yt-dlp updated from Settings &gt; Troubleshooting to ensure compatibility with all streaming sites.</string>
+    <string name="setting_guide_storage_title">Storage &amp; Folder Organization</string>
+    <string name="setting_guide_storage_desc">Set custom download directories and enable subfolders for playlists in Settings &gt; Directory.</string>
+    <string name="setting_guide_aria2c_title">Speed Acceleration (Aria2c)</string>
+    <string name="setting_guide_aria2c_desc">Enable multi-threaded downloading with Aria2c to maximize your download speed up to 8x.</string>
+    <string name="setting_guide_cookies_title">Account Authentication &amp; Cookies</string>
+    <string name="setting_guide_cookies_desc">Link your browser account in Settings &gt; Cookies to download private, member-only, or age-restricted videos.</string>
 </resources>

@@ -33,16 +33,21 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BatteryChargingFull
+import androidx.compose.material.icons.outlined.BuildCircle
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ContentCut
+import androidx.compose.material.icons.outlined.Cookie
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.FlashOn
 import androidx.compose.material.icons.outlined.FolderSpecial
 import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.PlaylistPlay
 import androidx.compose.material.icons.outlined.RocketLaunch
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Subtitles
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Check
@@ -91,7 +96,7 @@ import java.util.Locale
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun OnboardingScreen(onFinished: () -> Unit) {
-    val pagerState = rememberPagerState(pageCount = { 3 })
+    val pagerState = rememberPagerState(pageCount = { 4 })
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
@@ -136,7 +141,8 @@ fun OnboardingScreen(onFinished: () -> Unit) {
                             onLocaleChange = { currentLocale = it }
                         )
                         1 -> FeaturesTourPage()
-                        2 -> SmartPermissionsPage(onFinished = onFinished)
+                        2 -> EssentialSettingsPage()
+                        3 -> SmartPermissionsPage(onFinished = onFinished)
                     }
                 }
 
@@ -163,12 +169,12 @@ fun OnboardingScreen(onFinished: () -> Unit) {
                         Spacer(modifier = Modifier.width(60.dp))
                     }
 
-                    // Dots indicator
+                    // Dots indicator (4 dots)
                     Row(
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        repeat(3) { iteration ->
+                        repeat(4) { iteration ->
                             val isSelected = pagerState.currentPage == iteration
                             Box(
                                 modifier = Modifier
@@ -183,7 +189,7 @@ fun OnboardingScreen(onFinished: () -> Unit) {
                         }
                     }
 
-                    if (pagerState.currentPage < 2) {
+                    if (pagerState.currentPage < 3) {
                         Button(
                             onClick = {
                                 scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
@@ -351,6 +357,146 @@ fun FeaturesTourPage() {
             }
         }
         Spacer(modifier = Modifier.height(64.dp))
+    }
+}
+
+@Composable
+fun EssentialSettingsPage() {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(modifier = Modifier.height(16.dp))
+        Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.tertiaryContainer,
+            modifier = Modifier.size(64.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Tune,
+                contentDescription = null,
+                modifier = Modifier.padding(16.dp),
+                tint = MaterialTheme.colorScheme.onTertiaryContainer
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = stringResource(R.string.onboarding_settings_title),
+            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = stringResource(R.string.onboarding_settings_desc),
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            item {
+                SettingGuideCard(
+                    icon = Icons.Outlined.BuildCircle,
+                    title = stringResource(R.string.setting_guide_ytdlp_title),
+                    desc = stringResource(R.string.setting_guide_ytdlp_desc),
+                    badge = "هام جداً"
+                )
+            }
+            item {
+                SettingGuideCard(
+                    icon = Icons.Outlined.FolderSpecial,
+                    title = stringResource(R.string.setting_guide_storage_title),
+                    desc = stringResource(R.string.setting_guide_storage_desc),
+                    badge = "التخزين"
+                )
+            }
+            item {
+                SettingGuideCard(
+                    icon = Icons.Outlined.FlashOn,
+                    title = stringResource(R.string.setting_guide_aria2c_title),
+                    desc = stringResource(R.string.setting_guide_aria2c_desc),
+                    badge = "السرعة"
+                )
+            }
+            item {
+                SettingGuideCard(
+                    icon = Icons.Outlined.Cookie,
+                    title = stringResource(R.string.setting_guide_cookies_title),
+                    desc = stringResource(R.string.setting_guide_cookies_desc),
+                    badge = "الحسابات"
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(64.dp))
+    }
+}
+
+@Composable
+private fun SettingGuideCard(icon: ImageVector, title: String, desc: String, badge: String) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    modifier = Modifier.size(38.dp)
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.padding(8.dp),
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                ) {
+                    Text(
+                        text = badge,
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = desc,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
