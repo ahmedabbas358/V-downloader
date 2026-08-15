@@ -1,5 +1,10 @@
 package com.junkfood.seal.ui.page.downloadv2.configure
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -23,14 +28,18 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.HighQuality
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -38,13 +47,17 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -52,6 +65,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -67,6 +81,7 @@ import com.junkfood.seal.util.AUDIO_CONVERT
 import com.junkfood.seal.util.AUDIO_FORMAT
 import com.junkfood.seal.util.AUDIO_QUALITY
 import com.junkfood.seal.util.DownloadUtil.DownloadPreferences
+import com.junkfood.seal.util.FileUtil
 import com.junkfood.seal.util.PreferenceStrings
 import com.junkfood.seal.util.PreferenceUtil.updateBoolean
 import com.junkfood.seal.util.PreferenceUtil.updateInt
@@ -86,6 +101,7 @@ fun PlaylistSyncDialog(
 ) {
     val downloader: DownloaderV2 = koinInject()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     var url by remember { mutableStateOf(initialUrl) }
     var selectedType by remember { mutableStateOf(0) } // 0: Video, 1: Audio, 2: Subtitle
@@ -98,9 +114,33 @@ fun PlaylistSyncDialog(
     var showVideoPresetDialog by remember { mutableStateOf(false) }
     var showAudioPresetDialog by remember { mutableStateOf(false) }
 
-    // Directory Override
+    // Directory Override with SAF Picker
     var customFolderPath by remember { mutableStateOf("") }
     var showFolderEditField by remember { mutableStateOf(false) }
+
+    val folderPickerLauncher = rememberLauncherForActivityResult(
+        contract = object : ActivityResultContracts.OpenDocumentTree() {
+            override fun createIntent(context: Context, input: Uri?): Intent {
+                return super.createIntent(context, input).apply {
+                    flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                            Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+                            Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+                }
+            }
+        }
+    ) { uri ->
+        uri?.let {
+            val resolvedPath = FileUtil.getRealPath(it)
+            if (resolvedPath.isNotBlank()) {
+                customFolderPath = resolvedPath
+                scanResult = null
+            }
+        }
+    }
+
+    // Results inspection tabs (0 = Missing, 1 = Found)
+    var resultTab by remember { mutableIntStateOf(0) }
+    val selectedMissingIndices = remember { mutableStateListOf<Int>() }
 
     SealModalBottomSheet(
         onDismissRequest = onDismissRequest,
@@ -153,7 +193,7 @@ fun PlaylistSyncDialog(
 
             var removeMusic by remember(currentPrefs) { mutableStateOf(currentPrefs.removeMusic) }
 
-            // Content type selection with HORIZONTAL SCROLLING to prevent single-letter vertical squeezing!
+            // Content type selection with HORIZONTAL SCROLLING
             Text(
                 text = "نوع المحتوى:",
                 style = MaterialTheme.typography.labelLarge,
@@ -196,7 +236,7 @@ fun PlaylistSyncDialog(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Custom Folder Section
+            // Custom Folder Section with Folder Picker
             Surface(
                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
                 shape = RoundedCornerShape(12.dp),
@@ -221,12 +261,20 @@ fun PlaylistSyncDialog(
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f)
                         )
+                        IconButton(onClick = { folderPickerLauncher.launch(null) }) {
+                            Icon(
+                                imageVector = Icons.Default.FolderOpen,
+                                contentDescription = "اختيار مجلد من الهاتف",
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
                         IconButton(onClick = { showFolderEditField = !showFolderEditField }) {
                             Icon(
                                 imageVector = Icons.Default.Edit,
-                                contentDescription = "تعديل المجلد",
+                                contentDescription = "كتابة المسار يدوياً",
                                 modifier = Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.primary
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -236,7 +284,7 @@ fun PlaylistSyncDialog(
                             value = customFolderPath,
                             onValueChange = { customFolderPath = it; scanResult = null },
                             label = { Text("مسار المجلد المحلي (اختياري)") },
-                            placeholder = { Text("/storage/emulated/0/Download/Seal") },
+                            placeholder = { Text("/storage/emulated/0/Download/...") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             shape = RoundedCornerShape(8.dp)
@@ -314,6 +362,7 @@ fun PlaylistSyncDialog(
                     isScanning = true
                     errorMessage = null
                     scanResult = null
+                    selectedMissingIndices.clear()
 
                     scope.launch {
                         val res = PlaylistVerifier.scanPlaylist(
@@ -324,6 +373,8 @@ fun PlaylistSyncDialog(
                         isScanning = false
                         res.onSuccess {
                             scanResult = it
+                            selectedMissingIndices.clear()
+                            selectedMissingIndices.addAll(it.missingItems.map { item -> item.index })
                         }.onFailure { th ->
                             errorMessage = th.localizedMessage ?: "حدث خطأ أثناء فحص ومقارنة عناصر المجلد بالقائمة"
                         }
@@ -399,13 +450,14 @@ fun PlaylistSyncDialog(
                             ) {
                                 Column(modifier = Modifier.padding(12.dp)) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text("الموجود بالجهاز", style = MaterialTheme.typography.labelMedium)
                                     }
                                     Text(
                                         text = "${result.foundItems.size} / ${result.totalCount}",
-                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
                                 }
                             }
@@ -415,13 +467,14 @@ fun PlaylistSyncDialog(
                             ) {
                                 Column(modifier = Modifier.padding(12.dp)) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(imageVector = Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Icon(imageVector = Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text("المفقود للتنزيل", style = MaterialTheme.typography.labelMedium)
                                     }
                                     Text(
                                         text = "${result.missingItems.size} / ${result.totalCount}",
-                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.onErrorContainer
                                     )
                                 }
                             }
@@ -431,91 +484,219 @@ fun PlaylistSyncDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                if (result.missingItems.isNotEmpty()) {
-                    Text(
-                        text = "الملفات المفقودة التي سيتم استكمال تنزيلها:",
-                        style = MaterialTheme.typography.titleSmall,
-                        modifier = Modifier.padding(vertical = 4.dp)
+                // Tab Switcher between Missing and Found
+                PrimaryTabRow(
+                    selectedTabIndex = resultTab,
+                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                ) {
+                    Tab(
+                        selected = resultTab == 0,
+                        onClick = { resultTab = 0 },
+                        text = { Text("المفقود (${result.missingItems.size})") }
                     )
+                    Tab(
+                        selected = resultTab == 1,
+                        onClick = { resultTab = 1 },
+                        text = { Text("الموجود (${result.foundItems.size})") }
+                    )
+                }
 
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(160.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                            .padding(4.dp)
-                    ) {
-                        items(result.missingItems) { item ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp, horizontal = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Surface(
-                                    color = MaterialTheme.colorScheme.secondaryContainer,
-                                    shape = RoundedCornerShape(4.dp)
-                                ) {
-                                    Text(
-                                        text = String.format("#%03d", item.index),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                if (resultTab == 0) {
+                    // Missing Tab
+                    if (result.missingItems.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "العناصر المحددة للتنزيل: ${selectedMissingIndices.size} / ${result.missingItems.size}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            TextButton(
+                                onClick = {
+                                    if (selectedMissingIndices.size == result.missingItems.size) {
+                                        selectedMissingIndices.clear()
+                                    } else {
+                                        selectedMissingIndices.clear()
+                                        selectedMissingIndices.addAll(result.missingItems.map { it.index })
+                                    }
                                 }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = item.title,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                            ) {
+                                Text(if (selectedMissingIndices.size == result.missingItems.size) "إلغاء تحديد الكل" else "تحديد الكل")
                             }
                         }
-                    }
 
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Download missing items button — uses effectivePrefs with quality settings
-                    Button(
-                        onClick = {
-                            scope.launch {
-                                val itemsWithQuality = result.missingItems.map { item ->
-                                    item.copy(
-                                        preferences = effectivePrefs.copy(
-                                            commandDirectory = customFolderPath.ifBlank { result.targetDirectory },
-                                            subdirectoryPlaylistTitle = false
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                                .padding(4.dp)
+                        ) {
+                            items(result.missingItems) { item ->
+                                val isSelected = selectedMissingIndices.contains(item.index)
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 2.dp, horizontal = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Checkbox(
+                                        checked = isSelected,
+                                        onCheckedChange = { checked ->
+                                            if (checked) selectedMissingIndices.add(item.index)
+                                            else selectedMissingIndices.remove(item.index)
+                                        }
+                                    )
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f),
+                                        shape = RoundedCornerShape(4.dp)
+                                    ) {
+                                        Text(
+                                            text = String.format("#%03d", item.index),
+                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                            color = MaterialTheme.colorScheme.onErrorContainer,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                         )
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = item.title,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f)
                                     )
                                 }
-                                PlaylistVerifier.enqueueMissingItems(
-                                    missingItems = itemsWithQuality,
-                                    targetDirectory = customFolderPath.ifBlank { result.targetDirectory },
-                                    downloader = downloader
-                                )
-                                ToastUtil.makeToast("تمت إضافة ${result.missingItems.size} ملف مفقود إلى قائمة التنزيل")
-                                onDismissRequest()
                             }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(imageVector = Icons.Default.Download, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("استكمال تحميل المفقود فقط (${result.missingItems.size} عنصر)")
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Download missing items button
+                        Button(
+                            onClick = {
+                                val toDownload = result.missingItems.filter { selectedMissingIndices.contains(it.index) }
+                                if (toDownload.isEmpty()) {
+                                    ToastUtil.makeToast("يرجى اختيار عنصر واحد على الأقل للتنزيل")
+                                    return@Button
+                                }
+                                scope.launch {
+                                    val itemsWithQuality = toDownload.map { item ->
+                                        item.copy(
+                                            preferences = effectivePrefs.copy(
+                                                commandDirectory = customFolderPath.ifBlank { result.targetDirectory },
+                                                subdirectoryPlaylistTitle = false
+                                            )
+                                        )
+                                    }
+                                    PlaylistVerifier.enqueueMissingItems(
+                                        missingItems = itemsWithQuality,
+                                        targetDirectory = customFolderPath.ifBlank { result.targetDirectory },
+                                        downloader = downloader
+                                    )
+                                    ToastUtil.makeToast("تمت إضافة ${toDownload.size} ملف مفقود إلى قائمة التنزيل")
+                                    onDismissRequest()
+                                }
+                            },
+                            enabled = selectedMissingIndices.isNotEmpty(),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.Download, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("استكمال تحميل المحدد فقط (${selectedMissingIndices.size} عنصر)")
+                        }
+                    } else {
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "🎉 جميع عناصر قائمة التشغيل مكتملة وموجودة بالكامل في المجلد!",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(16.dp),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
                     }
                 } else {
-                    Surface(
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = "🎉 جميع عناصر قائمة التشغيل مكتملة وموجودة بالكامل في المجلد!",
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(16.dp),
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
+                    // Found Tab
+                    if (result.foundItems.isNotEmpty()) {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(220.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                                .padding(6.dp)
+                        ) {
+                            items(result.foundItems) { item ->
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp, horizontal = 4.dp)
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.primaryContainer,
+                                            shape = RoundedCornerShape(4.dp)
+                                        ) {
+                                            Text(
+                                                text = String.format("#%03d", item.index),
+                                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = item.title,
+                                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Outlined.CheckCircle,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                    if (!item.matchedFilePath.isNullOrBlank()) {
+                                        Text(
+                                            text = item.matchedFilePath.substringAfterLast('/'),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.padding(start = 32.dp, top = 2.dp)
+                                        )
+                                    }
+                                    HorizontalDivider(modifier = Modifier.padding(top = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                                }
+                            }
+                        }
+                    } else {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "لم يتم العثور على أي ملفات من هذه القائمة في هذا المجلد بعد.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(16.dp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }

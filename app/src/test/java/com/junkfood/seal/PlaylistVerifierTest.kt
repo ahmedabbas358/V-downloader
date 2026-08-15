@@ -57,4 +57,29 @@ class PlaylistVerifierTest {
         val indexMatch = fileName.contains(formattedIndex3)
         assertTrue("Playlist index 035 should match filename", indexMatch)
     }
+
+    @Test
+    fun testOneToOneFileMatching() {
+        // Simulating the user scenario: 1 subtitle file on disk for a 57-item playlist
+        val localFiles = mutableListOf(
+            "005 - #5 Preprocessor and the volatile keyword [abc12345678].ar.srt"
+        )
+
+        val playlistEntries = (1..57).map { i ->
+            "Track #$i" to if (i == 5) "abc12345678" else "other_id_$i"
+        }
+
+        val foundCount = playlistEntries.count { (title, id) ->
+            val match = localFiles.firstOrNull { it.contains(id) }
+            if (match != null) {
+                localFiles.remove(match) // 1-to-1 consumption
+                true
+            } else {
+                false
+            }
+        }
+
+        assertEquals("Only 1 track should match the single local file on disk", 1, foundCount)
+        assertTrue("Available local files pool should be empty after matching", localFiles.isEmpty())
+    }
 }
