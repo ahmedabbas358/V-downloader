@@ -107,7 +107,7 @@ object MusicRemovalEngine {
      * Processes a list of downloaded files, removing music / isolating vocals.
      * Returns the updated list of file paths.
      */
-    fun processFiles(
+    suspend fun processFiles(
         filePaths: List<String>,
         isAudioOnly: Boolean = false,
         onProgress: ((Float, String) -> Unit)? = null

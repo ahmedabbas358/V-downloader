@@ -75,33 +75,37 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: app/build/outputs/apk/generic/release/*.apk
-          name: V-Downloader v3.0.7 - تصحيح أخطاء البناء واستقرار التشغيل
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v3.0.7' }}
+          name: V-Downloader v3.0.8 - استقرار التشغيل والإنتاج ومعالجة الذاكرة
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v3.0.8' }}
           draft: false
           prerelease: false
           make_latest: true
           body: |
-            # 🚀 V-Downloader v3.0.7 - تصحيح أخطاء البناء واستقرار التشغيل (Compilation & Build Stability)
+            # 🚀 V-Downloader v3.0.8 - استقرار التشغيل والإنتاج ومعالجة الذاكرة (Production Readiness & Memory Optimization)
 
-            > 🔥 **أبرز التحديثات في v3.0.7 | What's New:**
-            > 🇸🇦 **عربي:** حل جميع أخطاء البناء والـ Compilation في حوار المعاينة وقسم Social Hub ونافذة التنزيل، وضمان الاستقرار التام في الإنتاج.
-            > 🇬🇧 **English:** Fixed all Kotlin compilation errors across MediaPreviewDialog, SocialHubPage, and DownloadDialogV2 for rock-solid production stability.
+            > 🔥 **أبرز التحديثات في v3.0.8 | What's New:**
+            > 🇸🇦 **عربي:** حل كافة أخطاء البناء والـ Compilation، تحسين استهلاك الذاكرة ومنع التجميد في قوائم التشغيل الضخمة، القضاء على العمليات المعلقة للـ FFmpeg، وضمان الاستقرار الكامل للإنتاج.
+            > 🇬🇧 **English:** Resolved all compilation issues, optimized memory churn with Flow sampling, ensured clean FFmpeg process cancellation, and achieved full production stability.
 
             ---
 
-            ## 🛠️ أبرز التحسينات والإصلاحات في v3.0.7 | v3.0.7 Improvements:
+            ## 🛠️ أبرز التحسينات والإصلاحات في v3.0.8 | v3.0.8 Improvements:
 
-            ### 🎯 1. تصحيح قياس حجم الملفات في مشغل المعاينة (Media Preview Type Fix):
-            * **AR:** تصحيح تمرير حجم الملف `Long` بدقة إلى `FileUtil.formatFileSize` في نافذة معاينة الوسائط.
-            * **EN:** Fixed type mismatch on file size formatting in MediaPreviewDialog.
+            ### 🎯 1. حل أخطاء البناء والـ Compilation (Compilation & Imports Fixes):
+            * **AR:** تصحيح استيرادات `sp` و `fillMaxWidth` في القائمة الجانبية Navigation Drawer، وضبط التبعيات وحقن المكونات في `DownloadPage` و `MusicRemovalEngine`.
+            * **EN:** Fixed missing `sp` & `fillMaxWidth` imports in NavigationDrawer, resolved dependency injection in DownloadPage, and made `processFiles` suspend in MusicRemovalEngine.
 
-            ### 🌐 2. استيراد عناصر التصميم ونطاق الإعدادات في Social Hub (Social Hub Scope & Imports):
-            * **AR:** إضافة استيراد `ButtonDefaults` وتوسيع نطاق متغير `effectivePrefs` ليشمل كافة عمليات مزامنة قوائم التشغيل.
-            * **EN:** Added missing ButtonDefaults import and properly scoped effective preferences in SocialHubPage.
+            ### 🚀 2. تحسين استهلاك الذاكرة ومنع تجمد الواجهة (Memory Optimization & Flow Sampling):
+            * **AR:** إضافة `sample(500)` لمتابعة حالات التحميل مما يمنع نسخ الـ Map آلاف المرات في الثانية ويقضي تماماً على تجمد الواجهة وانهيارات OOM في قوائم التشغيل الكبيرة.
+            * **EN:** Applied throttling to task state emissions to drastically eliminate UI freeze and GC churn during massive playlist downloads.
 
-            ### ⚡ 3. تصحيح استدعاءات الـ Composable في نافذة التنزيل (Composable Action Scope Fix):
-            * **AR:** تصحيح استدعاءات Composable في أزرار الإعداد المسبق والمخصص وإضافة استيرادات `IconButton` و `ExpandLess`.
-            * **EN:** Fixed composable context invocations for action items and resolved all missing icons/component imports in DownloadDialogV2.
+            ### 🎙️ 3. القضاء على العمليات المعلقة وإلغاء فوري لعزل الصوت (Clean FFmpeg Process Lifecycle):
+            * **AR:** ربط عمليات FFmpeg بدورة حياة الـ Coroutine واستخدام `runInterruptible` لضمان قتل العملية فوراً وحذف الملفات المؤقتة عند إلغاء المهمة.
+            * **EN:** Bound FFmpeg execution to coroutine lifecycle to immediately destroy orphaned processes and remove temp files upon cancellation.
+
+            ### 🏗️ 4. تنظيف وهيكلة المحركات (Architecture Clean-Up):
+            * **AR:** فصل تام بين محرك التنزيل الأساسي `DownloaderV2` ومحرك الأوامر الخام والتحديثات `CustomCommandRunner`.
+            * **EN:** Completely decoupled primary download engine from raw custom command executor.
 
             ---
 

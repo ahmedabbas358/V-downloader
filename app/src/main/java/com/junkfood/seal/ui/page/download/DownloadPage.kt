@@ -133,7 +133,7 @@ fun DownloadPage(
     navigateToFormatPage: () -> Unit = {},
     onNavigateToTaskList: () -> Unit = {},
     onNavigateToCookieGeneratorPage: (String) -> Unit = {},
-    CustomCommandRunner: DownloaderV2 = koinInject(),
+    downloader: DownloaderV2 = koinInject(),
     homePageViewModel: HomePageViewModel = koinViewModel(),
     dialogViewModel: DownloadDialogViewModel = koinViewModel(),
 ) {
@@ -280,7 +280,7 @@ fun DownloadPage(
             onUrlChanged = { url -> homePageViewModel.updateUrl(url) },
         ) {
             Column {
-                CustomCommandRunner.getTaskStateMap().forEach { (task, state) ->
+                downloader.getTaskStateMap().forEach { (task, state) ->
                     Text(state.viewState.toString(), maxLines = 2)
                     Text(state.toString())
                     Spacer(Modifier.height(12.dp))

@@ -484,7 +484,7 @@ object DownloadUtil {
     }
 
     private fun YoutubeDLRequest.enableAria2c(): YoutubeDLRequest =
-        this.addOption("--CustomCommandRunner", "libaria2c.so")
+        this.addOption("--downloader", "libaria2c.so")
 
     private fun YoutubeDLRequest.addOptionsForVideoDownloads(
         downloadPreferences: DownloadPreferences
