@@ -2,17 +2,17 @@ package com.junkfood.seal.ui.page.onboarding
 
 import android.Manifest
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,7 +45,6 @@ import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.PlaylistPlay
 import androidx.compose.material.icons.outlined.RocketLaunch
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Subtitles
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.rounded.ArrowBack
@@ -53,11 +52,9 @@ import androidx.compose.material.icons.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -65,7 +62,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -75,18 +71,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
 import com.junkfood.seal.R
 import com.junkfood.seal.ui.component.PreferenceSingleChoiceItem
 import com.junkfood.seal.util.LocaleLanguageCodeMap
-import com.junkfood.seal.util.NotificationUtil
 import com.junkfood.seal.util.PreferenceUtil
 import com.junkfood.seal.util.setLanguage
 import com.junkfood.seal.util.toDisplayName
@@ -98,18 +93,8 @@ import java.util.Locale
 fun OnboardingScreen(onFinished: () -> Unit) {
     val pagerState = rememberPagerState(pageCount = { 4 })
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
 
     var currentLocale by remember { mutableStateOf(PreferenceUtil.getLocaleFromPreference()) }
-    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
-    val updatedConfig = remember(configuration, currentLocale) {
-        android.content.res.Configuration(configuration).apply {
-            setLocale(currentLocale ?: Locale.getDefault())
-        }
-    }
-    val updatedContext = remember(context, updatedConfig) {
-        context.createConfigurationContext(updatedConfig)
-    }
 
     val backgroundBrush = Brush.verticalGradient(
         colors = listOf(
@@ -118,92 +103,87 @@ fun OnboardingScreen(onFinished: () -> Unit) {
         )
     )
 
-    androidx.compose.runtime.CompositionLocalProvider(
-        androidx.compose.ui.platform.LocalConfiguration provides updatedConfig,
-        androidx.compose.ui.platform.LocalContext provides updatedContext
-    ) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize()
-        ) { innerPadding ->
-            Box(
+    Scaffold(
+        modifier = Modifier.fillMaxSize()
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(backgroundBrush)
+                .padding(innerPadding)
+        ) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize()
+            ) { page ->
+                when (page) {
+                    0 -> LanguageSelectionPage(
+                        currentLocale = currentLocale,
+                        onLocaleChange = { currentLocale = it }
+                    )
+                    1 -> FeaturesTourPage()
+                    2 -> EssentialSettingsPage()
+                    3 -> SmartPermissionsPage(onFinished = onFinished)
+                }
+            }
+
+            // Bottom Navigation & Pager Indicators
+            Row(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .background(backgroundBrush)
-                    .padding(innerPadding)
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 24.dp, vertical = 24.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.fillMaxSize()
-                ) { page ->
-                    when (page) {
-                        0 -> LanguageSelectionPage(
-                            currentLocale = currentLocale,
-                            onLocaleChange = { currentLocale = it }
+                if (pagerState.currentPage > 0) {
+                    TextButton(
+                        onClick = {
+                            scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) }
+                        }
+                    ) {
+                        Icon(Icons.Rounded.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(stringResource(R.string.back))
+                    }
+                } else {
+                    Spacer(modifier = Modifier.width(60.dp))
+                }
+
+                // Dots indicator (4 dots)
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    repeat(4) { iteration ->
+                        val isSelected = pagerState.currentPage == iteration
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = 4.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (isSelected) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                                )
+                                .size(if (isSelected) 10.dp else 6.dp)
                         )
-                        1 -> FeaturesTourPage()
-                        2 -> EssentialSettingsPage()
-                        3 -> SmartPermissionsPage(onFinished = onFinished)
                     }
                 }
 
-                // Bottom Navigation & Pager Indicators
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.BottomCenter)
-                        .padding(horizontal = 24.dp, vertical = 24.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (pagerState.currentPage > 0) {
-                        TextButton(
-                            onClick = {
-                                scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) }
-                            }
-                        ) {
-                            Icon(Icons.Rounded.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(stringResource(R.string.back))
-                        }
-                    } else {
-                        Spacer(modifier = Modifier.width(60.dp))
-                    }
-
-                    // Dots indicator (4 dots)
-                    Row(
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
+                if (pagerState.currentPage < 3) {
+                    Button(
+                        onClick = {
+                            scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
+                        },
+                        shape = CircleShape,
+                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
                     ) {
-                        repeat(4) { iteration ->
-                            val isSelected = pagerState.currentPage == iteration
-                            Box(
-                                modifier = Modifier
-                                    .padding(horizontal = 4.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (isSelected) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
-                                    )
-                                    .size(if (isSelected) 10.dp else 6.dp)
-                            )
-                        }
+                        Text(stringResource(R.string.proceed))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(Icons.Rounded.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
                     }
-
-                    if (pagerState.currentPage < 3) {
-                        Button(
-                            onClick = {
-                                scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
-                            },
-                            shape = CircleShape,
-                            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
-                        ) {
-                            Text(stringResource(R.string.proceed))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Icon(Icons.Rounded.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
-                        }
-                    } else {
-                        Spacer(modifier = Modifier.width(60.dp))
-                    }
+                } else {
+                    Spacer(modifier = Modifier.width(60.dp))
                 }
             }
         }
@@ -548,6 +528,15 @@ private fun FeatureCard(icon: ImageVector, title: String, desc: String) {
 @Composable
 fun SmartPermissionsPage(onFinished: () -> Unit) {
     val context = LocalContext.current
+    val activity = remember(context) {
+        var ctx = context
+        while (ctx is ContextWrapper) {
+            if (ctx is ComponentActivity) return@remember ctx
+            ctx = ctx.baseContext
+        }
+        null
+    }
+
     var hasNotifPermission by remember {
         mutableStateOf(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -569,11 +558,13 @@ fun SmartPermissionsPage(onFinished: () -> Unit) {
         )
     }
 
-    val notifPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        hasNotifPermission = isGranted
-    }
+    val notifPermissionLauncher = runCatching {
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { isGranted ->
+            hasNotifPermission = isGranted
+        }
+    }.getOrNull()
 
     Column(
         modifier = Modifier
@@ -651,10 +642,25 @@ fun SmartPermissionsPage(onFinished: () -> Unit) {
                             Button(
                                 onClick = {
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                        notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                        if (notifPermissionLauncher != null) {
+                                            notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                        } else if (activity != null) {
+                                            ActivityCompat.requestPermissions(
+                                                activity,
+                                                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                                                101
+                                            )
+                                        } else {
+                                            val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                            }
+                                            context.startActivity(intent)
+                                        }
                                     } else {
                                         val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
                                             putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
                                         }
                                         context.startActivity(intent)
                                     }
@@ -713,10 +719,13 @@ fun SmartPermissionsPage(onFinished: () -> Unit) {
                                         try {
                                             val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
                                                 data = Uri.parse("package:${context.packageName}")
+                                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
                                             }
                                             context.startActivity(intent)
                                         } catch (e: Exception) {
-                                            val fallbackIntent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                                            val fallbackIntent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
+                                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                            }
                                             context.startActivity(fallbackIntent)
                                         }
                                     }
