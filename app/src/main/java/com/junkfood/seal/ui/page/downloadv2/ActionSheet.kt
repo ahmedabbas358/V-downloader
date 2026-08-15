@@ -18,12 +18,16 @@ import androidx.compose.material.icons.automirrored.outlined.TextSnippet
 import androidx.compose.material.icons.outlined.AudioFile
 import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.ContentCut
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.KeyboardDoubleArrowUp
 import androidx.compose.material.icons.outlined.Link
+import androidx.compose.material.icons.outlined.PlayCircleOutline
 import androidx.compose.material.icons.outlined.RestartAlt
+import androidx.compose.material.icons.outlined.Subtitles
 import androidx.compose.material.icons.outlined.VideoFile
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Share
@@ -108,6 +112,54 @@ private fun ResumeButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
         contentColor = LocalFixedColorRoles.current.onTertiaryFixedVariant,
         imageVector = Icons.Outlined.RestartAlt,
         text = stringResource(R.string.resume),
+        onClick = onClick,
+    )
+}
+
+@Composable
+private fun AdjustSubtitleButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    ActionSheetPrimaryButton(
+        modifier = modifier,
+        containerColor = LocalFixedColorRoles.current.secondaryFixed,
+        contentColor = LocalFixedColorRoles.current.onSecondaryFixedVariant,
+        imageVector = Icons.Outlined.Subtitles,
+        text = "ضبط التوقيت",
+        onClick = onClick,
+    )
+}
+
+@Composable
+private fun PrioritizeButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    ActionSheetPrimaryButton(
+        modifier = modifier,
+        containerColor = LocalFixedColorRoles.current.primaryFixed,
+        contentColor = LocalFixedColorRoles.current.onPrimaryFixedVariant,
+        imageVector = Icons.Outlined.KeyboardDoubleArrowUp,
+        text = "أولوية قصوى",
+        onClick = onClick,
+    )
+}
+
+@Composable
+private fun PreviewButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    ActionSheetPrimaryButton(
+        modifier = modifier,
+        containerColor = LocalFixedColorRoles.current.tertiaryFixed,
+        contentColor = LocalFixedColorRoles.current.onTertiaryFixedVariant,
+        imageVector = Icons.Outlined.PlayCircleOutline,
+        text = "معاينة",
+        onClick = onClick,
+    )
+}
+
+@Composable
+private fun TrimButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    ActionSheetPrimaryButton(
+        modifier = modifier,
+        containerColor = LocalFixedColorRoles.current.secondaryFixed,
+        contentColor = LocalFixedColorRoles.current.onSecondaryFixedVariant,
+        imageVector = Icons.Outlined.ContentCut,
+        text = "قص وتشذيب",
         onClick = onClick,
     )
 }
@@ -295,9 +347,34 @@ fun LazyListScope.ActionButtons(
                     onDismissRequest()
                 }
             }
+            val path = downloadState.filePath
+            if (path != null) {
+                item(key = "PreviewButton") {
+                    PreviewButton(modifier = Modifier.animateItem()) {
+                        onActionPost(task, UiAction.PreviewMedia(path))
+                        onDismissRequest()
+                    }
+                }
+            }
             item(key = "ShareButton") {
                 ShareButton(modifier = Modifier.animateItem()) {
                     onActionPost(task, UiAction.ShareFile(downloadState.filePath))
+                }
+            }
+            if (path != null && (MusicRemovalEngine.isVideoFile(java.io.File(path)) || MusicRemovalEngine.isAudioFile(java.io.File(path)))) {
+                item(key = "TrimButton") {
+                    TrimButton(modifier = Modifier.animateItem()) {
+                        onActionPost(task, UiAction.TrimMedia(path))
+                        onDismissRequest()
+                    }
+                }
+            }
+            if (path != null && (path.endsWith(".srt", ignoreCase = true) || path.endsWith(".vtt", ignoreCase = true) || viewState.isSubOnly)) {
+                item(key = "AdjustSubtitleButton") {
+                    AdjustSubtitleButton(modifier = Modifier.animateItem()) {
+                        onActionPost(task, UiAction.AdjustSubtitle(path))
+                        onDismissRequest()
+                    }
                 }
             }
         }
@@ -318,6 +395,12 @@ fun LazyListScope.ActionButtons(
         ReadyWithInfo,
         Idle,
         is Running -> {
+            item(key = "PrioritizeButton") {
+                PrioritizeButton(modifier = Modifier.animateItem()) {
+                    onActionPost(task, UiAction.Prioritize)
+                    onDismissRequest()
+                }
+            }
             item(key = "CancelButton") {
                 CancelButton(modifier = Modifier.animateItem()) {
                     onActionPost(task, UiAction.Cancel)

@@ -72,41 +72,52 @@ jobs:
 
       # GitHub Release creation & APK publishing
       - name: Create & Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
           files: app/build/outputs/apk/generic/release/*.apk
-          name: V-downloader v2.6.1
-          tag_name: ${{ github.ref_name }}
+          name: V-Downloader v3.0.0 - التحديث الرئيسي الشامل (Major Release)
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v3.0.0' }}
           draft: false
           prerelease: false
           body: |
-            # 🚀 V-downloader v2.6.1 - التحديث الرئيسي الشامل (Major Release)
+            # 🚀 V-Downloader v3.0.0 - التحديث الرئيسي الشامل (Major Release)
 
-            > ⚠️ **تنبيه مهم جداً للمستخدمين | Crucial Update Notice:**
-            > 🇸🇦 **عربي:** يُنصح بشدة **حذف النسخة القديمة المثبتة على جهازك قبل تثبيت هذا التحديث** (تثبيت جديد وليس تحديث مباشر فوق القديمة) لضمان عمل كافة الميزات والروابط الجديدة بسلاسة دون تعارض!
-            > 🇬🇧 **English:** It is strongly recommended to **uninstall the previous version before installing this update** to ensure all new features work seamlessly without conflicts!
+            > ⚠️ **تنبيه هام جداً للمستخدمين | Crucial Update Notice:**
+            > 🇸🇦 **عربي:** نظراً للتغييرات الجذرية وتحديث المعمارية وهندسة التطبيق بالكامل، يُرجى **حذف النسخة القديمة المثبتة على جهازك قبل تثبيت هذا التحديث الجديد (v3.0.0)** لضمان عمل كافة الوظائف ومحرك التنزيل بسلاسة وبدون أي تعارض مع بيانات التخزين السابقة!
+            > 🇬🇧 **English:** Due to extensive architectural improvements, please **uninstall the previously installed version before installing this new update (v3.0.0)** to guarantee flawless operation without local cache conflicts!
 
             ---
 
-            ### 🔥 أبرز الميزات الجديدة والتحديثات | Main Release Highlights:
+            ## 🔥 أبرز الميزات الجديدة والتحديثات في الإصدار v3.0.0 | Release Highlights:
 
-            #### 🎙️ 1. محرك عزل الموسيقى الاستوديوي (Music Removal & Vocal Extraction Engine):
-            * **AR:** ميزة التنزيل بدون موسيقى للمقاطع والصوتيات وقوائم التشغيل عبر فلتر صوتي خماسي المراحل احترافي من FFmpeg.
-            * **EN:** Studio-grade 5-stage FFmpeg audio filter pipeline for vocal extraction and background music removal for videos, audios, and playlists.
+            ### 🚀 1. نظام الأولوية القصوى واستئناف الشبكة الذكي (Priority Queueing & Auto-Resume):
+            * **AR:** إمكانية تقديم أي مهمة تنزيل ونقلها إلى رأس الطابور فوراً عبر خيار "أولوية قصوى"، مع استئناف ومعالجة المهام العالقة تلقائياً عند عودة اتصال الإنترنت.
+            * **EN:** Push any task to the top of the queue instantly with "Priority" action, and automatically resume pending downloads upon network reconnection.
 
-            #### 🔄 2. مُزامن قوائم التشغيل الذكي (Smart Playlist Synchronizer):
-            * **AR:** فحص المجلدات المحلية ومقارنتها بقوائم التشغيل أونلاين وتنزيل العناصر المفقودة فقط بنقرة واحدة مع الترقيم الأصلي (`001 - `, `002 - `) واختيار الدقة والتسجيل.
-            * **EN:** Compare local output directories with online playlists and complete missing tracks in one click with index numbering (`001 - `, `002 - `) and resolution selection.
+            ### 🎙️ 2. عزل الموسيقى والمؤثرات بالذكاء الاصطناعي (AI Vocal Isolation & Speech Clarity):
+            * **AR:** محرك استوديوي لعزل الموسيقى والضوضاء الخلفية بدون إنترنت لتحويل الفيديوهات إلى دروس صوتية نقية باستخدام FFmpeg.
+            * **EN:** Native 5-stage FFmpeg acoustic audio pipeline for voice extraction, speech clarity enhancement, and background music removal offline.
 
-            #### 🎛️ 3. وضع التحديد الجماعي المتقدم (Redesigned Multi-Selection Mode):
-            * **AR:** شريط سفلي عائم تفاعلي يقدم خيارات إيقاف مؤقت، استئناف، إلغاء، وحذف المقاطع المحددة دفعة واحدة.
-            * **EN:** Interactive floating bottom action bar for batch pause, resume, cancel, and delete.
+            ### 📑 3. محرك استكمال وفحص قوائم التشغيل المطور (Smart Playlist Synchronizer):
+            * **AR:** فحص الذاكرة والمجلدات ومقارنتها بقائمة التشغيل أونلاين وتنزيل الحلقات والمقاطع المفقودة فقط مع الترقيم الرقمي الصارم (#001, #002...).
+            * **EN:** Deep local storage scanner to detect and download only missing playlist items with strict sequential index numbering.
 
-            #### 📋 4. قائمة الثلاث نقاط التكيفية (Sectional 3-Dots Menu):
-            * **AR:** قائمة خيارات ديناميكية ومخصصة لكل تبويب (الجميع، جار التحميل، تم الإلغاء، انتهى).
-            * **EN:** Contextual 3-dots overflow menu customized for every filter tab (All, Downloading, Canceled, Finished).
+            ### ✂️ 4. قص وتشذيب الوسائط الفوري (Instant Lossless Fast Media Trimmer):
+            * **AR:** أداة لقص وتشذيب مقاطع الفيديو والصوتيات في أجزاء من الثانية دون إعادة ضغط للحفاظ على 100% من الجودة الأصلية.
+            * **EN:** Ultra-fast stream-copy media cutter for videos and audios preserving 100% original quality without re-encoding.
 
-            #### 📌 5. تحسينات الترجمات ودقة الأحجام (Subtitle & Size Fixes):
-            * **AR:** إصلاح حلقة خيار الترجمات المخصص وتعميم لغة الترجمة والصيغة على كافة المقاطع، مع احتساب وعرض الكيلوبايتات الحقيقية لملفات الترجمة.
-            * **EN:** Fixed subtitle format custom selection loop, applied subtitle languages across playlist items, and formatted true KB file sizes.
+            ### 📱 5. مشغل معاينة الوسائط المدمج (In-App Media Preview Player):
+            * **AR:** معاينة المقاطع والصوتيات المحملة مباشرة داخل التطبيق دون الحاجة لفتحه في مشغل خارجي.
+            * **EN:** Embedded lightweight media player for instant in-app video and audio previews.
+
+            ### 💬 6. تنزيل الترجمات وضبط ومحاذاة التوقيت (Subtitles & Timestamp Shifter):
+            * **AR:** تنزيل الترجمات المفردة بدقة، منع التكرار، وأداة لتقديم وتأخير التوقيت بالمللي ثانية مع التحويل بين SRT و VTT.
+            * **EN:** Single subtitle downloader, duplicate prevention, and millisecond precision subtitle timing adjuster.
+
+            ### 🎨 7. واجهة ترحيبية وتعليمية تفاعلية وإدارة التشغيل بالخلفية (Modern Onboarding & Permissions):
+            * **AR:** واجهة ترحيبية بتصميم زجاجي حديث تشرح مزايا التطبيق وطريقة استخدامه مع إدارة ذكية لإذن الإشعارات واستثناء قيود البطارية للعمل بالخلفية.
+            * **EN:** Interactive modern onboarding tour showcasing app features and streamlined permissions / background battery optimization setup.
+
+            ### 🔔 8. شريط إشعارات تفاعلي مطور (Enhanced Notification UI/UX):
+            * **AR:** إشعارات ملونة توضح السرعة الفورية ونسبة الإنجاز مع أزرار مباشرة لفتح الملف، مشاركته، أو إعادة المحاولة فوراً عند الخطأ.
+            * **EN:** Color-coded rich notifications with real-time speed, live progress, and instant action buttons (Open, Share, Retry).

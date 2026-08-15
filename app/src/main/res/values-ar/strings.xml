@@ -490,4 +490,44 @@
     <string name="duration">المدة</string>
     <string name="source">المصدر</string>
     <string name="ytdlp_startup_prompt">يرجى تنزيل المكتبة حتى تعمل وظائف التطبيق بكفاءة.</string>
+    <string name="yt_dlp_not_found">لم يتم العثور على مكتبة yt-dlp. يرجى تحديثها من الإعدادات.</string>
+    <string name="download_editor_title">محرر التنزيل</string>
+    <string name="select_language">اختر اللغة</string>
+    <string name="subtitle_language_selection">تحديد لغة الترجمة</string>
+    <string name="auto_generated_subtitles">الترجمة التلقائية</string>
+    <string name="playlist_retry_missing">جار إعادة تنزيل %d عنصر ناقص…</string>
+    <string name="playlist_download_complete">اكتمل تنزيل القائمة (%1$d/%2$d عنصر)</string>
+    <string name="subtitle_download_failed">فشل تنزيل ملف الترجمة</string>
+    <string name="download_error_professional">فشل التنزيل — خطأ في الاتصال أو المحرك. اضغط لإعادة المحاولة.</string>
+    <string name="search_hint">بحث بالعنوان أو القناة أو الرابط…</string>
+    <string name="clean_orphans">تنظيف الملفات المؤقتة والتالفة</string>
+    <string name="subtitle_filter">الترجمات</string>
+    <string name="video_filter">الفيديو</string>
+    <string name="audio_filter">الصوتيات</string>
+
+    <string name="feature_smart_download_title">تنزيل ذكي للفيديو والصوت</string>
+    <string name="feature_smart_download_desc">الصق الروابط أو شاركها مباشرة من أي تطبيق للتنزيل بأعلى جودة تصل إلى 4K.</string>
+    <string name="feature_music_removal_title">عزل الموسيقى والمؤثرات بالذكاء الاصطناعي</string>
+    <string name="feature_music_removal_desc">عزل الموسيقى والضوضاء الخلفية بدون إنترنت لتحويل المقاطع إلى دروس صوتية نقية.</string>
+    <string name="feature_playlist_sync_title">استكمال ومزامنة قوائم التشغيل</string>
+    <string name="feature_playlist_sync_desc">يفحص الملفات الموجودة على جهازك ويستكمل تنزيل الحلقات المفقودة فقط بالترقيم الصحيح.</string>
+    <string name="feature_subtitles_title">تنزيل الترجمات وضبط التوقيت</string>
+    <string name="feature_subtitles_desc">استخراج ملفات الترجمة (.srt) وضبط توقيتها بدقة أجزاء من الثانية.</string>
+    <string name="feature_lossless_trim_title">قص وتشذيب فوري بدون فقدان الجودة</string>
+    <string name="feature_lossless_trim_desc">قص المقاطع والصوتيات في ثوانٍ معدودة بدون إعادة تشفير وبدون أي فقدان للجودة.</string>
+
+    <string name="perm_notifications_title">إذن الإشعارات</string>
+    <string name="perm_notifications_desc">ضروري لعرض سرعة التنزيل الفورية، شريط التقدم، وأزرار التحكم المباشرة.</string>
+    <string name="perm_battery_title">التشغيل في الخلفية وتحسين البطارية</string>
+    <string name="perm_battery_desc">استثناء التطبيق من قيود البطارية لضمان استمرار تنزيل القوائم والملفات في الخلفية دون انقطاع عند قفل الشاشة.</string>
+    <string name="perm_grant_button">منح الإذن</string>
+    <string name="perm_granted">تم المنح ✓</string>
+    <string name="perm_request_battery_button">تفعيل العمل في الخلفية</string>
+    <string name="perm_battery_enabled">مفعّل للعمل بالخلفية ✓</string>
+
+    <string name="notif_action_open">فتح الملف</string>
+    <string name="notif_action_share">مشاركة</string>
+    <string name="notif_action_retry">إعادة المحاولة</string>
+    <string name="notif_action_report">نسخ الخطأ</string>
+    <string name="notif_download_success">اكتمل التنزيل بنجاح. انقر للفتح أو المشاركة.</string>
 </resources>

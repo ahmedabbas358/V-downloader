@@ -126,6 +126,26 @@ object FileUtil {
     fun scanFileToMediaLibraryPostDownload(title: String, downloadDir: String, isSubtitleOnly: Boolean = false): List<String> {
         val cleanedTitle = cleanFileName(title)
         val shortTitle = if (cleanedTitle.length > 8) cleanedTitle.take(8) else cleanedTitle
+
+        if (isSubtitleOnly) {
+            try {
+                val subFiles = File(downloadDir).walkTopDown().filter {
+                    it.isFile && (it.name.endsWith(".srt", ignoreCase = true) || it.name.endsWith(".vtt", ignoreCase = true) || it.name.endsWith(".ass", ignoreCase = true))
+                }.toList()
+                val grouped = subFiles.groupBy { it.name.replace(Regex("""\.(?:[a-zA-Z0-9_\-]+)+$"""), "") }
+                grouped.values.forEach { group ->
+                    if (group.size > 1) {
+                        val primary = group.find { !it.name.contains(Regex("""\.[a-z]{2,3}-[a-zA-Z]{2,4}\.""")) }
+                        if (primary != null) {
+                            group.filter { it != primary && it.name.contains(Regex("""\.[a-z]{2,3}-[a-zA-Z]{2,4}\.""")) }.forEach { redundant ->
+                                redundant.delete()
+                            }
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
         return File(downloadDir)
             .walkTopDown()
             .filter { file ->

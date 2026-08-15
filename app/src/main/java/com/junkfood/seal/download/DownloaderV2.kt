@@ -98,6 +98,8 @@ interface DownloaderV2 {
     }
 
     fun remove(task: Task): Boolean
+
+    fun prioritize(task: Task)
 }
 
 internal object FakeDownloaderV2 : DownloaderV2 {
@@ -116,6 +118,8 @@ internal object FakeDownloaderV2 : DownloaderV2 {
     override fun enqueue(task: Task, state: Task.State) = Unit
 
     override fun remove(task: Task): Boolean = true
+
+    override fun prioritize(task: Task) = Unit
 }
 
 /**
@@ -136,12 +140,30 @@ class DownloaderV2Impl(
 
     private val retryCountMap = mutableMapOf<String, Int>()
 
+    private val priorityTaskIds = mutableSetOf<String>()
+
     private val subtitleMutex = kotlinx.coroutines.sync.Mutex()
 
     private val snapshotFlow =
         snapshotFlow { taskStateMap.toMap() }
 
+    override fun prioritize(task: Task) {
+        priorityTaskIds.add(task.id)
+        doYourWork()
+    }
+
     init {
+        try {
+            App.connectivityManager.registerDefaultNetworkCallback(object : android.net.ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: android.net.Network) {
+                    Log.d(TAG, "Network connection active. Processing queue…")
+                    scope.launch(Dispatchers.Default) { doYourWork() }
+                }
+            })
+        } catch (e: Exception) {
+            Log.e(TAG, "Could not register network callback", e)
+        }
+
         scope.launch(Dispatchers.Default) {
             snapshotFlow
                 .onEach { doYourWork() }
@@ -321,18 +343,45 @@ class DownloaderV2Impl(
     private val Task.notificationId: Int
         get() = id.hashCode()
 
-    /** Processes pending tasks, prioritizing downloads. */
+    /** Processes pending tasks, prioritizing downloads in strict playlist order. */
     private fun doYourWork() {
         val maxConcurrent = PreferenceUtil.getMaxConcurrentDownloads().coerceAtLeast(1)
+        
+        val runningSubtitleCount = taskStateMap.count { (task, state) ->
+            (state.downloadState is Running || state.downloadState is FetchingInfo) &&
+                task.preferences.skipDownload && task.preferences.downloadSubtitle
+        }
+
         while (taskStateMap.countRunning() < maxConcurrent) {
             val pendingEntry = taskStateMap
                 .entries
-                .sortedBy { (_, state) ->
-                    state.downloadState
-                }
-                .firstOrNull { (_, state) ->
-                    state.downloadState == ReadyWithInfo ||
-                        state.downloadState == Idle
+                .sortedWith(
+                    compareBy<Map.Entry<Task, Task.State>> {
+                        // High priority task moved to top
+                        if (priorityTaskIds.contains(it.key.id)) 0 else 1
+                    }.thenBy {
+                        // Prioritize ReadyWithInfo over Idle
+                        if (it.value.downloadState == ReadyWithInfo) 0 else 1
+                    }.thenBy {
+                        // Strict numerical playlist order (#001, #002, #003...)
+                        (it.key.type as? TypeInfo.Playlist)?.index ?: Int.MAX_VALUE
+                    }.thenBy {
+                        it.key.timeCreated
+                    }
+                )
+                .firstOrNull { (task, state) ->
+                    val isPending = state.downloadState == ReadyWithInfo || state.downloadState == Idle
+                    val isSubtitle = task.preferences.skipDownload && task.preferences.downloadSubtitle
+                    if (isPending) {
+                        // For subtitles: ensure strictly 1 active subtitle task at a time (sequential execution)
+                        if (isSubtitle && (runningSubtitleCount > 0 || isSubtitleOnlyQueue())) {
+                            false
+                        } else {
+                            true
+                        }
+                    } else {
+                        false
+                    }
                 } ?: break
 
             val (task, state) = pendingEntry
@@ -343,6 +392,13 @@ class DownloaderV2Impl(
 
                 else -> break
             }
+        }
+    }
+
+    private fun isSubtitleOnlyQueue(): Boolean {
+        return taskStateMap.any { (task, state) ->
+            (state.downloadState is Running || state.downloadState is FetchingInfo) &&
+                task.preferences.skipDownload && task.preferences.downloadSubtitle
         }
     }
 
@@ -457,6 +513,29 @@ class DownloaderV2Impl(
                         }
                         .onFailure { throwable ->
                             if (throwable is YoutubeDL.CanceledException) {
+                                return@onFailure
+                            }
+
+                            if (isPlaylist && fetchUrl.isNotBlank()) {
+                                val playlistType = taskInfo as TypeInfo.Playlist
+                                val cleanTitle = task.viewState.title.removePrefix("[Subtitle] ").ifBlank { "Track_${playlistType.index}" }
+                                val extractedId = when {
+                                    fetchUrl.contains("v=") -> fetchUrl.substringAfter("v=").substringBefore("&").substringBefore("?")
+                                    fetchUrl.contains("youtu.be/") -> fetchUrl.substringAfter("youtu.be/").substringBefore("?").substringBefore("&")
+                                    else -> task.id
+                                }
+                                val fallbackInfo = VideoInfo(
+                                    id = extractedId,
+                                    title = cleanTitle,
+                                    webpageUrl = fetchUrl,
+                                    originalUrl = fetchUrl,
+                                    uploader = playlistType.playlistTitle,
+                                    duration = task.viewState.duration.toDouble(),
+                                    extractor = "Youtube",
+                                    extractorKey = "Youtube"
+                                )
+                                task.info = fallbackInfo
+                                task.downloadState = ReadyWithInfo
                                 return@onFailure
                             }
 
@@ -580,7 +659,50 @@ class DownloaderV2Impl(
                                     throw Exception("Downloaded file is empty or does not exist (0 bytes).")
                                 }
                             }
-                            pathList
+
+                            if (task.preferences.removeMusic && !task.preferences.skipDownload && pathList.isNotEmpty()) {
+                                when (val previousState = task.downloadState) {
+                                    is Running -> {
+                                        task.downloadState = previousState.copy(
+                                            progress = 0.96f,
+                                            progressText = "جاري عزل الصوت وإزالة الموسيقى..."
+                                        )
+                                        NotificationUtil.notifyProgress(
+                                            notificationId = task.notificationId,
+                                            progress = 96,
+                                            text = "جاري عزل الصوت وإزالة الموسيقى...",
+                                            title = task.viewState.title,
+                                            taskId = task.id
+                                        )
+                                    }
+                                    else -> Unit
+                                }
+                                com.junkfood.seal.util.MusicRemovalEngine.processFiles(
+                                    filePaths = pathList,
+                                    isAudioOnly = task.preferences.extractAudio || (task.info?.vcodec == "none" && task.info?.formats.orEmpty().none { it.containsVideo() }),
+                                    onProgress = { percent, msg ->
+                                        when (val previousState = task.downloadState) {
+                                            is Running -> {
+                                                val scaledProgress = 0.95f + (percent / 100f) * 0.04f
+                                                task.downloadState = previousState.copy(
+                                                    progress = scaledProgress,
+                                                    progressText = msg
+                                                )
+                                                NotificationUtil.notifyProgress(
+                                                    notificationId = task.notificationId,
+                                                    progress = (scaledProgress * 100).toInt(),
+                                                    text = msg,
+                                                    title = task.viewState.title,
+                                                    taskId = task.id
+                                                )
+                                            }
+                                            else -> Unit
+                                        }
+                                    }
+                                )
+                            } else {
+                                pathList
+                            }
                         }
                         .onSuccess { pathList ->
                             val path =
@@ -644,9 +766,10 @@ class DownloaderV2Impl(
                                 )
                             }
                             NotificationUtil.finishNotification(
-                                task.notificationId,
+                                notificationId = task.notificationId,
                                 title = task.viewState.title,
                                 text = text,
+                                filePath = path,
                                 intent = notifPendingIntent
                             )
                         }
@@ -716,10 +839,9 @@ class DownloaderV2Impl(
                             NotificationUtil.notifyError(
                                 title = task.viewState.title,
                                 textId = R.string.download_error_professional,
-                                notificationId =
-                                    task.notificationId,
-                                report =
-                                    throwable.stackTraceToString()
+                                notificationId = task.notificationId,
+                                report = throwable.stackTraceToString(),
+                                taskId = task.id
                             )
                         }
                 } finally {

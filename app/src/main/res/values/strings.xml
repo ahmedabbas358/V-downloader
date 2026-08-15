@@ -506,4 +506,34 @@
     <string name="playlist_download_complete">Playlist download complete (%1$d/%2$d items)</string>
     <string name="subtitle_download_failed">Subtitle download failed</string>
     <string name="download_error_professional">Download failed — connection or extractor error. Tap to retry.</string>
+    <string name="search_hint">Search by title, channel, or link…</string>
+    <string name="subtitle_filter">Subtitles</string>
+    <string name="video_filter">Videos</string>
+    <string name="audio_filter">Audios</string>
+
+    <string name="feature_smart_download_title">Smart Video &amp; Audio Downloads</string>
+    <string name="feature_smart_download_desc">Paste links or share directly from any app to download with highest quality up to 4K.</string>
+    <string name="feature_music_removal_title">AI Vocal &amp; Speech Isolation</string>
+    <string name="feature_music_removal_desc">Remove backing music and background noise offline for crystal-clear lectures and audios.</string>
+    <string name="feature_playlist_sync_title">Smart Playlist Synchronizer</string>
+    <string name="feature_playlist_sync_desc">Scans your device files and downloads only missing items with perfect index numbering.</string>
+    <string name="feature_subtitles_title">Subtitles &amp; Timing Adjuster</string>
+    <string name="feature_subtitles_desc">Extract multilingual subtitles and adjust their timing down to milliseconds.</string>
+    <string name="feature_lossless_trim_title">Instant Lossless Media Trimmer</string>
+    <string name="feature_lossless_trim_desc">Trim videos and audios in seconds with 0% quality loss using native stream copy.</string>
+
+    <string name="perm_notifications_title">Notifications Permission</string>
+    <string name="perm_notifications_desc">Required to display live download speed, progress bar, and instant file actions.</string>
+    <string name="perm_battery_title">Background Execution &amp; Battery</string>
+    <string name="perm_battery_desc">Disable battery restrictions so long downloads and playlists continue smoothly when the screen is off.</string>
+    <string name="perm_grant_button">Grant Permission</string>
+    <string name="perm_granted">Granted ✓</string>
+    <string name="perm_request_battery_button">Enable Background Work</string>
+    <string name="perm_battery_enabled">Optimized for Background ✓</string>
+
+    <string name="notif_action_open">Open File</string>
+    <string name="notif_action_share">Share</string>
+    <string name="notif_action_retry">Retry</string>
+    <string name="notif_action_report">Copy Report</string>
+    <string name="notif_download_success">Download complete. Tap to open or share.</string>
 </resources>

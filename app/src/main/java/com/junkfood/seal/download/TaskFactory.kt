@@ -41,14 +41,28 @@ object TaskFactory {
 
         val audioOnlyFormats = formatList.filter { it.isAudioOnly() }
         val videoFormats = formatList.filter { it.containsVideo() }
-        val audioOnly = audioOnlyFormats.isNotEmpty() && videoFormats.isEmpty()
+        val isAudioOnlySelected = audioOnlyFormats.isNotEmpty() && videoFormats.isEmpty()
         val mergeAudioStream = audioOnlyFormats.size > 1
-        val hasVideoOnlyFormat = videoFormats.any { it.vcodec != "none" && (it.acodec == "none" || it.acodec == null) }
-        val rawFormatId = formatList.joinToString(separator = "+") { it.formatId.toString() }
-        val formatId = if (hasVideoOnlyFormat && audioOnlyFormats.isEmpty() && rawFormatId.isNotEmpty()) {
-            "$rawFormatId+bestaudio/best"
-        } else {
-            rawFormatId
+        val hasVideoOnlyFormat = videoFormats.any { it.isVideoOnly() || !it.containsAudio() }
+
+        val formatId = when {
+            videoFormats.isNotEmpty() && audioOnlyFormats.isNotEmpty() -> {
+                val vId = videoFormats.joinToString("+") { it.formatId.toString() }
+                val aId = audioOnlyFormats.joinToString("+") { it.formatId.toString() }
+                "$vId+$aId"
+            }
+            videoFormats.isNotEmpty() && audioOnlyFormats.isEmpty() -> {
+                val vId = videoFormats.joinToString("+") { it.formatId.toString() }
+                if (hasVideoOnlyFormat) {
+                    "$vId+bestaudio/best"
+                } else {
+                    vId
+                }
+            }
+            videoFormats.isEmpty() && audioOnlyFormats.isNotEmpty() -> {
+                audioOnlyFormats.joinToString("+") { it.formatId.toString() }
+            }
+            else -> ""
         }
 
         val subtitleLanguage =
@@ -64,7 +78,7 @@ object TaskFactory {
                         splitByChapter = if (skipDownload) false else splitByChapter,
                         newTitle = newTitle,
                         mergeAudioStream = if (skipDownload) false else mergeAudioStream,
-                        extractAudio = if (skipDownload) false else (extractAudio || audioOnly),
+                        extractAudio = if (skipDownload || videoFormats.isNotEmpty()) false else (extractAudio || isAudioOnlySelected),
                         skipDownload = skipDownload,
                         downloadSubtitle = downloadSubtitle || skipDownload || hasSelectedSubs,
                         convertSubtitle = subtitleFormat,

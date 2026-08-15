@@ -40,6 +40,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material.icons.outlined.Close
@@ -51,6 +52,7 @@ import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
@@ -171,8 +173,11 @@ private const val TAG = "DownloadPageV2"
 enum class Filter {
     All,
     Downloading,
-    Canceled,
-    Finished;
+    Finished,
+    Video,
+    Audio,
+    Subtitle,
+    Canceled;
 
     @Composable
     @ReadOnlyComposable
@@ -180,31 +185,35 @@ enum class Filter {
         when (this) {
             All -> stringResource(R.string.all)
             Downloading -> stringResource(R.string.status_downloading)
-            Canceled -> stringResource(R.string.status_canceled)
             Finished -> stringResource(R.string.status_completed)
+            Video -> stringResource(R.string.video)
+            Audio -> stringResource(R.string.audio)
+            Subtitle -> stringResource(R.string.subtitle)
+            Canceled -> stringResource(R.string.status_canceled)
         }
 
     fun predict(entry: Pair<Task, Task.State>): Boolean {
         if (this == All) return true
-        val state = entry.second.downloadState
+        val (task, state) = entry
+        val downloadState = state.downloadState
         return when (this) {
             Downloading -> {
-                when (state) {
-                    is FetchingInfo,
-                    Idle,
-                    ReadyWithInfo,
-                    is Running -> true
-                    else -> false
-                }
-            }
-            Canceled -> {
-                state is Error || state is Task.DownloadState.Canceled
+                downloadState is FetchingInfo || downloadState is Idle || downloadState is ReadyWithInfo || downloadState is Running
             }
             Finished -> {
-                state is Completed
+                downloadState is Completed
             }
-            else -> {
-                true
+            Video -> {
+                !task.preferences.extractAudio && !(task.preferences.skipDownload && task.preferences.downloadSubtitle)
+            }
+            Audio -> {
+                task.preferences.extractAudio && !task.preferences.skipDownload
+            }
+            Subtitle -> {
+                task.preferences.skipDownload && task.preferences.downloadSubtitle || state.viewState.isSubOnly
+            }
+            Canceled -> {
+                downloadState is Error || downloadState is Task.DownloadState.Canceled
             }
         }
     }
@@ -230,6 +239,14 @@ sealed interface UiAction {
     data object Resume : UiAction
 
     data class CopyErrorReport(val throwable: Throwable) : UiAction
+
+    data class AdjustSubtitle(val filePath: String) : UiAction
+
+    data object Prioritize : UiAction
+
+    data class PreviewMedia(val filePath: String) : UiAction
+
+    data class TrimMedia(val filePath: String) : UiAction
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -261,6 +278,10 @@ fun DownloadPageV2(
             UiAction.Pause -> downloader.pause(task)
             UiAction.Delete -> downloader.remove(task)
             UiAction.Resume -> downloader.restart(task)
+            UiAction.Prioritize -> {
+                downloader.prioritize(task)
+                context.makeToast("تم رفع أولوية التنزيل إلى القمة")
+            }
             is UiAction.CopyErrorReport -> {
                 clipboardManager.setText(
                     AnnotatedString(getErrorReport(action.throwable, task.url))
@@ -288,6 +309,7 @@ fun DownloadPageV2(
                     context.startActivity(Intent.createChooser(it, shareTitle))
                 }
             }
+            else -> {}
         }
     }
 
@@ -322,15 +344,27 @@ fun DownloadPageImplV2(
     var isMenuSheetOpen by remember { mutableStateOf(false) }
     var showPlaylistSyncDialog by remember { mutableStateOf(false) }
     var selectedTasks by remember { mutableStateOf<Set<Task>>(emptySet()) }
+    var searchQuery by remember { mutableStateOf("") }
+    var isSearching by remember { mutableStateOf(false) }
+    var adjustingSubtitleFile by remember { mutableStateOf<java.io.File?>(null) }
+    var previewMediaFile by remember { mutableStateOf<java.io.File?>(null) }
+    var trimMediaFile by remember { mutableStateOf<java.io.File?>(null) }
     val isSelectionMode = selectedTasks.isNotEmpty()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val menuSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
 
     val filteredMap by
-        remember(activeFilter, sortOption, taskDownloadStateMap) {
+        remember(activeFilter, sortOption, taskDownloadStateMap, searchQuery) {
             derivedStateOf {
-                val filtered = taskDownloadStateMap.filter { activeFilter.predict(it.toPair()) }
+                val filtered = taskDownloadStateMap.filter {
+                    val matchesFilter = activeFilter.predict(it.toPair())
+                    val matchesSearch = searchQuery.isBlank() ||
+                            it.second.viewState.title.contains(searchQuery, ignoreCase = true) ||
+                            it.second.viewState.uploader.contains(searchQuery, ignoreCase = true) ||
+                            it.first.url.contains(searchQuery, ignoreCase = true)
+                    matchesFilter && matchesSearch
+                }
                 filtered.toList().sortedWith(Comparator { a, b ->
                     when (sortOption) {
                         SortOption.DateNewest -> b.first.timeCreated.compareTo(a.first.timeCreated)
@@ -472,7 +506,14 @@ fun DownloadPageImplV2(
                             modifier = Modifier.padding(horizontal = 8.dp)
                         )
                     } else {
-                        Header(onMenuOpen = onMenuOpen, modifier = Modifier.padding(horizontal = 16.dp))
+                        Header(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            searchQuery = searchQuery,
+                            onSearchQueryChange = { searchQuery = it },
+                            isSearching = isSearching,
+                            onToggleSearch = { isSearching = it },
+                            onMenuOpen = onMenuOpen
+                        )
                         SelectionGroupRow(
                             modifier =
                                 Modifier.horizontalScroll(rememberScrollState())
@@ -729,9 +770,37 @@ fun DownloadPageImplV2(
                 onDismissRequest = {
                     scope.launch { sheetState.hide() }.invokeOnCompletion { selectedTask = null }
                 },
-                onActionPost = onActionPost,
+                onActionPost = { t, a ->
+                    when (a) {
+                        is UiAction.AdjustSubtitle -> adjustingSubtitleFile = java.io.File(a.filePath)
+                        is UiAction.PreviewMedia -> previewMediaFile = java.io.File(a.filePath)
+                        is UiAction.TrimMedia -> trimMediaFile = java.io.File(a.filePath)
+                        else -> onActionPost(t, a)
+                    }
+                },
             )
         }
+    }
+
+    if (adjustingSubtitleFile != null) {
+        com.junkfood.seal.ui.component.SubtitleAdjustDialog(
+            file = adjustingSubtitleFile!!,
+            onDismissRequest = { adjustingSubtitleFile = null }
+        )
+    }
+
+    if (previewMediaFile != null) {
+        com.junkfood.seal.ui.component.MediaPreviewDialog(
+            file = previewMediaFile!!,
+            onDismissRequest = { previewMediaFile = null }
+        )
+    }
+
+    if (trimMediaFile != null) {
+        com.junkfood.seal.ui.component.MediaTrimmerDialog(
+            file = trimMediaFile!!,
+            onDismissRequest = { trimMediaFile = null }
+        )
     }
 }
 
@@ -905,52 +974,150 @@ private fun SelectionBottomBar(
 }
 
 @Composable
-fun Header(modifier: Modifier = Modifier, onMenuOpen: () -> Unit = {}) {
+fun Header(
+    modifier: Modifier = Modifier,
+    searchQuery: String = "",
+    onSearchQueryChange: (String) -> Unit = {},
+    isSearching: Boolean = false,
+    onToggleSearch: (Boolean) -> Unit = {},
+    onMenuOpen: () -> Unit = {}
+) {
     val windowWidthSizeClass = LocalWindowWidthState.current
     when (windowWidthSizeClass) {
         WindowWidthSizeClass.Expanded -> {
-            HeaderExpanded(modifier = modifier)
-        }
-        else -> {
-            HeaderCompact(modifier = modifier, onMenuOpen = onMenuOpen)
-        }
-    }
-}
-
-@Composable
-private fun HeaderCompact(modifier: Modifier = Modifier, onMenuOpen: () -> Unit) {
-
-    Row(modifier = modifier.height(64.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onMenuOpen, modifier = Modifier) {
-            Icon(
-                imageVector = Icons.Outlined.Menu,
-                contentDescription = stringResource(R.string.show_navigation_drawer),
-                tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier,
+            HeaderExpanded(
+                modifier = modifier,
+                searchQuery = searchQuery,
+                onSearchQueryChange = onSearchQueryChange,
+                isSearching = isSearching,
+                onToggleSearch = onToggleSearch
             )
         }
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(
-            stringResource(R.string.download_queue),
-            color = MaterialTheme.colorScheme.onSurface,
-            style =
-                MaterialTheme.typography.titleLarge.copy(
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Medium,
-                ),
-        )
+        else -> {
+            HeaderCompact(
+                modifier = modifier,
+                searchQuery = searchQuery,
+                onSearchQueryChange = onSearchQueryChange,
+                isSearching = isSearching,
+                onToggleSearch = onToggleSearch,
+                onMenuOpen = onMenuOpen
+            )
+        }
     }
 }
 
 @Composable
-private fun HeaderExpanded(modifier: Modifier = Modifier) {
+private fun HeaderCompact(
+    modifier: Modifier = Modifier,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    isSearching: Boolean,
+    onToggleSearch: (Boolean) -> Unit,
+    onMenuOpen: () -> Unit
+) {
+    Row(modifier = modifier.height(64.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (isSearching) {
+            IconButton(onClick = { onToggleSearch(false); onSearchQueryChange("") }) {
+                Icon(
+                    imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Outlined.ArrowBack,
+                    contentDescription = "إغلاق البحث",
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            androidx.compose.material3.TextField(
+                value = searchQuery,
+                onValueChange = onSearchQueryChange,
+                placeholder = { Text("بحث بالعنوان أو القناة...", style = MaterialTheme.typography.bodyMedium) },
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+                colors = androidx.compose.material3.TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent
+                )
+            )
+            if (searchQuery.isNotEmpty()) {
+                IconButton(onClick = { onSearchQueryChange("") }) {
+                    Icon(
+                        imageVector = Icons.Outlined.Close,
+                        contentDescription = "مسح",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        } else {
+            IconButton(onClick = onMenuOpen) {
+                Icon(
+                    imageVector = Icons.Outlined.Menu,
+                    contentDescription = stringResource(R.string.show_navigation_drawer),
+                    tint = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                stringResource(R.string.download_queue),
+                color = MaterialTheme.colorScheme.onSurface,
+                style =
+                    MaterialTheme.typography.titleLarge.copy(
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Medium,
+                    ),
+                modifier = Modifier.weight(1f)
+            )
+            IconButton(onClick = { onToggleSearch(true) }) {
+                Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Outlined.Search,
+                    contentDescription = "بحث",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HeaderExpanded(
+    modifier: Modifier = Modifier,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    isSearching: Boolean,
+    onToggleSearch: (Boolean) -> Unit
+) {
     Row(modifier = modifier.height(64.dp), verticalAlignment = Alignment.CenterVertically) {
         Spacer(modifier = Modifier.width(4.dp))
         Text(
             stringResource(R.string.download_queue),
             color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Medium),
+            modifier = Modifier.weight(1f)
         )
+        if (isSearching) {
+            androidx.compose.material3.TextField(
+                value = searchQuery,
+                onValueChange = onSearchQueryChange,
+                placeholder = { Text("بحث...") },
+                singleLine = true,
+                modifier = Modifier.width(280.dp),
+                colors = androidx.compose.material3.TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent
+                )
+            )
+            IconButton(onClick = { onToggleSearch(false); onSearchQueryChange("") }) {
+                Icon(Icons.Outlined.Close, contentDescription = "Close search")
+            }
+        } else {
+            IconButton(onClick = { onToggleSearch(true) }) {
+                Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Outlined.Search,
+                    contentDescription = "بحث",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
     Spacer(Modifier.height(4.dp))
 }

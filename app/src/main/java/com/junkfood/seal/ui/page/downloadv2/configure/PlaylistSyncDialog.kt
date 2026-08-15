@@ -488,7 +488,11 @@ fun PlaylistSyncDialog(
                                         )
                                     )
                                 }
-                                PlaylistVerifier.enqueueMissingItems(itemsWithQuality, downloader)
+                                PlaylistVerifier.enqueueMissingItems(
+                                    missingItems = itemsWithQuality,
+                                    targetDirectory = customFolderPath.ifBlank { result.targetDirectory },
+                                    downloader = downloader
+                                )
                                 ToastUtil.makeToast("تمت إضافة ${result.missingItems.size} ملف مفقود إلى قائمة التنزيل")
                                 onDismissRequest()
                             }

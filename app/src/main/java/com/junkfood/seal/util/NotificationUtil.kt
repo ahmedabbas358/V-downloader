@@ -18,7 +18,11 @@ import com.junkfood.seal.NotificationActionReceiver
 import com.junkfood.seal.NotificationActionReceiver.Companion.ACTION_CANCEL_TASK
 import com.junkfood.seal.NotificationActionReceiver.Companion.ACTION_ERROR_REPORT
 import com.junkfood.seal.NotificationActionReceiver.Companion.ACTION_KEY
+import com.junkfood.seal.NotificationActionReceiver.Companion.ACTION_OPEN_FILE
+import com.junkfood.seal.NotificationActionReceiver.Companion.ACTION_RETRY_TASK
+import com.junkfood.seal.NotificationActionReceiver.Companion.ACTION_SHARE_FILE
 import com.junkfood.seal.NotificationActionReceiver.Companion.ERROR_REPORT_KEY
+import com.junkfood.seal.NotificationActionReceiver.Companion.FILE_PATH_KEY
 import com.junkfood.seal.NotificationActionReceiver.Companion.NOTIFICATION_ID_KEY
 import com.junkfood.seal.NotificationActionReceiver.Companion.TASK_ID_KEY
 import com.junkfood.seal.R
@@ -40,10 +44,12 @@ object NotificationUtil {
     const val DEFAULT_NOTIFICATION_ID = 100
     const val SUMMARY_NOTIFICATION_ID = 101
 
+    private const val COLOR_PROGRESS = 0xFF2E7D32.toInt() // Deep Green/Teal accent
+    private const val COLOR_SUCCESS = 0xFF1B5E20.toInt()  // Success Green
+    private const val COLOR_ERROR = 0xFFC62828.toInt()    // Error Red
+
     private lateinit var serviceNotification: Notification
 
-    //    private var builder =
-    //        NotificationCompat.Builder(context, CHANNEL_ID).setSmallIcon(R.drawable.ic_stat_seal)
     private val commandNotificationBuilder =
         NotificationCompat.Builder(context, CHANNEL_ID).setSmallIcon(R.drawable.ic_stat_seal)
 
@@ -107,10 +113,13 @@ object NotificationUtil {
 
         NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_seal)
+            .setColor(COLOR_PROGRESS)
+            .setSubText(context.getString(R.string.app_name))
             .setContentTitle(title)
             .setContentIntent(mainActivityPendingIntent)
             .setProgress(PROGRESS_MAX, progress, progress <= 0)
             .setOngoing(true)
+            .setShowWhen(false)
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -130,23 +139,57 @@ object NotificationUtil {
         notificationId: Int = DEFAULT_NOTIFICATION_ID,
         title: String? = null,
         text: String? = null,
+        filePath: String? = null,
         intent: PendingIntent? = null,
     ) {
-        Log.d(TAG, "finishNotification: ")
+        Log.d(TAG, "finishNotification id: $notificationId, file: $filePath")
         notificationManager.cancel(notificationId)
         if (!NOTIFICATION.getBoolean()) return
 
         val builder =
             NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat_seal)
-                .setContentText(text)
+                .setColor(COLOR_SUCCESS)
+                .setSubText(context.getString(R.string.app_name))
+                .setContentText(text ?: context.getString(R.string.notif_download_success))
                 .setContentIntent(intent ?: mainActivityPendingIntent)
                 .setOngoing(false)
                 .setAutoCancel(true)
                 .setCategory(NotificationCompat.CATEGORY_STATUS)
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-        title?.let { builder.setContentTitle(title) }
+
+        title?.let { builder.setContentTitle(it) }
         builder.setGroup("DOWNLOADS_GROUP")
+
+        if (!filePath.isNullOrBlank()) {
+            val openIntent = Intent(context, NotificationActionReceiver::class.java).apply {
+                putExtra(ACTION_KEY, ACTION_OPEN_FILE)
+                putExtra(FILE_PATH_KEY, filePath)
+                putExtra(NOTIFICATION_ID_KEY, notificationId)
+            }
+            val openPendingIntent = PendingIntent.getBroadcast(
+                context,
+                notificationId + 1000,
+                openIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val shareIntent = Intent(context, NotificationActionReceiver::class.java).apply {
+                putExtra(ACTION_KEY, ACTION_SHARE_FILE)
+                putExtra(FILE_PATH_KEY, filePath)
+                putExtra(NOTIFICATION_ID_KEY, notificationId)
+            }
+            val sharePendingIntent = PendingIntent.getBroadcast(
+                context,
+                notificationId + 2000,
+                shareIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            builder.addAction(R.drawable.outline_open_in_new_24, context.getString(R.string.notif_action_open), openPendingIntent)
+            builder.addAction(R.drawable.outline_share_24, context.getString(R.string.notif_action_share), sharePendingIntent)
+        }
+
         notificationManager.notify(notificationId, builder.build())
         postGroupSummaryNotification()
     }
@@ -156,6 +199,7 @@ object NotificationUtil {
             val summaryNotification = NotificationCompat.Builder(context, CHANNEL_ID)
                 .setContentTitle(context.getString(R.string.app_name))
                 .setSmallIcon(R.drawable.ic_stat_seal)
+                .setColor(COLOR_PROGRESS)
                 .setGroup("DOWNLOADS_GROUP")
                 .setGroupSummary(true)
                 .build()
@@ -168,10 +212,10 @@ object NotificationUtil {
         title: String? = null,
         text: String? = null,
     ) {
-        //        notificationManager.cancel(notificationId)
         val builder =
             NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat_seal)
+                .setColor(COLOR_SUCCESS)
                 .setContentText(text)
                 .setProgress(0, 0, false)
                 .setAutoCancel(true)
@@ -197,6 +241,7 @@ object NotificationUtil {
         serviceNotification =
             NotificationCompat.Builder(context, SERVICE_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat_seal)
+                .setColor(COLOR_PROGRESS)
                 .setContentTitle(context.getString(R.string.service_title))
                 .setContentText(text)
                 .setOngoing(true)
@@ -224,21 +269,22 @@ object NotificationUtil {
         textId: Int = R.string.download_error_professional,
         notificationId: Int,
         report: String,
+        taskId: String? = null,
     ) {
         if (!NOTIFICATION.getBoolean()) return
 
-        val intent =
+        val reportIntent =
             Intent()
                 .setClass(context, NotificationActionReceiver::class.java)
                 .putExtra(NOTIFICATION_ID_KEY, notificationId)
                 .putExtra(ERROR_REPORT_KEY, report)
                 .putExtra(ACTION_KEY, ACTION_ERROR_REPORT)
 
-        val pendingIntent =
+        val reportPendingIntent =
             PendingIntent.getBroadcast(
                 context,
                 notificationId,
-                intent,
+                reportIntent,
                 PendingIntent.FLAG_ONE_SHOT or
                     PendingIntent.FLAG_IMMUTABLE or
                     PendingIntent.FLAG_UPDATE_CURRENT,
@@ -251,23 +297,45 @@ object NotificationUtil {
             PendingIntent.getActivity(context, notificationId, it, PendingIntent.FLAG_IMMUTABLE)
         }
 
-        NotificationCompat.Builder(context, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_seal)
+            .setColor(COLOR_ERROR)
+            .setSubText(context.getString(R.string.app_name))
             .setContentTitle(title)
             .setContentText(context.getString(textId))
             .setStyle(NotificationCompat.BigTextStyle().bigText(context.getString(textId)))
             .setOngoing(false)
+            .setAutoCancel(true)
             .setContentIntent(appPendingIntent)
-            .addAction(
-                R.drawable.outline_content_copy_24,
-                context.getString(R.string.copy_error_report),
-                pendingIntent,
-            )
             .setGroup("DOWNLOADS_GROUP")
-            .run {
-                notificationManager.cancel(notificationId)
-                notificationManager.notify(notificationId, build())
+
+        if (!taskId.isNullOrBlank()) {
+            val retryIntent = Intent(context, NotificationActionReceiver::class.java).apply {
+                putExtra(ACTION_KEY, ACTION_RETRY_TASK)
+                putExtra(TASK_ID_KEY, taskId)
+                putExtra(NOTIFICATION_ID_KEY, notificationId)
             }
+            val retryPendingIntent = PendingIntent.getBroadcast(
+                context,
+                notificationId + 3000,
+                retryIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            builder.addAction(
+                R.drawable.outline_restart_alt_24,
+                context.getString(R.string.notif_action_retry),
+                retryPendingIntent
+            )
+        }
+
+        builder.addAction(
+            R.drawable.outline_content_copy_24,
+            context.getString(R.string.notif_action_report),
+            reportPendingIntent,
+        )
+
+        notificationManager.cancel(notificationId)
+        notificationManager.notify(notificationId, builder.build())
     }
 
     fun makeNotificationForCustomCommand(
@@ -288,7 +356,7 @@ object NotificationUtil {
 
         val pendingIntent =
             PendingIntent.getBroadcast(
-                context.applicationContext,
+                context,
                 notificationId,
                 intent,
                 PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE,
@@ -296,6 +364,7 @@ object NotificationUtil {
 
         NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_seal)
+            .setColor(COLOR_PROGRESS)
             .setContentTitle(
                 "[${templateName}_${taskUrl}] " +
                     context.getString(R.string.execute_command_notification)

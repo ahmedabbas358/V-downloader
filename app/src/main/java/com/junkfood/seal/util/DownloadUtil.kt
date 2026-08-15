@@ -110,10 +110,13 @@ object DownloadUtil {
                 addOption("--flat-playlist")
                 addOption("--dump-single-json")
                 addOption("-o", BASENAME)
-                addOption("-R", "5")
-                addOption("--socket-timeout", "15")
-
+                addOption("-R", "3")
+                addOption("--socket-timeout", "20")
                 downloadPreferences.run {
+                    if (extractAudio) {
+                        addOption("-x")
+                    }
+                    applyFormatSorter(this, toFormatSorter())
                     if (proxy) {
                         enableProxy(proxyUrl)
                     }
@@ -144,20 +147,7 @@ object DownloadUtil {
         request.runCatching {
             val response: YoutubeDLResponse =
                 YoutubeDL.getInstance().execute(request, taskKey, null)
-            val jsonLines = response.out.lines()
-                .map { it.trim() }
-                .filter { it.startsWith("{") && it.endsWith("}") }
-            var decodedInfo: VideoInfo? = null
-            for (line in jsonLines) {
-                try {
-                    val candidate = jsonFormat.decodeFromString<VideoInfo>(line)
-                    if (!candidate.id.isNullOrEmpty() || !candidate.title.isNullOrEmpty()) {
-                        decodedInfo = candidate
-                        break
-                    }
-                } catch (_: Exception) { }
-            }
-            decodedInfo ?: jsonFormat.decodeFromString(response.out.trim())
+            jsonFormat.decodeFromString(response.out)
         }
 
     @CheckResult
@@ -174,6 +164,10 @@ object DownloadUtil {
                     if (restrictFilenames) {
                         addOption("--restrict-filenames")
                     }
+                    if (extractAudio) {
+                        addOption("-x")
+                    }
+                    applyFormatSorter(this@with, toFormatSorter())
                     if (cookies) {
                         enableCookies(userAgentString)
                     }
@@ -192,25 +186,11 @@ object DownloadUtil {
                         addOption("--dump-single-json")
                         addOption("--no-playlist")
                     }
-                    addOption("-R", "5")
-                    addOption("--socket-timeout", "15")
-
-                }
-            var result = getVideoInfo(request, taskKey)
-            
-            if (result.isFailure && playlistIndex != null) {
-                val fallbackRequest = YoutubeDLRequest(url).apply {
-                    addOption("--playlist-items", playlistIndex)
-                    addOption("--dump-json")
                     addOption("-R", "3")
                     addOption("--socket-timeout", "20")
                 }
-                val retryResult = getVideoInfo(fallbackRequest, taskKey)
-                if (retryResult.isSuccess) {
-                    result = retryResult
-                }
-            }
-
+            val result = getVideoInfo(request, taskKey)
+            
             if (result.isFailure) {
                 if (url.contains("instagram.com", ignoreCase = true) || url.contains("tiktok.com", ignoreCase = true)) {
                     val cobaltUrl = kotlinx.coroutines.runBlocking { com.junkfood.seal.util.CobaltEngine.fetchVideoUrl(url) }
@@ -487,14 +467,16 @@ object DownloadUtil {
 
     private fun buildSubLangsOption(rawLang: String): String {
         val trimmed = rawLang.trim()
-        if (trimmed.isEmpty() || trimmed.equals("all", ignoreCase = true)) return "ar,en"
+        if (trimmed.isEmpty() || trimmed.equals("all", ignoreCase = true)) return "all"
         val langs = trimmed.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-        if (langs.isEmpty()) return "ar,en"
-        val expanded = langs.flatMap { l ->
-            if (l.equals("all", ignoreCase = true)) listOf("all")
-            else listOf(l, ".*-$l", "$l-orig", "$l-.*")
+        if (langs.isEmpty()) return "all"
+        return langs.flatMap { l ->
+            if (l.contains("-") || l.contains(".*")) {
+                listOf(l)
+            } else {
+                listOf(l, "$l-.*", "$l-orig")
+            }
         }.distinct().joinToString(",")
-        return expanded
     }
 
     private fun YoutubeDLRequest.enableAria2c(): YoutubeDLRequest =
@@ -507,7 +489,9 @@ object DownloadUtil {
             if (downloadPreferences.skipDownload) {
                 addOption("--skip-download")
                 addOption("--write-subs")
-                addOption("--write-auto-subs")
+                if (downloadPreferences.autoSubtitle || downloadPreferences.autoTranslatedSubtitles) {
+                    addOption("--write-auto-subs")
+                }
                 val langOption = buildSubLangsOption(downloadPreferences.subtitleLanguage)
                 addOption("--sub-langs", langOption)
                 when (downloadPreferences.convertSubtitle) {
@@ -517,8 +501,8 @@ object DownloadUtil {
                     CONVERT_LRC -> addOption("--convert-subs", "lrc")
                     else -> addOption("--convert-subs", "srt")
                 }
-                addOption("--sleep-subtitles", "3")
-                addOption("--sleep-requests", "2")
+                addOption("--sleep-subtitles", "2")
+                addOption("--sleep-requests", "1")
                 return@apply
             }
 
@@ -527,7 +511,12 @@ object DownloadUtil {
                 addOption("--add-metadata")
                 addOption("--no-embed-info-json")
                 if (formatIdString.isNotEmpty()) {
-                    addOption("-f", formatIdString)
+                    val finalFormat = if (!formatIdString.contains("+") && !formatIdString.contains("ba") && !formatIdString.contains("bestaudio") && !formatIdString.contains("/") && !formatIdString.contains("best")) {
+                        "$formatIdString+ba/b"
+                    } else {
+                        formatIdString
+                    }
+                    addOption("-f", finalFormat)
                     if (mergeAudioStream) {
                         addOption("--audio-multistreams")
                     }
@@ -793,7 +782,6 @@ object DownloadUtil {
                 .apply {
                     addOption("--no-mtime")
                     if (skipDownload) addOption("--skip-download")
-                    //                addOption("-v")
                     if (cookies) {
                         enableCookies(userAgentString)
                     }
@@ -827,45 +815,26 @@ object DownloadUtil {
                         addOption("-r", "${maxDownloadRate}K")
                     }
 
-                    if (removeMusic) {
-                        val vocalFilter = "highpass=f=200,lowpass=f=3000,dynaudnorm=f=150:g=15:peak=0.9"
-                        val subtitleStreamArg = if (downloadSubtitle && embedSubtitle) "-c:s copy " else ""
-                        if (extractAudio) {
-                            if (!useCustomAudioPreset) {
-                                addOption("--audio-format", "mp3")
-                            }
-                            addOption("--postprocessor-args", "ExtractAudio:-af $vocalFilter")
-                            addOption("--postprocessor-args", "FFmpegExtractAudio:-af $vocalFilter")
-                            addOption("--postprocessor-args", "ffmpeg:${subtitleStreamArg}-af $vocalFilter")
-                        } else {
-                            addOption("--postprocessor-args", "ffmpeg:-c:v copy -c:a aac ${subtitleStreamArg}-af $vocalFilter")
-                        }
-                    }
-
                     // Smart retry scheme ensuring downloads do not fail due to transient errors or broken items
-                    addOption("--socket-timeout", "15")
                     addOption("--retries", "10")
                     addOption("--fragment-retries", "10")
-                    addOption("--file-access-retries", "10")
-                    
-                    // Bypass YouTube's recent 403 blocks on audio streams without triggering PO Token errors
-                    addOption("--extractor-args", "youtube:player_client=mweb,web,tv")
-                    
+                    addOption("--file-access-retries", "5")
                     addOption("--ignore-errors")
-
 
                     if (playlistItem != 0) {
                         addOption("--no-playlist")
-                        if (skipDownload && downloadSubtitle) {
-                            val playlistName = fallbackPlaylistTitle.ifEmpty { videoInfo.playlist.orEmpty() }
-                            if (playlistName.isNotEmpty()) {
-                                outputBuilder.append("[Subtitles] ").append(com.junkfood.seal.util.FileUtil.cleanFileName(playlistName)).append("/")
-                            }
-                        } else if (subdirectoryPlaylistTitle) {
-                            if (fallbackPlaylistTitle.isNotEmpty()) {
-                                outputBuilder.append(com.junkfood.seal.util.FileUtil.cleanFileName(fallbackPlaylistTitle)).append("/")
-                            } else if (!videoInfo.playlist.isNullOrEmpty()) {
-                                outputBuilder.append(PLAYLIST_TITLE_SUBDIRECTORY_PREFIX)
+                        if (commandDirectory.isBlank()) {
+                            if (skipDownload && downloadSubtitle) {
+                                val playlistName = fallbackPlaylistTitle.ifEmpty { videoInfo.playlist.orEmpty() }
+                                if (playlistName.isNotEmpty()) {
+                                    outputBuilder.append("[Subtitles] ").append(com.junkfood.seal.util.FileUtil.cleanFileName(playlistName)).append("/")
+                                }
+                            } else if (subdirectoryPlaylistTitle) {
+                                if (fallbackPlaylistTitle.isNotEmpty()) {
+                                    outputBuilder.append(com.junkfood.seal.util.FileUtil.cleanFileName(fallbackPlaylistTitle)).append("/")
+                                } else if (!videoInfo.playlist.isNullOrEmpty()) {
+                                    outputBuilder.append(PLAYLIST_TITLE_SUBDIRECTORY_PREFIX)
+                                }
                             }
                         }
                     } else {
@@ -878,17 +847,25 @@ object DownloadUtil {
                         addOption("--concurrent-fragments", concurrentFragments)
                     }
 
-                    if (!skipDownload && (extractAudio || (videoInfo.vcodec == "none"))) {
-                        if (privateDirectory) pathBuilder.append(App.privateDownloadDir)
-                        else pathBuilder.append(audioDownloadDir)
+                    val isAudioDownload = !skipDownload && (extractAudio || (videoInfo.vcodec == "none" && videoInfo.formats.orEmpty().none { it.containsVideo() }))
+                    val basePath = if (commandDirectory.isNotBlank()) {
+                        commandDirectory
+                    } else if (privateDirectory) {
+                        App.privateDownloadDir
+                    } else if (isAudioDownload) {
+                        audioDownloadDir
+                    } else {
+                        videoDownloadDir
+                    }
+                    pathBuilder.append(basePath)
+
+                    if (isAudioDownload) {
                         addOptionsForAudioDownloads(
                             id = videoInfo.id,
                             preferences = downloadPreferences,
                             playlistUrl = playlistUrl,
                         )
                     } else {
-                        if (privateDirectory) pathBuilder.append(App.privateDownloadDir)
-                        else pathBuilder.append(videoDownloadDir)
                         addOptionsForVideoDownloads(downloadPreferences)
                     }
                     if (!skipDownload && sponsorBlock) {
@@ -905,8 +882,6 @@ object DownloadUtil {
 
                     if (sdcard) {
                         addOption("-P", context.getSdcardTempDir(videoInfo.id).absolutePath)
-                    } else if (commandDirectory.isNotBlank()) {
-                        addOption("-P", commandDirectory)
                     } else {
                         addOption("-P", pathBuilder.toString())
                     }
@@ -926,7 +901,6 @@ object DownloadUtil {
                     }
                     if (Build.VERSION.SDK_INT > 23 && !sdcard) {
                         // Removed temp: directory configuration to prevent Errno 2 with subtitles and subdirectories
-                        // addOption("-P", "temp:" + getExternalTempDir())
                     }
 
                     if (splitByChapter) {
@@ -1019,13 +993,15 @@ object DownloadUtil {
                         isSubtitleOnly = skipDownload,
                     )
                     .run {
+                        val finalPaths = this
+
                         if (privateMode) Result.success(emptyList())
                         else
                             Result.success(
                                 if (splitByChapter) {
-                                    insertSplitChapterIntoHistory(videoInfo, this)
+                                    insertSplitChapterIntoHistory(videoInfo, finalPaths)
                                 } else {
-                                    insertInfoIntoDownloadHistory(videoInfo, this)
+                                    insertInfoIntoDownloadHistory(videoInfo, finalPaths)
                                 }
                             )
                     }

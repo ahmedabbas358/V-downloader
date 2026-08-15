@@ -80,28 +80,38 @@ fun WelcomeDialog(onClick: () -> Unit) {
                     Text(stringResource(R.string.open_settings))
                 }
             },
-            title = { Text(stringResource(R.string.user_guide)) },
+            title = { Text(stringResource(R.string.user_guide), style = MaterialTheme.typography.titleLarge.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     IconDescription(
+                        icon = Icons.Outlined.FileDownload,
+                        title = stringResource(R.string.feature_smart_download_title),
+                        description = stringResource(R.string.feature_smart_download_desc),
+                    )
+                    IconDescription(
                         icon = Icons.Outlined.ContentPaste,
+                        title = "لصق ومشاركة الروابط",
                         description = stringResource(R.string.paste_desc),
                     )
                     IconDescription(
-                        icon = Icons.Outlined.FileDownload,
-                        description = stringResource(R.string.download_desc),
+                        icon = Icons.Outlined.SettingsSuggest,
+                        title = stringResource(R.string.feature_music_removal_title),
+                        description = stringResource(R.string.feature_music_removal_desc),
                     )
                     IconDescription(
                         icon = Icons.Outlined.Subscriptions,
-                        description = stringResource(R.string.download_history_desc),
+                        title = stringResource(R.string.feature_playlist_sync_title),
+                        description = stringResource(R.string.feature_playlist_sync_desc),
+                    )
+                    IconDescription(
+                        icon = Icons.Outlined.Translate,
+                        title = stringResource(R.string.feature_subtitles_title),
+                        description = stringResource(R.string.feature_subtitles_desc),
                     )
                     IconDescription(
                         icon = Icons.Outlined.Downloading,
+                        title = stringResource(R.string.perm_battery_title),
                         description = stringResource(R.string.battery_settings_desc),
-                    )
-                    IconDescription(
-                        icon = Icons.Outlined.SettingsSuggest,
-                        description = stringResource(R.string.check_download_settings_desc),
                     )
                     if ((showWelcomeDialog > 1))
                         CheckBoxItem(

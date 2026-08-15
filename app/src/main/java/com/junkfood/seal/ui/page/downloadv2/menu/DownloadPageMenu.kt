@@ -123,7 +123,9 @@ fun DownloadPageMenuSheet(
                         Filter.Downloading -> Icons.Outlined.Refresh
                         Filter.Canceled -> Icons.Outlined.ErrorOutline
                         Filter.Finished -> Icons.Outlined.DeleteSweep
-                        else -> Icons.Outlined.Info
+                        Filter.Video -> Icons.Outlined.Movie
+                        Filter.Audio -> Icons.Outlined.MusicNote
+                        Filter.Subtitle -> Icons.Outlined.Subtitles
                     },
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -136,7 +138,9 @@ fun DownloadPageMenuSheet(
                         Filter.Downloading -> "إدارة التنزيلات الجارية والنشطة"
                         Filter.Canceled -> "إدارة التنزيلات المُلغاة والفاشلة"
                         Filter.Finished -> "إدارة التنزيلات المكتملة"
-                        else -> "إدارة التنزيلات"
+                        Filter.Video -> "إدارة مقاطع الفيديو المنزلة"
+                        Filter.Audio -> "إدارة الملفات الصوتية المنزلة"
+                        Filter.Subtitle -> "إدارة ملفات الترجمة"
                     },
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -151,7 +155,9 @@ fun DownloadPageMenuSheet(
                 Filter.Downloading -> "جار التحميل"
                 Filter.Canceled -> "تم الإلغاء"
                 Filter.Finished -> "انتهى"
-                else -> ""
+                Filter.Video -> "الفيديو"
+                Filter.Audio -> "الصوتيات"
+                Filter.Subtitle -> "الترجمات"
             },
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.primary,
@@ -179,10 +185,10 @@ fun DownloadPageMenuSheet(
                 MenuActionItem(icon = Icons.Outlined.Refresh, text = "إعادة محاولة وتنزيل جميع المُلغاة", onClick = onRetryAll)
                 MenuActionItem(icon = Icons.Outlined.DeleteForever, text = "حذف جميع التنزيلات المُلغاة", onClick = onDeleteAll)
             }
-            Filter.Finished -> {
-                MenuActionItem(icon = Icons.Outlined.SelectAll, text = "تحديد العناصر المكتملة", onClick = onSelectAll)
-                MenuActionItem(icon = Icons.Outlined.Refresh, text = "إعادة تنزيل جميع الملفات المكتملة", onClick = onRedownloadAll)
-                MenuActionItem(icon = Icons.Outlined.ClearAll, text = "مسح سجل التنزيلات المكتملة", onClick = onDeleteHistory)
+            Filter.Finished, Filter.Video, Filter.Audio, Filter.Subtitle -> {
+                MenuActionItem(icon = Icons.Outlined.SelectAll, text = "تحديد العناصر المعروضة", onClick = onSelectAll)
+                MenuActionItem(icon = Icons.Outlined.Refresh, text = "إعادة تنزيل جميع العناصر المعروضة", onClick = onRedownloadAll)
+                MenuActionItem(icon = Icons.Outlined.ClearAll, text = "مسح العناصر المعروضة من السجل", onClick = onDeleteHistory)
                 MenuActionItem(icon = Icons.Outlined.DeleteForever, text = "حذف الملفات والسجل بالكامل", onClick = onDeleteFiles)
             }
         }

@@ -402,17 +402,23 @@ fun DownloadDirectoryPreferences(onNavigateBack: () -> Unit) {
                     showClearTempDialog = false
                     scope.launch(Dispatchers.IO) {
                         FileUtil.clearTempFiles(context.getConfigDirectory())
+                        val orphanReport = com.junkfood.seal.util.StorageCleanerUtil.scanOrphanFiles()
+                        val reclaimedBytes = com.junkfood.seal.util.StorageCleanerUtil.cleanOrphanFiles(orphanReport.orphanFiles)
                         val count =
                             FileUtil.run {
                                 clearTempFiles(getExternalTempDir()) +
                                     clearTempFiles(context.getSdcardTempDir(null)) +
-                                    clearTempFiles(context.getInternalTempDir())
+                                    clearTempFiles(context.getInternalTempDir()) +
+                                    orphanReport.orphanFilesCount
                             }
 
                         withContext(Dispatchers.Main) {
-                            snackbarHostState.showSnackbar(
+                            val msg = if (reclaimedBytes > 0) {
+                                context.getString(R.string.clear_temp_files_count).format(count) + " (${FileUtil.formatFileSize(reclaimedBytes)})"
+                            } else {
                                 context.getString(R.string.clear_temp_files_count).format(count)
-                            )
+                            }
+                            snackbarHostState.showSnackbar(msg)
                         }
                     }
                 }

@@ -153,7 +153,7 @@ fun FormatPage(
 
     var diffSubtitleLanguages by remember { mutableStateOf(emptySet<String>()) }
 
-    val isAudioSelected = audioOnly || com.junkfood.seal.util.PreferenceUtil.getDownloadType() == com.junkfood.seal.util.DownloadType.Audio || EXTRACT_AUDIO.getBoolean()
+    val isAudioSelected = com.junkfood.seal.util.PreferenceUtil.getDownloadType() == com.junkfood.seal.util.DownloadType.Audio
     val isSubtitleOnly = com.junkfood.seal.util.PreferenceUtil.getDownloadType() == com.junkfood.seal.util.DownloadType.Subtitle
 
     FormatPageImpl(
@@ -176,8 +176,9 @@ fun FormatPage(
             val videoFormats = formatList.filter { it.containsVideo() }
             val isAudioOnlyPlaylist = isAudioSelected || (audioOnlyFormats.isNotEmpty() && videoFormats.isEmpty())
             val mergeAudioStreamPlaylist = audioOnlyFormats.size > 1
-            val hasVideoOnlyFormat = videoFormats.any { it.vcodec != "none" && (it.acodec == "none" || it.acodec == null) }
-            val rawFormatId = formatList.joinToString(separator = "+") { it.formatId.toString() }
+            val hasVideoOnlyFormat = videoFormats.any { it.isVideoOnly() || !it.containsAudio() }
+            val vId = videoFormats.joinToString(separator = "+") { it.formatId.toString() }
+            val aId = audioOnlyFormats.joinToString(separator = "+") { it.formatId.toString() }
             val maxSelectedHeight = videoFormats.mapNotNull { it.height?.toInt() }.maxOrNull()
             
             val fallbackSpec = when {
@@ -187,18 +188,6 @@ fun FormatPage(
                 else -> "best"
             }
 
-            val formatId = if (rawFormatId.isNotEmpty()) {
-                if (isAudioSelected) {
-                    audioOnlyFormats.joinToString("+") { it.formatId.toString() }.ifEmpty { rawFormatId }
-                } else if (hasVideoOnlyFormat && audioOnlyFormats.isEmpty()) {
-                    "$rawFormatId+bestaudio/$fallbackSpec"
-                } else {
-                    "$rawFormatId/$fallbackSpec"
-                }
-            } else {
-                fallbackSpec
-            }
-
             val playlistFormatId = when {
                 isAudioOnlyPlaylist -> "bestaudio/best"
                 maxSelectedHeight != null && maxSelectedHeight > 0 -> "bestvideo[height<=$maxSelectedHeight]+bestaudio/bestvideo+bestaudio/best"
@@ -206,8 +195,11 @@ fun FormatPage(
             }
 
             if (playlistTasks != null) {
+                val hasSelectedSubs = selectedSubtitles.isNotEmpty() || selectedAutoCaptions.isNotEmpty()
+                val chosenSubs = if (selectedSubtitles.isNotEmpty()) selectedSubtitles else selectedAutoCaptions
+                val subLangString = if (chosenSubs.isNotEmpty()) chosenSubs.joinToString(",") else ""
+
                 playlistTasks.forEach { taskWithState ->
-                    val hasSelectedSubs = selectedSubtitles.isNotEmpty() || selectedAutoCaptions.isNotEmpty()
                     val isSubOnly = skipDownload || isSubtitleOnly || taskWithState.task.preferences.skipDownload
                     val updatedTask = taskWithState.task.copy(
                         preferences = taskWithState.task.preferences.copy(
@@ -217,9 +209,9 @@ fun FormatPage(
                             mergeAudioStream = if (isSubOnly) false else mergeAudioStreamPlaylist,
                             downloadSubtitle = true,
                             convertSubtitle = subtitleFormat,
-                            autoSubtitle = if (hasSelectedSubs) selectedAutoCaptions.isNotEmpty() else true,
-                            autoTranslatedSubtitles = true,
-                            subtitleLanguage = if (hasSelectedSubs) (selectedSubtitles + selectedAutoCaptions).joinToString(",") else taskWithState.task.preferences.subtitleLanguage,
+                            autoSubtitle = selectedAutoCaptions.isNotEmpty(),
+                            autoTranslatedSubtitles = selectedSubtitles.isEmpty() && selectedAutoCaptions.isNotEmpty(),
+                            subtitleLanguage = if (subLangString.isNotEmpty()) subLangString else taskWithState.task.preferences.subtitleLanguage,
                             splitByChapter = if (isSubOnly) false else splitByChapter,
                             newTitle = newTitle
                         )
@@ -458,10 +450,10 @@ private fun FormatPageImpl(
                             it.requestedFormats?.let { addAll(it) }
                         }
                 } else {
+                    videoFormats.getOrNull(selectedVideoFormat)?.let { add(it) }
                     selectedAudioOnlyFormats.forEach { index ->
                         add(audioOnlyFormats.elementAt(index))
                     }
-                    videoFormats.getOrNull(selectedVideoFormat)?.let { add(it) }
                 }
             }
         }
@@ -654,31 +646,33 @@ private fun FormatPageImpl(
                         }
 
                         LazyRow(modifier = Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            item {
-                                androidx.compose.material3.OutlinedButton(
-                                    onClick = {
-                                        onDownloadPressed(
-                                            FormatConfig(
-                                                formatList = formatList,
-                                                videoClips =
-                                                    if (isClippingVideo) listOf(VideoClip(videoClipDuration))
-                                                    else emptyList(),
-                                                splitByChapter = isSplittingVideo,
-                                                newTitle = videoTitle,
-                                                selectedSubtitles = selectedSubtitles,
-                                                selectedAutoCaptions = selectedAutoCaptions,
-                                                skipDownload = true,
-                                                subtitleFormat = subtitleFormat,
+                            if (isSubtitleOnly) {
+                                item {
+                                    androidx.compose.material3.OutlinedButton(
+                                        onClick = {
+                                            onDownloadPressed(
+                                                FormatConfig(
+                                                    formatList = formatList,
+                                                    videoClips =
+                                                        if (isClippingVideo) listOf(VideoClip(videoClipDuration))
+                                                        else emptyList(),
+                                                    splitByChapter = isSplittingVideo,
+                                                    newTitle = videoTitle,
+                                                    selectedSubtitles = selectedSubtitles,
+                                                    selectedAutoCaptions = selectedAutoCaptions,
+                                                    skipDownload = true,
+                                                    subtitleFormat = subtitleFormat,
+                                                )
                                             )
+                                        }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.FileDownload,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp).padding(end = 4.dp)
                                         )
+                                        Text(stringResource(R.string.download_subtitles))
                                     }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.FileDownload,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp).padding(end = 4.dp)
-                                    )
-                                    Text(stringResource(R.string.download_subtitles))
                                 }
                             }
                             for ((code, formats) in suggestedSubtitleMap) {
