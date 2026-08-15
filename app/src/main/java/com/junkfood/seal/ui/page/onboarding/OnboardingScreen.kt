@@ -2,13 +2,11 @@ package com.junkfood.seal.ui.page.onboarding
 
 import android.Manifest
 import android.content.Context
-import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -77,7 +75,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
 import com.junkfood.seal.R
 import com.junkfood.seal.ui.component.PreferenceSingleChoiceItem
@@ -528,14 +525,6 @@ private fun FeatureCard(icon: ImageVector, title: String, desc: String) {
 @Composable
 fun SmartPermissionsPage(onFinished: () -> Unit) {
     val context = LocalContext.current
-    val activity = remember(context) {
-        var ctx = context
-        while (ctx is ContextWrapper) {
-            if (ctx is ComponentActivity) return@remember ctx
-            ctx = ctx.baseContext
-        }
-        null
-    }
 
     var hasNotifPermission by remember {
         mutableStateOf(
@@ -558,13 +547,14 @@ fun SmartPermissionsPage(onFinished: () -> Unit) {
         )
     }
 
-    val notifPermissionLauncher = runCatching {
-        rememberLauncherForActivityResult(
-            ActivityResultContracts.RequestPermission()
-        ) { isGranted ->
-            hasNotifPermission = isGranted
-        }
-    }.getOrNull()
+    // Register the permission launcher directly in the composable scope.
+    // rememberLauncherForActivityResult is a @Composable function and MUST NOT
+    // be wrapped in runCatching or any non-composable lambda.
+    val notifPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasNotifPermission = isGranted
+    }
 
     Column(
         modifier = Modifier
@@ -642,21 +632,7 @@ fun SmartPermissionsPage(onFinished: () -> Unit) {
                             Button(
                                 onClick = {
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                        if (notifPermissionLauncher != null) {
-                                            notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                        } else if (activity != null) {
-                                            ActivityCompat.requestPermissions(
-                                                activity,
-                                                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
-                                                101
-                                            )
-                                        } else {
-                                            val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                                                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                            }
-                                            context.startActivity(intent)
-                                        }
+                                        notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                                     } else {
                                         val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
                                             putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
