@@ -34,6 +34,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 
@@ -144,10 +145,10 @@ class DownloaderV2Impl(
 
     private val subtitleMutex = kotlinx.coroutines.sync.Mutex()
 
-    @OptIn(kotlinx.coroutines.FlowPreview::class)
+    @OptIn(FlowPreview::class)
     private val snapshotFlow =
         snapshotFlow { taskStateMap.toMap() }
-            .kotlinx.coroutines.flow.sample(500)
+            .sample(500)
 
     override fun prioritize(task: Task) {
         priorityTaskIds.add(task.id)
