@@ -366,7 +366,8 @@ private fun FormatPageImpl(
     if (videoInfo.formats.orEmpty().isEmpty()) return
     val videoFormats = remember(videoInfo.formats) {
         videoInfo.formats.orEmpty()
-            .filter { it.containsVideo() }
+            .filter { it.containsVideo() && !it.formatId.isNullOrEmpty() && !it.formatId.startsWith("sb") }
+            .distinctBy { it.formatId }
             .sortedWith(
                 compareByDescending<Format> { it.height ?: 0 }
                     .thenByDescending { it.fps ?: 0.0 }
@@ -375,7 +376,8 @@ private fun FormatPageImpl(
     }
     val audioOnlyFormats = remember(videoInfo.formats) {
         videoInfo.formats.orEmpty()
-            .filter { it.isAudioOnly() && it.containsAudio() }
+            .filter { it.isAudioOnly() && it.containsAudio() && !it.formatId.isNullOrEmpty() }
+            .distinctBy { it.formatId }
             .sortedByDescending { it.tbr ?: it.abr ?: 0.0 }
     }
 
@@ -432,7 +434,7 @@ private fun FormatPageImpl(
             ?: emptyMap()
 
     val otherSubtitleMap: Map<String, List<SubtitleFormat>> =
-        videoInfo.subtitles + videoInfo.automaticCaptions - suggestedSubtitleMap.keys
+        (videoInfo.subtitles + videoInfo.automaticCaptions).filterKeys { !suggestedSubtitleMap.containsKey(it) }
 
     LaunchedEffect(isClippingVideo) {
         delay(200)

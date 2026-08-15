@@ -363,13 +363,11 @@ private fun DownloadDialogContent(
     onActionPost: (Action) -> Unit,
 ) {
     AnimatedContent(
-        modifier = modifier.animateContentSize(
-            animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
-        ),
+        modifier = modifier,
         targetState = state,
-        label = "",
+        label = "DownloadDialogContent",
         transitionSpec = {
-            materialSharedAxisX(initialOffsetX = { it / 4 }, targetOffsetX = { -it / 4 })
+            materialSharedAxisX(initialOffsetX = { it / 6 }, targetOffsetX = { -it / 6 })
         },
     ) { state ->
         when (state) {
@@ -957,7 +955,6 @@ fun ExpandableTitle(
                     .clickable(
                         onClick = onClick,
                         onClickLabel = stringResource(R.string.show_more_actions),
-                        enabled = !expanded,
                     )
                     .padding(top = 12.dp, bottom = 8.dp)
         ) {
@@ -971,14 +968,12 @@ fun ExpandableTitle(
                     style = MaterialTheme.typography.labelLarge,
                 )
                 Spacer(modifier = Modifier.weight(1f))
-                if (!expanded) {
-                    Icon(
-                        imageVector = Icons.Outlined.ExpandMore,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                    )
-                    Spacer(modifier = Modifier.width(32.dp))
-                }
+                Icon(
+                    imageVector = if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(modifier = Modifier.width(32.dp))
             }
             AnimatedVisibility(expanded) {
                 Column {
@@ -1004,18 +999,15 @@ private fun SingleChoiceItem(
     val corner by
         animateDpAsState(
             if (selected) 28.dp else 16.dp,
-            animationSpec =
-                spring(
-                    stiffness = Spring.StiffnessMedium,
-                    visibilityThreshold = Dp.VisibilityThreshold,
-                ),
-            label = "",
+            animationSpec = tween(120),
+            label = "corner",
         )
     val color by
         animateColorAsState(
             if (selected) MaterialTheme.colorScheme.secondaryContainer
             else MaterialTheme.colorScheme.surfaceContainerLow,
-            label = "",
+            animationSpec = tween(120),
+            label = "color",
         )
 
     Surface(
@@ -1133,26 +1125,17 @@ private fun Preset(
         title = stringResource(R.string.preset),
         desc = description,
         icon = {
-            Crossfade(selected, animationSpec = spring(stiffness = Spring.StiffnessMedium)) {
-                if (it) {
-                    Icon(
-                        imageVector = Icons.Filled.SettingsSuggest,
-                        null,
-                        modifier = Modifier.size(20.dp),
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Outlined.SettingsSuggest,
-                        null,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-            }
+            Icon(
+                imageVector = if (selected) Icons.Filled.SettingsSuggest else Icons.Outlined.SettingsSuggest,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+            )
         },
         selected = selected,
         action = {
-            Crossfade(showEditIcon, animationSpec = spring(stiffness = Spring.StiffnessMedium)) {
-                if (it) {
+            if (showEditIcon) {
+                IconButton(onClick = onEdit, modifier = Modifier.size(28.dp)) {
                     Icon(
                         imageVector = Icons.Outlined.MoreVert,
                         contentDescription = stringResource(R.string.edit),
@@ -1161,13 +1144,7 @@ private fun Preset(
                 }
             }
         },
-        onClick = {
-            if (showEditIcon) {
-                onEdit()
-            } else {
-                onClick()
-            }
-        },
+        onClick = onClick,
     )
 }
 
@@ -1183,21 +1160,12 @@ private fun Custom(
         title = stringResource(R.string.custom),
         desc = stringResource(R.string.custom_format_selection_desc),
         icon = {
-            Crossfade(selected, animationSpec = spring(stiffness = Spring.StiffnessMedium)) {
-                if (it) {
-                    Icon(
-                        imageVector = Icons.Filled.VideoFile,
-                        null,
-                        modifier = Modifier.size(20.dp),
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Outlined.VideoFile,
-                        null,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-            }
+            Icon(
+                imageVector = if (selected) Icons.Filled.VideoFile else Icons.Outlined.VideoFile,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+            )
         },
         selected = selected,
         enabled = enabled,

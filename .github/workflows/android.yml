@@ -75,37 +75,33 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: app/build/outputs/apk/generic/release/*.apk
-          name: V-Downloader v3.0.4 - دمج الصوت الشامل ومزيل الموسيقى ومحرك المعاينة
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v3.0.4' }}
+          name: V-Downloader v3.0.5 - سرعة استجابة الخيارات وإلغاء التكرار
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v3.0.5' }}
           draft: false
           prerelease: false
           make_latest: true
           body: |
-            # 🚀 V-Downloader v3.0.4 - دمج الصوت الشامل ومزيل الموسيقى ومحرك المعاينة (Audio Merge & Media Engine Overhaul)
+            # 🚀 V-Downloader v3.0.5 - سرعة استجابة الخيارات وإلغاء التكرار (Instant UI & Format Deduplication)
 
-            > 🔥 **أبرز التحديثات في v3.0.4 | What's New:**
-            > 🇸🇦 **عربي:** ضمان دمج الصوت مع الفيديو في جميع الجودات، وتصحيح تنزيل ملفات الترجمة، وتطوير محرك إزالة الموسيقى وعزل الصوت بتقنية الفلاتر المتعددة، وبناء مشغل معاينة وسائط متطور.
-            > 🇬🇧 **English:** Guaranteed video + audio merging across all resolutions, accurate subtitle task execution, multi-tier vocal isolation & music removal engine, and an all-new advanced media preview player.
+            > 🔥 **أبرز التحديثات في v3.0.5 | What's New:**
+            > 🇸🇦 **عربي:** تحسين سرعة واستجابة التبديل بين الخيارات وإلغاء بطء واجهة "مخصص" (Custom)، وإلغاء التكرار في بطاقات الجودات والتنسيقات والترجمات.
+            > 🇬🇧 **English:** Instant option switching performance, removal of custom format selection lag, and complete deduplication of format/subtitle cards.
 
             ---
 
-            ## 🛠️ أبرز التحسينات والإصلاحات في v3.0.4 | v3.0.4 Improvements:
+            ## 🛠️ أبرز التحسينات والإصلاحات في v3.0.5 | v3.0.5 Improvements:
 
-            ### 🔊 1. دمج الصوت الإجباري في جميع الجودات (Universal Audio + Video Merging):
-            * **AR:** اعتماد خوارزمية دمج الصوت `bv*+ba/b` مع خيار الحاوية `--merge-output-format mp4/mkv` لضمان عدم تحميل أي فيديو بدون صوت مهما كانت دقته أو تنسيقه.
-            * **EN:** Enforced `bv*+ba/b` stream selection with `--merge-output-format mp4/mkv` so every video download is guaranteed to have merged audio.
+            ### ⚡ 1. استجابة فورية بدون تأخير (Instant Option & Tab Navigation):
+            * **AR:** تسريع التبديل بين خيارات "مخصص" و "إعداد مسبق" وأقسام التنزيل وإلغاء التحريكات الثقيلة التي كانت تسبب تأخيراً في عرض الخيارات.
+            * **EN:** Replaced heavy spring layout animations with crisp, instantaneous feedback on option selections and tab switching.
 
-            ### 🎯 2. دقة تنزيل الترجمات والتحقق من الملفات (Accurate Subtitle Downloading):
-            * **AR:** منع إعطاء حالة "تم التنزيل" كاذبة إذا لم يتم تنزيل ملف ترجمة حقيقي على القرص، وتصحيح مطابقة ملفات الترجمة بالاسم والرقم التسلسلي.
-            * **EN:** Fixed false-positive task completion on subtitle downloads and enforced strict file name matching.
+            ### 🧹 2. تنظيف وإلغاء تكرار التنسيقات (Format & Subtitle Deduplication):
+            * **AR:** فلترة وإلغاء أي بطاقات جودة أو صوت أو ترجمة مكررة وحذف وسائط Storyboards غير القابلة للتشغيل تلقائياً.
+            * **EN:** Enforced strict deduplication by format ID and language code, eliminating duplicate format cards and ghost items.
 
-            ### 🎙️ 3. محرك إزالة الموسيقى وعزل الصوت المتطور (Precision Vocal Isolation & Music Removal):
-            * **AR:** ترقية محرك إزالة الموسيقى ليعتمد على 3 مستويات من فلاتر الاستخراج الصوتي (Center Channel Extraction & Phase Inversion) لضمان عزل الموسيقى وصوت الخلفية بنجاح 100%.
-            * **EN:** Overhauled MusicRemovalEngine with a 3-tier fallback architecture (stereotools, phase inversion, and vocal bandpass) for high-accuracy vocal isolation.
-
-            ### 🎬 4. محرك معاينة الوسائط التفاعلي (Advanced Media Preview Player):
-            * **AR:** بناء مشغل وسائط تفاعلي متكامل داخل التطبيق مع شريط تقدم قابل للسحب (Timeline Scrubber)، وأزرار تقديم/تأخير 10 ثواني، وزر كتم الصوت، وزر فتح بمشغل خارجي والمشاركة.
-            * **EN:** Built a full-featured media preview dialog with interactive seekbar, +10s/-10s skip controls, mute toggle, external player launch, and direct sharing.
+            ### 📂 3. تحسين طي وفتح الإعدادات الإضافية (Smooth Expandable Settings):
+            * **AR:** دعم فتح وطي قسم الإعدادات الإضافية بسلاسة تامة وبدون تعليق.
+            * **EN:** Enabled bidirectional toggle (expand/collapse) on additional settings with zero UI stutter.
 
             ---
 
