@@ -75,20 +75,33 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: app/build/outputs/apk/generic/release/*.apk
-          name: V-Downloader v3.0.0 - التحديث الرئيسي الشامل (Major Release)
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v3.0.0' }}
+          name: V-Downloader v3.0.2 - إصلاحات وتحسينات (Bugfix Release)
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v3.0.2' }}
           draft: false
           prerelease: false
+          make_latest: true
           body: |
-            # 🚀 V-Downloader v3.0.0 - التحديث الرئيسي الشامل (Major Release)
+            # 🚀 V-Downloader v3.0.2 - إصلاحات وتحسينات (Bugfix Release)
 
-            > ⚠️ **تنبيه هام جداً للمستخدمين | Crucial Update Notice:**
-            > 🇸🇦 **عربي:** نظراً للتغييرات الجذرية وتحديث المعمارية وهندسة التطبيق بالكامل، يُرجى **حذف النسخة القديمة المثبتة على جهازك قبل تثبيت هذا التحديث الجديد (v3.0.0)** لضمان عمل كافة الوظائف ومحرك التنزيل بسلاسة وبدون أي تعارض مع بيانات التخزين السابقة!
-            > 🇬🇧 **English:** Due to extensive architectural improvements, please **uninstall the previously installed version before installing this new update (v3.0.0)** to guarantee flawless operation without local cache conflicts!
+            > ✅ **ملاحظة | Note:**
+            > 🇸🇦 **عربي:** هذا التحديث يحتوي على إصلاحات مهمة للأخطاء التي ظهرت في الإصدار v3.0.0، بما في ذلك إصلاح عطل صفحة الأذونات عند أول تشغيل.
+            > 🇬🇧 **English:** This update contains critical bugfixes from v3.0.0, including fixing the permissions page crash on first launch.
 
             ---
 
-            ## 🔥 أبرز الميزات الجديدة والتحديثات في الإصدار v3.0.0 | Release Highlights:
+            ## 🛠️ الإصلاحات في v3.0.2 | Bugfixes:
+
+            ### 🐛 1. إصلاح عطل صفحة الأذونات (Onboarding Crash Fix):
+            * **AR:** إصلاح خطأ `IllegalStateException: No ActivityResultRegistryOwner` الذي كان يسبب إغلاق التطبيق فوراً عند عرض صفحة الأذونات في واجهة الترحيب.
+            * **EN:** Fixed `IllegalStateException` crash caused by calling `rememberLauncherForActivityResult` inside a non-composable `runCatching` lambda.
+
+            ### 🔧 2. إصلاحات بناء متعددة (Build & Compilation Fixes):
+            * **AR:** إصلاح أخطاء الترجمة المتعلقة بالمراجع المفقودة والواجهات غير المكتملة.
+            * **EN:** Resolved multiple compilation errors including missing FileUtil functions, unresolved icon references, and incomplete interface implementations.
+
+            ---
+
+            ## 🔥 الميزات الرئيسية (من v3.0.0) | Key Features:
 
             ### 🚀 1. نظام الأولوية القصوى واستئناف الشبكة الذكي (Priority Queueing & Auto-Resume):
             * **AR:** إمكانية تقديم أي مهمة تنزيل ونقلها إلى رأس الطابور فوراً عبر خيار "أولوية قصوى"، مع استئناف ومعالجة المهام العالقة تلقائياً عند عودة اتصال الإنترنت.
