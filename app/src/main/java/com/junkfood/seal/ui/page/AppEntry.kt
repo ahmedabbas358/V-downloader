@@ -2,15 +2,20 @@ package com.junkfood.seal.ui.page
 
 import android.webkit.CookieManager
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.Composable
 import android.Manifest
 import android.content.Intent
