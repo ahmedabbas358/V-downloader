@@ -357,12 +357,12 @@ fun DownloadPageImplV2(
     val filteredMap by
         remember(activeFilter, sortOption, taskDownloadStateMap, searchQuery) {
             derivedStateOf {
-                val filtered = taskDownloadStateMap.filter {
-                    val matchesFilter = activeFilter.predict(it.toPair())
+                val filtered = taskDownloadStateMap.filter { (task, state) ->
+                    val matchesFilter = activeFilter.predict(task to state)
                     val matchesSearch = searchQuery.isBlank() ||
-                            it.second.viewState.title.contains(searchQuery, ignoreCase = true) ||
-                            it.second.viewState.uploader.contains(searchQuery, ignoreCase = true) ||
-                            it.first.url.contains(searchQuery, ignoreCase = true)
+                            state.viewState.title.contains(searchQuery, ignoreCase = true) ||
+                            state.viewState.uploader.contains(searchQuery, ignoreCase = true) ||
+                            task.url.contains(searchQuery, ignoreCase = true)
                     matchesFilter && matchesSearch
                 }
                 filtered.toList().sortedWith(Comparator { a, b ->
@@ -1353,6 +1353,8 @@ internal class DownloadPageV2Test {
             override fun remove(task: Task): Boolean {
                 return true
             }
+
+            override fun prioritize(task: Task) {}
         }
 
     @Composable

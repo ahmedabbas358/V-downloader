@@ -307,5 +307,17 @@ object FileUtil {
         }
     }
 
+    fun isVideoFile(path: String?): Boolean {
+        if (path == null) return false
+        val videoExtensions = listOf("mp4", "mkv", "webm", "avi", "mov", "flv", "wmv", "3gp", "ts", "m4v")
+        return videoExtensions.any { path.endsWith(it, ignoreCase = true) }
+    }
+
+    fun isAudioFile(path: String?): Boolean {
+        if (path == null) return false
+        val audioExtensions = listOf("mp3", "wav", "aac", "flac", "ogg", "m4a", "wma", "opus", "alac")
+        return audioExtensions.any { path.endsWith(it, ignoreCase = true) }
+    }
+
     private const val TAG = "FileUtil"
 }

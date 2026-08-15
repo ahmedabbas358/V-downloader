@@ -361,7 +361,7 @@ fun LazyListScope.ActionButtons(
                     onActionPost(task, UiAction.ShareFile(downloadState.filePath))
                 }
             }
-            if (path != null && (MusicRemovalEngine.isVideoFile(java.io.File(path)) || MusicRemovalEngine.isAudioFile(java.io.File(path)))) {
+            if (path != null && (FileUtil.isVideoFile(path) || FileUtil.isAudioFile(path))) {
                 item(key = "TrimButton") {
                     TrimButton(modifier = Modifier.animateItem()) {
                         onActionPost(task, UiAction.TrimMedia(path))
