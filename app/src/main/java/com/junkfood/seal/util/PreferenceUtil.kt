@@ -690,6 +690,12 @@ object PreferenceUtil {
 
     fun updateSavedLinks(links: Set<String>) = kv.encode(SAVED_LINKS, links)
 
+    fun saveLink(link: String) {
+        val current = getSavedLinks().toMutableSet()
+        current.add(link)
+        updateSavedLinks(current)
+    }
+
     private const val TAG = "PreferenceUtil"
 }
 

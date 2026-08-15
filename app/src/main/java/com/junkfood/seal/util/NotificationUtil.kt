@@ -226,6 +226,28 @@ object NotificationUtil {
         notificationManager.notify(notificationId, builder.build())
     }
 
+    fun notifyPlaylistCompletion(
+        id: Int = DEFAULT_NOTIFICATION_ID,
+        title: String,
+        text: String,
+        intent: PendingIntent? = null,
+    ) {
+        if (!NOTIFICATION.getBoolean()) return
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_seal)
+            .setColor(COLOR_PROGRESS)
+            .setSubText(context.getString(R.string.app_name))
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setContentIntent(intent ?: mainActivityPendingIntent)
+            .setAutoCancel(true)
+            .setOngoing(false)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+
+        notificationManager.notify(id, builder.build())
+    }
+
     fun makeServiceNotification(intent: PendingIntent, text: String? = null): Notification {
         val exitIntent = Intent(context, NotificationActionReceiver::class.java)
             .putExtra(NotificationActionReceiver.ACTION_KEY, NotificationActionReceiver.ACTION_EXIT_APP)
