@@ -58,6 +58,7 @@ import com.junkfood.seal.R
 import com.junkfood.seal.download.FakeDownloaderV2
 import com.junkfood.seal.download.Task
 import com.junkfood.seal.download.Task.*
+import com.junkfood.seal.util.FileUtil
 import com.junkfood.seal.download.Task.DownloadState.Canceled
 import com.junkfood.seal.download.Task.DownloadState.Completed
 import com.junkfood.seal.download.Task.DownloadState.Error

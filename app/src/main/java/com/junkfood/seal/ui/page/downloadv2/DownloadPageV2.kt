@@ -193,10 +193,10 @@ enum class Filter {
         }
 
     fun predict(entry: Pair<Task, Task.State>): Boolean {
-        if (this == All) return true
         val (task, state) = entry
         val downloadState = state.downloadState
         return when (this) {
+            All -> true
             Downloading -> {
                 downloadState is FetchingInfo || downloadState is Idle || downloadState is ReadyWithInfo || downloadState is Running
             }
