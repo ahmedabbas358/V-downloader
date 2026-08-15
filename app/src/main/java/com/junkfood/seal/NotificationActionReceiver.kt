@@ -73,7 +73,9 @@ class NotificationActionReceiver : BroadcastReceiver(), KoinComponent {
             ACTION_OPEN_FILE -> {
                 val path = intent.getStringExtra(FILE_PATH_KEY)
                 if (!path.isNullOrEmpty()) {
-                    FileUtil.openFile(path)
+                    FileUtil.openFile(path) {
+                        context?.let { ctx -> ToastUtil.makeToastSuspend(ctx.getString(R.string.file_unavailable)) }
+                    }
                 }
             }
 

@@ -530,7 +530,6 @@ class DownloaderV2Impl(
                                     webpageUrl = fetchUrl,
                                     originalUrl = fetchUrl,
                                     uploader = playlistType.playlistTitle,
-                                    duration = task.viewState.duration.toDouble(),
                                     extractor = "Youtube",
                                     extractorKey = "Youtube"
                                 )

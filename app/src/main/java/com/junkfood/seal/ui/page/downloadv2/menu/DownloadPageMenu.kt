@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.AudioFile
 import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material.icons.outlined.ClearAll
 import androidx.compose.material.icons.outlined.Delete
@@ -35,7 +36,9 @@ import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.SelectAll
+import androidx.compose.material.icons.outlined.Subtitles
 import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material.icons.outlined.VideoFile
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -123,8 +126,8 @@ fun DownloadPageMenuSheet(
                         Filter.Downloading -> Icons.Outlined.Refresh
                         Filter.Canceled -> Icons.Outlined.ErrorOutline
                         Filter.Finished -> Icons.Outlined.DeleteSweep
-                        Filter.Video -> Icons.Outlined.Movie
-                        Filter.Audio -> Icons.Outlined.MusicNote
+                        Filter.Video -> Icons.Outlined.VideoFile
+                        Filter.Audio -> Icons.Outlined.AudioFile
                         Filter.Subtitle -> Icons.Outlined.Subtitles
                     },
                     contentDescription = null,

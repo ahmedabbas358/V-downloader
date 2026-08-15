@@ -294,5 +294,18 @@ object FileUtil {
         }
     }
 
+    fun scanFileToMediaLibrary(file: File) {
+        try {
+            MediaScannerConnection.scanFile(
+                context,
+                arrayOf(file.absolutePath),
+                null,
+                null
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to scan file to media library", e)
+        }
+    }
+
     private const val TAG = "FileUtil"
 }
