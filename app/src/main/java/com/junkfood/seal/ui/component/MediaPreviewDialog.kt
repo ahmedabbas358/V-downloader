@@ -232,7 +232,7 @@ fun MediaPreviewDialog(
                             }
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = file.extension.uppercase(Locale.US) + " • " + FileUtil.formatFileSize(file.length().toDouble()),
+                                text = file.extension.uppercase(Locale.US) + " • " + FileUtil.formatFileSize(file.length()),
                                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.primary
                             )

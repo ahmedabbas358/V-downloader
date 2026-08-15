@@ -49,6 +49,7 @@ import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.MoreVert
@@ -63,6 +64,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SheetState
@@ -1133,8 +1135,8 @@ private fun Preset(
             )
         },
         selected = selected,
-        action = {
-            if (showEditIcon) {
+        action = if (showEditIcon) {
+            {
                 IconButton(onClick = onEdit, modifier = Modifier.size(28.dp)) {
                     Icon(
                         imageVector = Icons.Outlined.MoreVert,
@@ -1143,7 +1145,7 @@ private fun Preset(
                     )
                 }
             }
-        },
+        } else null,
         onClick = onClick,
     )
 }

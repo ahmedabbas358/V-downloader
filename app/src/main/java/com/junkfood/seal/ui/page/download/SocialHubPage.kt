@@ -49,6 +49,7 @@ import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -298,6 +299,15 @@ private fun EmbeddedPlaylistSyncView(
     val selectedMissingIndices = remember { mutableStateListOf<Int>() }
 
     val basePrefs = remember { DownloadUtil.DownloadPreferences.createFromPreferences() }
+    val effectivePrefs = remember(selectedType, removeMusic) {
+        basePrefs.copy(
+            downloadPlaylist = true,
+            extractAudio = selectedType == 1,
+            skipDownload = selectedType == 2,
+            downloadSubtitle = if (selectedType == 2) true else basePrefs.downloadSubtitle,
+            removeMusic = removeMusic
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -455,15 +465,6 @@ private fun EmbeddedPlaylistSyncView(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                val effectivePrefs = remember(selectedType, removeMusic) {
-                    basePrefs.copy(
-                        downloadPlaylist = true,
-                        extractAudio = selectedType == 1,
-                        skipDownload = selectedType == 2,
-                        downloadSubtitle = if (selectedType == 2) true else basePrefs.downloadSubtitle,
-                        removeMusic = removeMusic
-                    )
-                }
 
                 Button(
                     onClick = {

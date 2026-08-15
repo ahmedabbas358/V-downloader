@@ -75,29 +75,33 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: app/build/outputs/apk/generic/release/*.apk
-          name: V-Downloader v3.0.6 - إصلاح خدمة التنزيل لنظام أندرويد 16
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v3.0.6' }}
+          name: V-Downloader v3.0.7 - تصحيح أخطاء البناء واستقرار التشغيل
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v3.0.7' }}
           draft: false
           prerelease: false
           make_latest: true
           body: |
-            # 🚀 V-Downloader v3.0.6 - إصلاح خدمة التنزيل لنظام أندرويد 16 (Android 16 Foreground Service Fix)
+            # 🚀 V-Downloader v3.0.7 - تصحيح أخطاء البناء واستقرار التشغيل (Compilation & Build Stability)
 
-            > 🔥 **أبرز التحديثات في v3.0.6 | What's New:**
-            > 🇸🇦 **عربي:** إصلاح الانهيار المفاجئ `ForegroundServiceDidNotStartInTimeException` على أندرويد 16 (API 36) وضمان تشغيل خدمة التنزيل في الخلفية فوراً وبأمان تام.
-            > 🇬🇧 **English:** Fixed `ForegroundServiceDidNotStartInTimeException` crash on Android 16 (API 36) by ensuring immediate foreground notification dispatch in service lifecycle.
+            > 🔥 **أبرز التحديثات في v3.0.7 | What's New:**
+            > 🇸🇦 **عربي:** حل جميع أخطاء البناء والـ Compilation في حوار المعاينة وقسم Social Hub ونافذة التنزيل، وضمان الاستقرار التام في الإنتاج.
+            > 🇬🇧 **English:** Fixed all Kotlin compilation errors across MediaPreviewDialog, SocialHubPage, and DownloadDialogV2 for rock-solid production stability.
 
             ---
 
-            ## 🛠️ أبرز التحسينات والإصلاحات في v3.0.6 | v3.0.6 Improvements:
+            ## 🛠️ أبرز التحسينات والإصلاحات في v3.0.7 | v3.0.7 Improvements:
 
-            ### 🛡️ 1. إصلاح انهيار الخدمة في أندرويد 16 (Foreground Service Crash Resolution):
-            * **AR:** استدعاء `startForeground()` فوراً وبشكل متزامن داخل `onCreate()` و `onStartCommand()` في `DownloadService` لمنع إغلاق النظام للتطبيق بعد انتهاء مهلة الـ 5 ثواني.
-            * **EN:** Enforced synchronous `startForeground()` execution in both `onCreate()` and `onStartCommand()` with `FOREGROUND_SERVICE_TYPE_DATA_SYNC`.
+            ### 🎯 1. تصحيح قياس حجم الملفات في مشغل المعاينة (Media Preview Type Fix):
+            * **AR:** تصحيح تمرير حجم الملف `Long` بدقة إلى `FileUtil.formatFileSize` في نافذة معاينة الوسائط.
+            * **EN:** Fixed type mismatch on file size formatting in MediaPreviewDialog.
 
-            ### 🔒 2. حماية وتأمين أقفال الطاقة والشبكة (Robust Wake & Wifi Locks):
-            * **AR:** تحسين إدارة أقفال المعالج والواي فاي `WakeLock` و `WifiLock` وحمايتها من أخطاء الـ Runtime لضمان استمرار التنزيلات في الخلفية بدون انقطاع.
-            * **EN:** Enhanced lock acquisition with safe try/catch error boundaries and proper cleanup on service termination.
+            ### 🌐 2. استيراد عناصر التصميم ونطاق الإعدادات في Social Hub (Social Hub Scope & Imports):
+            * **AR:** إضافة استيراد `ButtonDefaults` وتوسيع نطاق متغير `effectivePrefs` ليشمل كافة عمليات مزامنة قوائم التشغيل.
+            * **EN:** Added missing ButtonDefaults import and properly scoped effective preferences in SocialHubPage.
+
+            ### ⚡ 3. تصحيح استدعاءات الـ Composable في نافذة التنزيل (Composable Action Scope Fix):
+            * **AR:** تصحيح استدعاءات Composable في أزرار الإعداد المسبق والمخصص وإضافة استيرادات `IconButton` و `ExpandLess`.
+            * **EN:** Fixed composable context invocations for action items and resolved all missing icons/component imports in DownloadDialogV2.
 
             ---
 
