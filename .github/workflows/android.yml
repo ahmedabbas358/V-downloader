@@ -75,33 +75,29 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: app/build/outputs/apk/generic/release/*.apk
-          name: V-Downloader v3.0.5 - سرعة استجابة الخيارات وإلغاء التكرار
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v3.0.5' }}
+          name: V-Downloader v3.0.6 - إصلاح خدمة التنزيل لنظام أندرويد 16
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v3.0.6' }}
           draft: false
           prerelease: false
           make_latest: true
           body: |
-            # 🚀 V-Downloader v3.0.5 - سرعة استجابة الخيارات وإلغاء التكرار (Instant UI & Format Deduplication)
+            # 🚀 V-Downloader v3.0.6 - إصلاح خدمة التنزيل لنظام أندرويد 16 (Android 16 Foreground Service Fix)
 
-            > 🔥 **أبرز التحديثات في v3.0.5 | What's New:**
-            > 🇸🇦 **عربي:** تحسين سرعة واستجابة التبديل بين الخيارات وإلغاء بطء واجهة "مخصص" (Custom)، وإلغاء التكرار في بطاقات الجودات والتنسيقات والترجمات.
-            > 🇬🇧 **English:** Instant option switching performance, removal of custom format selection lag, and complete deduplication of format/subtitle cards.
+            > 🔥 **أبرز التحديثات في v3.0.6 | What's New:**
+            > 🇸🇦 **عربي:** إصلاح الانهيار المفاجئ `ForegroundServiceDidNotStartInTimeException` على أندرويد 16 (API 36) وضمان تشغيل خدمة التنزيل في الخلفية فوراً وبأمان تام.
+            > 🇬🇧 **English:** Fixed `ForegroundServiceDidNotStartInTimeException` crash on Android 16 (API 36) by ensuring immediate foreground notification dispatch in service lifecycle.
 
             ---
 
-            ## 🛠️ أبرز التحسينات والإصلاحات في v3.0.5 | v3.0.5 Improvements:
+            ## 🛠️ أبرز التحسينات والإصلاحات في v3.0.6 | v3.0.6 Improvements:
 
-            ### ⚡ 1. استجابة فورية بدون تأخير (Instant Option & Tab Navigation):
-            * **AR:** تسريع التبديل بين خيارات "مخصص" و "إعداد مسبق" وأقسام التنزيل وإلغاء التحريكات الثقيلة التي كانت تسبب تأخيراً في عرض الخيارات.
-            * **EN:** Replaced heavy spring layout animations with crisp, instantaneous feedback on option selections and tab switching.
+            ### 🛡️ 1. إصلاح انهيار الخدمة في أندرويد 16 (Foreground Service Crash Resolution):
+            * **AR:** استدعاء `startForeground()` فوراً وبشكل متزامن داخل `onCreate()` و `onStartCommand()` في `DownloadService` لمنع إغلاق النظام للتطبيق بعد انتهاء مهلة الـ 5 ثواني.
+            * **EN:** Enforced synchronous `startForeground()` execution in both `onCreate()` and `onStartCommand()` with `FOREGROUND_SERVICE_TYPE_DATA_SYNC`.
 
-            ### 🧹 2. تنظيف وإلغاء تكرار التنسيقات (Format & Subtitle Deduplication):
-            * **AR:** فلترة وإلغاء أي بطاقات جودة أو صوت أو ترجمة مكررة وحذف وسائط Storyboards غير القابلة للتشغيل تلقائياً.
-            * **EN:** Enforced strict deduplication by format ID and language code, eliminating duplicate format cards and ghost items.
-
-            ### 📂 3. تحسين طي وفتح الإعدادات الإضافية (Smooth Expandable Settings):
-            * **AR:** دعم فتح وطي قسم الإعدادات الإضافية بسلاسة تامة وبدون تعليق.
-            * **EN:** Enabled bidirectional toggle (expand/collapse) on additional settings with zero UI stutter.
+            ### 🔒 2. حماية وتأمين أقفال الطاقة والشبكة (Robust Wake & Wifi Locks):
+            * **AR:** تحسين إدارة أقفال المعالج والواي فاي `WakeLock` و `WifiLock` وحمايتها من أخطاء الـ Runtime لضمان استمرار التنزيلات في الخلفية بدون انقطاع.
+            * **EN:** Enhanced lock acquisition with safe try/catch error boundaries and proper cleanup on service termination.
 
             ---
 

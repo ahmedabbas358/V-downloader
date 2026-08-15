@@ -170,14 +170,16 @@ class App : Application() {
                 try {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         context.applicationContext.startForegroundService(intent)
+                    } else {
+                        context.applicationContext.startService(intent)
                     }
                 } catch (e: Exception) {
-                    Log.e("App", "Failed to startForegroundService: ${e.message}")
+                    Log.e("App", "Failed to startForegroundService: ${e.message}", e)
                 }
                 try {
                     context.applicationContext.bindService(intent, connection, Context.BIND_AUTO_CREATE)
                 } catch (e: Exception) {
-                    Log.e("App", "Failed to bindService: ${e.message}")
+                    Log.e("App", "Failed to bindService: ${e.message}", e)
                 }
             }
         }
