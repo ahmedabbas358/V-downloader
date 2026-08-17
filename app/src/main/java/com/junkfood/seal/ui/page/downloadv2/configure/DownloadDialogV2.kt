@@ -160,6 +160,7 @@ import com.junkfood.seal.util.ToastUtil
 import com.junkfood.seal.util.USE_CUSTOM_AUDIO_PRESET
 import com.junkfood.seal.util.VIDEO_FORMAT
 import com.junkfood.seal.util.VIDEO_QUALITY
+import com.junkfood.seal.download.TaskFactory
 import kotlinx.coroutines.launch
 
 @Composable
