@@ -352,15 +352,15 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
                 onActionPost = { dialogViewModel.postAction(it) },
             )
         }
-        when (selectionState) {
+        when (val currentSelection = selectionState) {
             is DownloadDialogViewModel.SelectionState.FormatSelection ->
                 FormatPage(
-                    state = selectionState,
+                    state = currentSelection,
                     onDismissRequest = { dialogViewModel.postAction(Action.Reset) },
                 )
             is DownloadDialogViewModel.SelectionState.PlaylistSelection -> {
                 PlaylistSelectionPage(
-                    state = selectionState,
+                    state = currentSelection,
                     onActionPost = { dialogViewModel.postAction(it) },
                     onDismissRequest = { dialogViewModel.postAction(Action.Reset) },
                 )

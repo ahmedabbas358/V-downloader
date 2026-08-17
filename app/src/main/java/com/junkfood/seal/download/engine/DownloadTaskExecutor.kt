@@ -48,15 +48,7 @@ object DownloadTaskExecutor {
     ): Result<VideoInfo> = withContext(Dispatchers.IO) {
         val taskInfo = task.type
         val isPlaylist = taskInfo is TypeInfo.Playlist && !taskInfo.isFallback
-        val isIndividualUrlValid =
-            task.viewState.url.startsWith("http://", ignoreCase = true) ||
-            task.viewState.url.startsWith("https://", ignoreCase = true)
-
-        val fetchUrl = if (isPlaylist && isIndividualUrlValid) {
-            task.viewState.url
-        } else {
-            task.url
-        }
+        val fetchUrl = task.url
 
         val isDirectVideoUrl =
             fetchUrl.contains("watch?v=", ignoreCase = true) ||
