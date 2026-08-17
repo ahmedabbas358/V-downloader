@@ -296,6 +296,9 @@ object DownloadUtil {
     fun getCookiesContentFromDatabase(): Result<String> =
         NetworkOptionBuilder.getCookiesContentFromDatabase()
 
+    fun List<Cookie>.toCookiesFileContent(): String =
+        NetworkOptionBuilder.run { this@toCookiesFileContent.toCookiesFileContent() }
+
     @CheckResult
     fun DownloadPreferences.toFormatSorter(): String =
         FormatSelectorBuilder.toFormatSorter(this)
