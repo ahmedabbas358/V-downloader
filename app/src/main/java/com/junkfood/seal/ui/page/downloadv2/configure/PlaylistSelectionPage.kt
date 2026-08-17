@@ -173,6 +173,7 @@ fun PlaylistSelectionPage(
                             )
                         }
                         showConfigurationSheet = false
+                        onBack()
                     } else {
                         updatedTasks.forEach(downloader::enqueue)
                         showConfigurationSheet = false

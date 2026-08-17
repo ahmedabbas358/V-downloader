@@ -19,6 +19,8 @@ class FileCollisionResolverTest {
         assertTrue(FileCollisionResolver.isGenericTitle("instagram post by nature"))
         assertTrue(FileCollisionResolver.isGenericTitle("video"))
         assertTrue(FileCollisionResolver.isGenericTitle("reel"))
+        assertTrue(FileCollisionResolver.isGenericTitle("track_01"))
+        assertTrue(FileCollisionResolver.isGenericTitle("track 5"))
         assertTrue(FileCollisionResolver.isGenericTitle("https://instagram.com/reel/Cx123abc/"))
 
         // Real specific video titles MUST NOT be detected as generic

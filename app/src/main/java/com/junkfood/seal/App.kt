@@ -12,7 +12,9 @@ import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 import androidx.core.content.getSystemService
 import com.google.android.material.color.DynamicColors
@@ -152,21 +154,51 @@ class App : Application() {
         lateinit var connectivityManager: ConnectivityManager
         lateinit var packageInfo: PackageInfo
 
-        var isServiceRunning = false
+        // Thread-safe service state tracking.
+        // isServiceRunning is set to true only after onServiceConnected fires.
+        @Volatile var isServiceRunning = false
+
+        // Prevents duplicate concurrent calls to startForegroundService.
+        @Volatile internal var isStartingService = false
+
+        private val mainHandler = Handler(Looper.getMainLooper())
 
         private val connection =
             object : ServiceConnection {
                 override fun onServiceConnected(className: ComponentName, service: IBinder) {
-                    val binder = service as DownloadService.DownloadServiceBinder
                     isServiceRunning = true
+                    isStartingService = false
+                    Log.d("App", "DownloadService connected.")
                 }
 
-                override fun onServiceDisconnected(arg0: ComponentName) {}
+                override fun onServiceDisconnected(arg0: ComponentName) {
+                    // System killed the service unexpectedly; allow restart on next demand.
+                    isServiceRunning = false
+                    isStartingService = false
+                    Log.w("App", "DownloadService disconnected unexpectedly.")
+                }
             }
 
+        /**
+         * Starts the foreground download service.
+         *
+         * IMPORTANT: startForegroundService() MUST be called from the main thread on
+         * Android 8+ (API 26+), and Android 16 (API 36) enforces this even more strictly.
+         * Calling it from a background coroutine/thread causes
+         * ForegroundServiceDidNotStartInTimeException.
+         *
+         * This method is safe to call from any thread — it posts to the main looper.
+         */
         fun startService() {
-            if (isServiceRunning) return
-            Intent(context.applicationContext, DownloadService::class.java).also { intent ->
+            if (isServiceRunning || isStartingService) return
+            isStartingService = true
+            // Always dispatch to the main thread to satisfy the OS 5-second foreground contract.
+            mainHandler.post {
+                if (isServiceRunning) {
+                    isStartingService = false
+                    return@post
+                }
+                val intent = Intent(context.applicationContext, DownloadService::class.java)
                 try {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         context.applicationContext.startForegroundService(intent)
@@ -174,23 +206,29 @@ class App : Application() {
                         context.applicationContext.startService(intent)
                     }
                 } catch (e: Exception) {
+                    isStartingService = false
                     Log.e("App", "Failed to startForegroundService: ${e.message}", e)
+                    return@post
                 }
                 try {
                     context.applicationContext.bindService(intent, connection, Context.BIND_AUTO_CREATE)
                 } catch (e: Exception) {
+                    isStartingService = false
                     Log.e("App", "Failed to bindService: ${e.message}", e)
                 }
             }
         }
 
         fun stopService() {
-            if (!isServiceRunning) return
-            try {
-                isServiceRunning = false
-                context.applicationContext.run { unbindService(connection) }
-            } catch (e: Exception) {
-                e.printStackTrace()
+            if (!isServiceRunning && !isStartingService) return
+            mainHandler.post {
+                try {
+                    isServiceRunning = false
+                    isStartingService = false
+                    context.applicationContext.unbindService(connection)
+                } catch (e: Exception) {
+                    Log.e("App", "stopService error: ${e.message}", e)
+                }
             }
         }
 

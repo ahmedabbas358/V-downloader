@@ -416,17 +416,42 @@ private fun DownloadDialogContent(
                         onPreferencesUpdate = onPreferencesUpdate,
                         onPresetEdit = onPresetEdit,
                         onDismissRequest = { onActionPost(Action.HideSheet) },
-                    ) { selectedDownloadType, _ ->
-                        onActionPost(
-                            Action.DownloadWithPreset(
-                                urlList = state.urlList,
-                                preferences = preferences.copy(
+                    ) { selectedDownloadType, useFormatSelection ->
+                        if (useFormatSelection || selectedDownloadType == DownloadType.Subtitle) {
+                            val firstUrl = state.urlList.firstOrNull()
+                            if (firstUrl != null) {
+                                val updatedPrefs = preferences.copy(
                                     extractAudio = selectedDownloadType == Audio,
                                     skipDownload = selectedDownloadType == DownloadType.Subtitle,
                                     downloadSubtitle = if (selectedDownloadType == DownloadType.Subtitle) true else preferences.downloadSubtitle
-                                ),
+                                )
+                                onActionPost(
+                                    Action.FetchPlaylistSubtitleFormats(
+                                        firstVideoUrl = firstUrl,
+                                        preferences = updatedPrefs,
+                                        playlistTasks = state.urlList.map { itemUrl ->
+                                            TaskFactory.TaskWithState(
+                                                task = com.junkfood.seal.download.Task(
+                                                    url = itemUrl,
+                                                    preferences = updatedPrefs
+                                                )
+                                            )
+                                        }
+                                    )
+                                )
+                            }
+                        } else {
+                            onActionPost(
+                                Action.DownloadWithPreset(
+                                    urlList = state.urlList,
+                                    preferences = preferences.copy(
+                                        extractAudio = selectedDownloadType == Audio,
+                                        skipDownload = selectedDownloadType == DownloadType.Subtitle,
+                                        downloadSubtitle = if (selectedDownloadType == DownloadType.Subtitle) true else preferences.downloadSubtitle
+                                    ),
+                                )
                             )
-                        )
+                        }
                     }
                 }
             }
@@ -711,7 +736,7 @@ private fun ConfigurePage(
                         downloadType = selectedType,
                     )
                 )
-                val isPlaylistUrl = selectedType == Playlist || url.contains("list=", ignoreCase = true)
+                val isPlaylistUrl = selectedType == Playlist || (selectedType != Video && selectedType != Audio && selectedType != DownloadType.Subtitle && url.contains("list=", ignoreCase = true))
                 if (isPlaylistUrl) {
                     onActionPost(
                         Action.FetchPlaylist(
@@ -814,6 +839,7 @@ fun ConfigurePagePlaylistVariant(
                 AdditionalSettings(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     isQuickDownload = false,
+                    isPlaylist = true,
                     preference = preferences,
                     selectedType = selectedType,
                     useFormatSelection = useFormatSelection,
@@ -837,7 +863,6 @@ fun ConfigurePagePlaylistVariant(
             },
             onFetchInfo = {
                 onDownload(selectedType, useFormatSelection)
-                onDismissRequest()
             },
             onTaskStart = {
                 onDownload(selectedType, useFormatSelection)
@@ -851,6 +876,7 @@ fun ConfigurePagePlaylistVariant(
 private fun AdditionalSettings(
     modifier: Modifier = Modifier,
     isQuickDownload: Boolean,
+    isPlaylist: Boolean = false,
     selectedType: DownloadType?,
     preference: DownloadUtil.DownloadPreferences,
     videoInfo: VideoInfo? = null,
@@ -899,7 +925,7 @@ private fun AdditionalSettings(
                     },
                     label = stringResource(R.string.create_thumbnail),
                 )
-                if (selectedType == Video || selectedType == Audio) {
+                if (!isPlaylist && (selectedType == Video || selectedType == Audio)) {
                     val removeMusic = preference.removeMusic
                     VideoFilterChip(
                         selected = removeMusic,

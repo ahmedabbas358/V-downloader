@@ -274,6 +274,16 @@ object NotificationUtil {
         return serviceNotification
     }
 
+    fun makeMinimalServiceNotification(ctx: Context = context): Notification {
+        return NotificationCompat.Builder(ctx, SERVICE_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_seal)
+            .setContentTitle(ctx.getString(R.string.service_title))
+            .setOngoing(true)
+            .setForegroundServiceBehavior(FOREGROUND_SERVICE_IMMEDIATE)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
+    }
+
     fun updateServiceNotificationForPlaylist(index: Int, itemCount: Int) {
         serviceNotification =
             NotificationCompat.Builder(context, serviceNotification)

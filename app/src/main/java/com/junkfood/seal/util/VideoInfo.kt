@@ -108,13 +108,32 @@ data class Format(
     @SerialName("filesize") val fileSize: Double? = null,
     @SerialName("filesize_approx") val fileSizeApprox: Double? = null,
 ) {
-    fun isAudioOnly(): Boolean = vcodec == null || vcodec == "none"
+    fun isAudioOnly(): Boolean =
+        (vcodec == null || vcodec == "none") &&
+        (height == null || height == 0.0) &&
+        (width == null || width == 0.0) &&
+        (resolution == null || !resolution.contains("x"))
 
-    fun isVideoOnly(): Boolean = acodec == null || acodec == "none"
+    fun isVideoOnly(): Boolean =
+        (acodec == null || acodec == "none") &&
+        (abr == null || abr == 0.0) &&
+        (audioExt == null || audioExt == "none")
 
-    fun containsVideo(): Boolean = vcodec != null && vcodec != "none"
+    fun containsVideo(): Boolean =
+        (vcodec != null && vcodec != "none") ||
+        ((height ?: 0.0) > 0) ||
+        ((width ?: 0.0) > 0) ||
+        (resolution != null && resolution.contains("x")) ||
+        (formatNote?.contains("video", ignoreCase = true) == true) ||
+        (format?.contains("video", ignoreCase = true) == true)
 
-    fun containsAudio(): Boolean = acodec != null && acodec != "none"
+    fun containsAudio(): Boolean =
+        (acodec != null && acodec != "none") ||
+        ((abr ?: 0.0) > 0) ||
+        (audioExt != null && audioExt != "none") ||
+        (isAudioOnly() && ((tbr ?: 0.0) > 0 || (fileSize ?: fileSizeApprox ?: 0.0) > 0)) ||
+        (formatNote?.contains("audio", ignoreCase = true) == true) ||
+        (format?.contains("audio", ignoreCase = true) == true)
 }
 
 @Serializable

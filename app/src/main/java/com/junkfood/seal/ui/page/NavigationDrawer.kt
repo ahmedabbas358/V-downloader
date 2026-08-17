@@ -179,59 +179,54 @@ fun NavigationDrawerSheetContent(
     ) {
         Spacer(Modifier.height(16.dp))
 
-        // Premium Drawer Header Card
-        Surface(
+        // Sleek Modern Drawer Header
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            tonalElevation = 2.dp,
+                .padding(horizontal = 8.dp, vertical = 12.dp)
         ) {
+            Text(
+                text = "V-Downloader",
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold,
+                    fontSize = 22.sp,
+                    letterSpacing = (-0.5).sp
+                ),
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(4.dp))
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Surface(
-                    modifier = Modifier.size(48.dp),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Filled.Download,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(26.dp)
-                        )
-                    }
-                }
-                Spacer(Modifier.width(14.dp))
-                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "V-Downloader",
-                        style = MaterialTheme.typography.titleMedium.copy(
+                        text = "v3.2.0",
+                        style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                            fontSize = 18.sp
+                            fontSize = 11.sp
                         ),
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                     )
-                    Spacer(Modifier.height(2.dp))
-                    Surface(
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp),
-                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
-                    ) {
-                        Text(
-                            text = "Smart Media Downloader",
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                        )
-                    }
                 }
+                Text(
+                    text = "Smart Media Engine",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 12.sp,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Normal
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+            )
         }
 
         ProvideTextStyle(MaterialTheme.typography.labelLarge) {

@@ -55,12 +55,6 @@ object DownloadCommandBuilder {
             if (preferences.restrictFilenames) {
                 addOption("--restrict-filenames")
             }
-            if (preferences.extractAudio) {
-                addOption("-x")
-            }
-
-            val sorter = FormatSelectorBuilder.toFormatSorter(preferences)
-            applyFormatSorter(this, preferences, sorter)
 
             if (preferences.cookies) {
                 NetworkOptionBuilder.applyCookies(this, preferences.userAgentString)

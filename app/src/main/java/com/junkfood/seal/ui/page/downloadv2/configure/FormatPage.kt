@@ -383,8 +383,8 @@ private fun FormatPageImpl(
 
     val duration = videoInfo.duration ?: 0.0
 
-    var videoItemLimit by remember { mutableIntStateOf(20) }
-    var audioOnlyItemLimit by remember { mutableIntStateOf(20) }
+    var videoItemLimit by remember { mutableIntStateOf(Int.MAX_VALUE) }
+    var audioOnlyItemLimit by remember { mutableIntStateOf(Int.MAX_VALUE) }
 
     val isSuggestedFormatAvailable =
         !videoInfo.requestedFormats.isNullOrEmpty() || !videoInfo.requestedDownloads.isNullOrEmpty()
@@ -807,7 +807,7 @@ private fun FormatPageImpl(
                 }
             }
 
-            if (!audioOnly && videoFormats.isNotEmpty() && !isSubtitleOnly) {
+            if (videoFormats.isNotEmpty() && !isSubtitleOnly) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -845,7 +845,7 @@ private fun FormatPageImpl(
                 }
             }
 
-            if (!audioOnly && audioOnlyFormats.isNotEmpty() && videoFormats.isNotEmpty() && !isSubtitleOnly)
+            if (audioOnlyFormats.isNotEmpty() && videoFormats.isNotEmpty() && !isSubtitleOnly)
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     PreferenceInfo(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),

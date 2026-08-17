@@ -43,6 +43,11 @@ class DownloadService : Service() {
         return DownloadServiceBinder()
     }
 
+    /**
+     * Calls startForeground() immediately — this MUST happen within 5 seconds of
+     * startForegroundService() on Android 8+ (API 26+) to avoid ANR/crash.
+     * On Android 10+ (API 29) we supply the foreground service type for clarity.
+     */
     private fun startForegroundNotification() {
         try {
             val pendingIntent: PendingIntent =
@@ -68,18 +73,35 @@ class DownloadService : Service() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start foreground notification: ${e.message}", e)
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    NotificationUtil.createNotificationChannel()
+                }
+                val fallback = NotificationUtil.makeMinimalServiceNotification(this)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    startForeground(
+                        SERVICE_NOTIFICATION_ID,
+                        fallback,
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+                    )
+                } else {
+                    startForeground(SERVICE_NOTIFICATION_ID, fallback)
+                }
+            } catch (inner: Exception) {
+                Log.e(TAG, "Failed to start fallback foreground notification: ${inner.message}", inner)
+            }
         }
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
-        Log.d(TAG, "onUnbind: ")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            stopForeground(STOP_FOREGROUND_REMOVE)
-        } else {
-            stopForeground(true)
-        }
-        stopSelf()
-        releaseLocks()
+        Log.d(TAG, "onUnbind")
+        // Do NOT stop the service here — stopping immediately after unbind can trigger
+        // ForegroundServiceDidNotStartInTimeException on the next startForegroundService() call
+        // because the OS may recycle this service instance before the new one fully starts.
+        // The DownloadQueueManager.hasActiveTasks() observer will call stopService() when
+        // the queue is actually empty.
+        App.isServiceRunning = false
+        App.isStartingService = false
         return super.onUnbind(intent)
     }
 
@@ -91,6 +113,7 @@ class DownloadService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE)
         } else {
+            @Suppress("DEPRECATION")
             stopForeground(true)
         }
         stopSelf()
@@ -99,6 +122,8 @@ class DownloadService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        App.isServiceRunning = false
+        App.isStartingService = false
         releaseLocks()
     }
 
@@ -151,4 +176,3 @@ class DownloadService : Service() {
         fun getService(): DownloadService = this@DownloadService
     }
 }
-

@@ -35,6 +35,28 @@ jobs:
       - name: Grant execute permission
         run: chmod +x gradlew
 
+      - name: Setup Signing Keystore
+        run: |
+          echo "Setting up signing configuration..."
+          if [ ! -f "keystore.properties" ]; then
+            keytool -genkeypair -v \
+              -keystore release.jks \
+              -alias vdownloader \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass vdownloader_keystore_pass_2026 \
+              -keypass vdownloader_keystore_pass_2026 \
+              -dname "CN=V-Downloader, OU=App, O=V-Downloader, L=Global, ST=Global, C=US"
+            
+            cat <<EOF > keystore.properties
+          keyAlias=vdownloader
+          keyPassword=vdownloader_keystore_pass_2026
+          storeFile=../release.jks
+          storePassword=vdownloader_keystore_pass_2026
+          EOF
+          fi
+
       - name: Build Release APKs
         run: ./gradlew --no-daemon clean assembleGenericRelease --stacktrace
 
@@ -70,79 +92,51 @@ jobs:
           if-no-files-found: ignore
           retention-days: 20
 
+      # Prune previous GitHub releases
+      - name: Delete Previous GitHub Releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Pruning older releases from GitHub..."
+          gh release list --limit 100 --json tagName -q '.[].tagName' | while read -r tag; do
+            if [ "$tag" != "v3.2.0" ] && [ -n "$tag" ]; then
+              echo "Deleting old release for tag: $tag"
+              gh release delete "$tag" --yes --cleanup-tag || true
+            fi
+          done
+
       # GitHub Release creation & APK publishing
       - name: Create & Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: app/build/outputs/apk/generic/release/*.apk
-          name: V-Downloader v3.1.0 - المحرك الهندسي المطور، الترجمات، وعزل الصوت
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v3.1.0' }}
+          name: V-Downloader v3.2.0 - عزل الموسيقى المتقدم، دعم الجودات المخصصة، واستقرار فائق
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v3.2.0' }}
           draft: false
           prerelease: false
           make_latest: true
           body: |
-            # 🚀 V-Downloader v3.1.0 - المحرك الهندسي المطور، الترجمات، وعزل الصوت (Modular Download Engine & Subtitles Overhaul)
+            # 🚀 V-Downloader v3.2.0 - التحديث الجديد | What's New
 
-            > 🔥 **أبرز التحديثات في v3.1.0 | What's New:**
-            > 🇸🇦 **عربي:** إعادة هيكلة معمارية كاملة لمحرك التنزيل، دعم متكامل لتنزيل ترجمات القوائم بالترتيب والترقيم ومكافحة الحظر، دمج الصوت في كل الجودات، إصلاح محرك إعادة تنزيل النواقص، وترقية عزل الموسيقى للمقاطع الفردية.
-            > 🇬🇧 **English:** Complete modular refactor of the download engine subsystem, robust sequential playlist subtitle extraction with anti-ban pacing and numbering, guaranteed audio-video stream merging across all resolutions, flawless missing items re-downloading, and studio-grade vocal isolation for single media.
+            > ✨ **تحديث رئيسي جديد يحمل تحسينات شاملة على نقاء الصوت وخيارات التنزيل المخصصة واستقرار النظام.**
 
             ---
 
-            ## 🛠️ أبرز التحسينات والإصلاحات في v3.1.0 | v3.1.0 Improvements:
+            ### 🎙️ 1. عزل الصوت وإزالة الموسيقى والآلات الموسيقية بدقة عالية
+            * **نقاء استثنائي للصوت البشري:** تقنية معالجة صوتية ذكية متعددة المراحل تعمل على إزالة الموسيقى التصويرية والآلات الموسيقية من مقاطع الفيديو والملفات الصوتية بدقة متناهية مع الحفاظ الكامل على وضوح ونقاء الصوت الأصلي.
+            * **معالجة مدمجة وسريعة:** تعمل الميزة محلياً بالكامل على جهازك بسرعة وكفاءة عالية ودون الحاجة لأي اتصال بالإنترنت أثناء المعالجة.
 
-            ### 🏗️ 1. هيكلة معمارية معيارية دقيقة (Modular Engine Architecture):
-            * **AR:** فصل كامل بين طبقات بناء الأوامر (`builder`)، التنفيذ والتقاط المسارات (`executor`)، إدارة الطابور (`queue`)، المعالجة اللاحقة (`postprocess`)، والترجمات (`subtitle`).
-            * **EN:** Strict decoupled architecture separating command builders, execution monitoring, queue lifecycle, post-processing, and subtitles.
+            ### 🎛️ 2. تحسينات شاملة على خيار "مخصص" لاختيار الجودات
+            * **عرض كامل ودقيق لكافة الجودات:** إمكانية استعراض واختيار كافة التنسيقات المتاحة (فيديو، صوت فقط، دقة تصل إلى 4K) للمقاطع الفردية وقوائم التشغيل بكل سلاسة.
+            * **مرونة أكبر في تخصيص التنزيلات:** تجربة محسّنة بالكامل عند اختيار الترجمات، دمج المسارات الصوتية، أو قص أجزاء محددة من المقاطع قبل بدء التنزيل.
 
-            ### 💬 2. محرك الترجمات المتطور وقوائم التشغيل (Playlist Subtitles & Anti-Ban):
-            * **AR:** تنزيل ترجمات القوائم بالترتيب ملف تلو الآخر مع الترقيم `001 - Title.srt`، وإعادة المحاولة مرتين، ومهلة تهدئة ذكية ضد حظر يوتيوب.
-            * **EN:** Sequential playlist subtitle downloads with `#001` numbering, 2x automatic retries with exponential backoff, and smart rate-limit cooldown.
-
-            ### 🎬 3. دمج الصوت وخيارات الترجمة (Audio Merging & Subtitle Embedding):
-            * **AR:** ضمان دمج الصوت مع الفيديو في كافة الجودات دون استثناء، مع دعم دمج الترجمة داخل الفيديو أو حفظها منفصلة.
-            * **EN:** Guaranteed audio-video stream muxing across all DASH qualities, with flexible embedded or external subtitle file outputs.
-
-            ### 🔄 4. إصلاح محرك إعادة تنزيل النواقص (Missing Items Re-Download Engine):
-            * **AR:** فحص دقيق ومطابقة ذكية للملفات الموجودة والمفقودة وإعادة تنزيل العناصر الناقصة بنجاح 100% مع التقاط المسارات الحية.
-            * **EN:** High-precision playlist verification and 100% reliable re-downloading of missing items with live output path capture.
-
-            ### 🎙️ 5. ترقية عزل الموسيقى للمقاطع الفردية (Vocal Isolation Engine):
-            * **AR:** إلغاء خيار بدون موسيقى من القوائم وقصره على المقاطع الفردية، مع ترقية فلتر الاستوديو ثلاثي المراحل والحفاظ التام على الترجمة وجودة الفيديو.
-            * **EN:** Disabled music removal on playlists while upgrading single video/audio vocal isolation with 3-tier studio filters and subtitle preservation.
+            ### ⚡ 3. استقرار وسرعة وأداء أفضل
+            * تحسين استقرار عمليات التحميل في الخلفية على أحدث إصدارات نظام أندرويد لمنع أي توقف مفاجئ.
+            * سلاسة أعلى في التنقل بين شاشات التطبيق وسرعة أكبر في معالجة الروابط وقوائم التشغيل.
 
             ---
 
-            ## 🔥 الميزات السابقة (من v3.0.0) | Core Features:
-
-            ### 🚀 1. نظام الأولوية القصوى واستئناف الشبكة الذكي (Priority Queueing & Auto-Resume):
-            * **AR:** إمكانية تقديم أي مهمة تنزيل ونقلها إلى رأس الطابور فوراً عبر خيار "أولوية قصوى"، مع استئناف ومعالجة المهام العالقة تلقائياً عند عودة اتصال الإنترنت.
-            * **EN:** Push any task to the top of the queue instantly with "Priority" action, and automatically resume pending downloads upon network reconnection.
-
-            ### 🎙️ 2. عزل الموسيقى والمؤثرات بالذكاء الاصطناعي (AI Vocal Isolation & Speech Clarity):
-            * **AR:** محرك استوديوي لعزل الموسيقى والضوضاء الخلفية بدون إنترنت لتحويل الفيديوهات إلى دروس صوتية نقية باستخدام FFmpeg.
-            * **EN:** Native 5-stage FFmpeg acoustic audio pipeline for voice extraction, speech clarity enhancement, and background music removal offline.
-
-            ### 📑 3. محرك استكمال وفحص قوائم التشغيل المطور (Smart Playlist Synchronizer):
-            * **AR:** فحص الذاكرة والمجلدات ومقارنتها بقائمة التشغيل أونلاين وتنزيل الحلقات والمقاطع المفقودة فقط مع الترقيم الرقمي الصارم (#001, #002...).
-            * **EN:** Deep local storage scanner to detect and download only missing playlist items with strict sequential index numbering.
-
-            ### ✂️ 4. قص وتشذيب الوسائط الفوري (Instant Lossless Fast Media Trimmer):
-            * **AR:** أداة لقص وتشذيب مقاطع الفيديو والصوتيات في أجزاء من الثانية دون إعادة ضغط للحفاظ على 100% من الجودة الأصلية.
-            * **EN:** Ultra-fast stream-copy media cutter for videos and audios preserving 100% original quality without re-encoding.
-
-            ### 📱 5. مشغل معاينة الوسائط المدمج (In-App Media Preview Player):
-            * **AR:** معاينة المقاطع والصوتيات المحملة مباشرة داخل التطبيق دون الحاجة لفتحه في مشغل خارجي.
-            * **EN:** Embedded lightweight media player for instant in-app video and audio previews.
-
-            ### 💬 6. تنزيل الترجمات وضبط ومحاذاة التوقيت (Subtitles & Timestamp Shifter):
-            * **AR:** تنزيل الترجمات المفردة بدقة، منع التكرار، وأداة لتقديم وتأخير التوقيت بالمللي ثانية مع التحويل بين SRT و VTT.
-            * **EN:** Single subtitle downloader, duplicate prevention, and millisecond precision subtitle timing adjuster.
-
-            ### 🎨 7. واجهة ترحيبية وتعليمية تفاعلية وإدارة التشغيل بالخلفية (Modern Onboarding & Permissions):
-            * **AR:** واجهة ترحيبية بتصميم زجاجي حديث تشرح مزايا التطبيق وطريقة استخدامه مع إدارة ذكية لإذن الإشعارات واستثناء قيود البطارية للعمل بالخلفية.
-            * **EN:** Interactive modern onboarding tour showcasing app features and streamlined permissions / background battery optimization setup.
-
-            ### 🔔 8. شريط إشعارات تفاعلي مطور (Enhanced Notification UI/UX):
-            * **AR:** إشعارات ملونة توضح السرعة الفورية ونسبة الإنجاز مع أزرار مباشرة لفتح الملف، مشاركته، أو إعادة المحاولة فوراً عند الخطأ.
-            * **EN:** Color-coded rich notifications with real-time speed, live progress, and instant action buttons (Open, Share, Retry).
+            ### 🇬🇧 What's New in v3.2.0:
+            * **Advanced AI Vocal Isolation:** Multi-stage studio-grade voice extraction and instrument suppressor for crystal-clear offline speech.
+            * **Full Custom Format Selection:** Completely overhauled custom format selector supporting all video/audio qualities for both single clips and playlists.
+            * **Maximum Stability & Performance:** Enhanced background download service stability across all Android versions with seamless UI navigation.

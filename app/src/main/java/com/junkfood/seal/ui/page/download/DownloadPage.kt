@@ -324,6 +324,12 @@ fun DownloadPage(
                     state = selectionState,
                     onDismissRequest = { dialogViewModel.postAction(Action.Reset) },
                 )
+            is DownloadDialogViewModel.SelectionState.PlaylistSelection ->
+                com.junkfood.seal.ui.page.downloadv2.configure.PlaylistSelectionPage(
+                    state = selectionState,
+                    onActionPost = { dialogViewModel.postAction(it) },
+                    onDismissRequest = { dialogViewModel.postAction(Action.Reset) },
+                )
             else -> {}
         }
         DownloadSettingDialog(

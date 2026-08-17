@@ -46,6 +46,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * DownloadQueueManager
@@ -86,13 +87,16 @@ class DownloadQueueManager(
         }
 
         // 2. Foreground Service Controller
-        scope.launch(Dispatchers.Default) {
+        // snapshotFlow must be collected on the Main thread (Compose requirement).
+        // App.startService() also posts to Main internally, but we still collect on Main
+        // to avoid any thread-hop timing issues with the Compose snapshot system.
+        scope.launch(Dispatchers.Main) {
             snapshotFlow
-                .onEach { processQueue() }
-                .map { it.countRunning() }
+                .onEach { withContext(Dispatchers.Default) { processQueue() } }
+                .map { it.hasActiveTasks() }
                 .distinctUntilChanged()
-                .collect { runningCount ->
-                    if (runningCount > 0 && NotificationUtil.areNotificationsEnabled()) {
+                .collect { hasActive ->
+                    if (hasActive && NotificationUtil.areNotificationsEnabled()) {
                         App.startService()
                     } else {
                         App.stopService()
@@ -226,36 +230,41 @@ class DownloadQueueManager(
         val state = taskStateMap[task] ?: return
         if (state.downloadState != Idle) return
 
-        // 1. Check if file already exists on disk (using strict FileCollisionResolver)
+        // 1. Check if file already exists on disk ONLY if we have a real VideoInfo or a reliable extracted video ID
+        val extractedId = FileCollisionResolver.extractVideoId(task.url, state.videoInfo?.id.orEmpty())
         val isAudio = DownloadUtil.isAudioOnlyDownload(task.preferences, state.videoInfo ?: VideoInfo(id = task.id))
         val playlistTitle = (task.type as? TypeInfo.Playlist)?.playlistTitle.orEmpty()
-        val existingPath = FileCollisionResolver.checkExistingFile(
-            url = task.url,
-            title = state.viewState.title,
-            videoId = state.videoInfo?.id.orEmpty(),
-            isSubtitleOnly = task.preferences.skipDownload && task.preferences.downloadSubtitle,
-            isAudioDownload = isAudio,
-            playlistTitle = playlistTitle,
-            isPrivateDirectory = task.preferences.privateDirectory,
-            subdirectoryPlaylistTitle = task.preferences.subdirectoryPlaylistTitle,
-        )
+        val isSubOnly = task.preferences.skipDownload && task.preferences.downloadSubtitle
 
-        if (existingPath != null) {
-            Log.d(TAG, "File already exists on disk, auto-completing: $existingPath")
-            taskStateMap[task] = state.copy(downloadState = Completed(existingPath))
-            val text = appContext.getString(R.string.status_completed)
-            val openIntent = FileUtil.createIntentForOpeningFile(existingPath)
-            val pendingIntent = if (openIntent != null) {
-                PendingIntent.getActivity(appContext, 0, openIntent, PendingIntent.FLAG_IMMUTABLE)
-            } else null
-            NotificationUtil.finishNotification(
-                notificationId = task.id.hashCode(),
+        if (extractedId.length >= 5 || state.videoInfo != null) {
+            val existingPath = FileCollisionResolver.checkExistingFile(
+                url = task.url,
                 title = state.viewState.title,
-                text = text,
-                filePath = existingPath,
-                intent = pendingIntent,
+                videoId = extractedId,
+                isSubtitleOnly = isSubOnly,
+                isAudioDownload = isAudio,
+                playlistTitle = playlistTitle,
+                isPrivateDirectory = task.preferences.privateDirectory,
+                subdirectoryPlaylistTitle = task.preferences.subdirectoryPlaylistTitle,
             )
-            return
+
+            if (existingPath != null) {
+                Log.d(TAG, "File already exists on disk, auto-completing: $existingPath")
+                taskStateMap[task] = state.copy(downloadState = Completed(existingPath))
+                val text = appContext.getString(R.string.status_completed)
+                val openIntent = FileUtil.createIntentForOpeningFile(existingPath)
+                val pendingIntent = if (openIntent != null) {
+                    PendingIntent.getActivity(appContext, 0, openIntent, PendingIntent.FLAG_IMMUTABLE)
+                } else null
+                NotificationUtil.finishNotification(
+                    notificationId = task.id.hashCode(),
+                    title = state.viewState.title,
+                    text = text,
+                    filePath = existingPath,
+                    intent = pendingIntent,
+                )
+                return
+            }
         }
 
         if (task.type is TypeInfo.CustomCommand) {
@@ -630,6 +639,20 @@ class DownloadQueueManager(
     private fun Map<Task, Task.State>.countRunning(): Int {
         return count { (_, state) ->
             state.downloadState is Running || state.downloadState is FetchingInfo
+        }
+    }
+
+    /**
+     * Returns true if there are any tasks that are currently active or waiting to be processed.
+     * Used to decide whether the foreground service should be alive.
+     * Includes Running, FetchingInfo, Idle (waiting to fetch), and ReadyWithInfo (waiting to download).
+     */
+    private fun Map<Task, Task.State>.hasActiveTasks(): Boolean {
+        return any { (_, state) ->
+            when (state.downloadState) {
+                is Running, is FetchingInfo, Idle, ReadyWithInfo -> true
+                else -> false
+            }
         }
     }
 

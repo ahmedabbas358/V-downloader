@@ -43,7 +43,11 @@ object MediaStorageScanner {
         isSubtitleOnly: Boolean = false,
         videoId: String? = null,
     ): List<String> {
-        val cleanTitleStr = title.removePrefix("[Subtitle] ").replace(Regex("^#\\d+\\s*"), "").trim()
+        val cleanTitleStr = title
+            .removePrefix("[Subtitle] ")
+            .replace(Regex("^(\\d+\\s*-\\s*|#\\d+\\s*)"), "")
+            .trim()
+        val rawCleaned = FileUtil.cleanFileName(title.removePrefix("[Subtitle] "))
         val cleanedTitle = FileUtil.cleanFileName(cleanTitleStr)
         val shortTitle = if (cleanedTitle.length > 8) cleanedTitle.take(8) else cleanedTitle
         val normalizedTitle = cleanTitleStr.lowercase(java.util.Locale.US)
@@ -89,12 +93,13 @@ object MediaStorageScanner {
             // Match by title (ONLY if not generic, or if file is very recent)
             if (!isMatch && !isGeneric) {
                 if (path.contains(cleanTitleStr) || name.contains(cleanedTitle) ||
+                    path.contains(rawCleaned) || name.contains(rawCleaned) ||
                     (shortTitle.isNotEmpty() && name.contains(shortTitle))) {
                     isMatch = true
                 }
             } else if (!isMatch && isGeneric && file.lastModified() >= fiveMinutesAgo) {
                 // For generic titles, only match very recent files by title
-                if (name.contains(cleanedTitle) || path.contains(cleanTitleStr)) {
+                if (name.contains(cleanedTitle) || path.contains(cleanTitleStr) || name.contains(rawCleaned)) {
                     isMatch = true
                 }
             }

@@ -52,6 +52,11 @@ object FileCollisionResolver {
         "video_",
         "reel_",
         "clip_",
+        "track_",
+        "track ",
+        "item ",
+        "episode ",
+        "part ",
     )
 
     private val GENERIC_TITLE_EXACT = listOf(
@@ -61,6 +66,8 @@ object FileCollisionResolver {
         "photo",
         "clip",
         "media",
+        "track",
+        "item",
     )
 
     /**

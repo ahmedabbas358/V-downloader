@@ -88,9 +88,18 @@ object PostDownloadCoordinator {
             f.exists() && f.isFile && f.length() > (if (preferences.skipDownload) 5L else 512L)
         }
 
-        var finalPaths = if (validDiscovered.isNotEmpty()) {
-            validDiscovered.forEach { MediaStorageScanner.scanSingleFile(File(it)) }
-            validDiscovered
+        val subtitleRegex = Regex("(?i)\\.(lrc|vtt|srt|ass|json3|srv\\d?|ttml|sub|ssa)$")
+        val (subPaths, mediaPaths) = if (!preferences.skipDownload) {
+            validDiscovered.partition { subtitleRegex.containsMatchIn(it) }
+        } else {
+            Pair(validDiscovered, emptyList<String>())
+        }
+        subPaths.forEach { MediaStorageScanner.scanSingleFile(File(it)) }
+
+        var finalPaths = if (mediaPaths.isNotEmpty() || (preferences.skipDownload && subPaths.isNotEmpty())) {
+            val primary = if (preferences.skipDownload) subPaths else mediaPaths
+            primary.forEach { MediaStorageScanner.scanSingleFile(File(it)) }
+            primary
         } else {
             MediaStorageScanner.scanAndRegister(
                 title = fileName,
