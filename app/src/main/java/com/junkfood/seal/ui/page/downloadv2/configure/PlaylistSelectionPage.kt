@@ -172,10 +172,10 @@ fun PlaylistSelectionPage(
                                 )
                             )
                         }
-                        onDismissConfigurationSheet()
+                        showConfigurationSheet = false
                     } else {
                         updatedTasks.forEach(downloader::enqueue)
-                        onDismissConfigurationSheet()
+                        showConfigurationSheet = false
                         onBack()
                     }
                 },

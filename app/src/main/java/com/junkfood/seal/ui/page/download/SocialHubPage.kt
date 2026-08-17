@@ -279,7 +279,6 @@ private fun EmbeddedPlaylistSyncView(
 
     var playlistUrl by remember { mutableStateOf("") }
     var selectedType by remember { mutableIntStateOf(0) } // 0 = Video, 1 = Audio, 2 = Subtitle
-    var removeMusic by remember { mutableStateOf(false) }
     var isScanning by remember { mutableStateOf(false) }
     var scanResult by remember { mutableStateOf<PlaylistVerifier.ScanResult?>(null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -311,13 +310,13 @@ private fun EmbeddedPlaylistSyncView(
     val selectedMissingIndices = remember { mutableStateListOf<Int>() }
 
     val basePrefs = remember { DownloadUtil.DownloadPreferences.createFromPreferences() }
-    val effectivePrefs = remember(selectedType, removeMusic) {
+    val effectivePrefs = remember(selectedType) {
         basePrefs.copy(
             downloadPlaylist = true,
             extractAudio = selectedType == 1,
             skipDownload = selectedType == 2,
             downloadSubtitle = if (selectedType == 2) true else basePrefs.downloadSubtitle,
-            removeMusic = removeMusic
+            removeMusic = false
         )
     }
 
@@ -423,14 +422,6 @@ private fun EmbeddedPlaylistSyncView(
                         selected = selectedType == 2,
                         onClick = { selectedType = 2; scanResult = null },
                         label = { Text("📝 ترجمة فقط") }
-                    )
-                    FilterChip(
-                        selected = removeMusic,
-                        onClick = {
-                            removeMusic = !removeMusic
-                            com.junkfood.seal.util.REMOVE_MUSIC.updateBoolean(removeMusic)
-                        },
-                        label = { Text("🎙️ عزل الموسيقى") }
                     )
                 }
 

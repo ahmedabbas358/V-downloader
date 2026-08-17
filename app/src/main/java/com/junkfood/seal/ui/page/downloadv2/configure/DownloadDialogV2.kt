@@ -899,16 +899,18 @@ private fun AdditionalSettings(
                     },
                     label = stringResource(R.string.create_thumbnail),
                 )
-                val removeMusic = preference.removeMusic
-                VideoFilterChip(
-                    selected = removeMusic,
-                    enabled = selectedType != Command,
-                    onClick = {
-                        com.junkfood.seal.util.REMOVE_MUSIC.updateBoolean(!removeMusic)
-                        onPreferenceUpdate()
-                    },
-                    label = "تنزيل بدون موسيقى",
-                )
+                if (selectedType == Video || selectedType == Audio) {
+                    val removeMusic = preference.removeMusic
+                    VideoFilterChip(
+                        selected = removeMusic,
+                        enabled = true,
+                        onClick = {
+                            com.junkfood.seal.util.REMOVE_MUSIC.updateBoolean(!removeMusic)
+                            onPreferenceUpdate()
+                        },
+                        label = "تنزيل بدون موسيقى",
+                    )
+                }
             }
 
             if (downloadSubtitle && selectedType != Command && !useFormatSelection) {

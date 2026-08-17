@@ -259,6 +259,7 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
             }
         }
         activeJobs[taskKey] = job
+        mSheetValueFlow.update { SheetValue.Expanded }
         mSheetStateFlow.update { SheetState.Loading(taskKey = taskKey, job = job) }
         job.start()
     }

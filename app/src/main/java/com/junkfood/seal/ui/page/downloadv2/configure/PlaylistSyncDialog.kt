@@ -191,8 +191,6 @@ fun PlaylistSyncDialog(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            var removeMusic by remember(currentPrefs) { mutableStateOf(currentPrefs.removeMusic) }
-
             // Content type selection with HORIZONTAL SCROLLING
             Text(
                 text = "نوع المحتوى:",
@@ -222,15 +220,6 @@ fun PlaylistSyncDialog(
                     selected = selectedType == 2,
                     onClick = { selectedType = 2; scanResult = null },
                     label = { Text(stringResource(R.string.subtitle)) }
-                )
-                FilterChip(
-                    selected = removeMusic,
-                    onClick = {
-                        removeMusic = !removeMusic
-                        com.junkfood.seal.util.REMOVE_MUSIC.updateBoolean(removeMusic)
-                        currentPrefs = currentPrefs.copy(removeMusic = removeMusic)
-                    },
-                    label = { Text("🎵 بدون موسيقى") }
                 )
             }
 
@@ -346,13 +335,13 @@ fun PlaylistSyncDialog(
             }
 
             // Scan button
-            val effectivePrefs = remember(selectedType, currentPrefs, removeMusic) {
+            val effectivePrefs = remember(selectedType, currentPrefs) {
                 currentPrefs.copy(
                     downloadPlaylist = true,
                     extractAudio = selectedType == 1,
                     skipDownload = selectedType == 2,
                     downloadSubtitle = if (selectedType == 2) true else currentPrefs.downloadSubtitle,
-                    removeMusic = removeMusic
+                    removeMusic = false
                 )
             }
 

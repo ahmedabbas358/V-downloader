@@ -81,7 +81,7 @@ fun AppUpdater() {
                 showUpdateDialog = false
                 updateJob?.cancel()
             },
-            title = release.name.toString(),
+            release = release,
             onConfirmUpdate = {
                 updateJob =
                     scope.launch(Dispatchers.IO) {
@@ -113,7 +113,6 @@ fun AppUpdater() {
                             }
                     }
             },
-            releaseNote = release.body.toString(),
             downloadStatus = currentDownloadStatus,
         )
     }

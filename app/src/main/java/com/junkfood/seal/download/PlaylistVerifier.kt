@@ -347,19 +347,23 @@ object PlaylistVerifier {
         targetDirectory: String = "",
         downloader: DownloaderV2
     ) = withContext(Dispatchers.Default) {
+        if (missingItems.isEmpty()) return@withContext
         val isSubOnly = missingItems.firstOrNull()?.preferences?.run { skipDownload && downloadSubtitle } == true
+        val isAudioOnly = missingItems.firstOrNull()?.preferences?.run { extractAudio && !skipDownload } == true
+
         missingItems.forEach { item ->
             val baseTitle = item.title
             val itemUrl = item.url.ifEmpty { item.playlistUrl }
 
-            val itemPrefs = if (targetDirectory.isNotBlank()) {
-                item.preferences.copy(
-                    playlistNumbering = true,
-                    commandDirectory = targetDirectory
-                )
-            } else {
-                item.preferences.copy(playlistNumbering = true)
-            }
+            val itemPrefs = item.preferences.copy(
+                downloadPlaylist = false,
+                playlistNumbering = true,
+                skipDownload = isSubOnly,
+                downloadSubtitle = if (isSubOnly) true else item.preferences.downloadSubtitle,
+                extractAudio = if (isSubOnly) false else isAudioOnly,
+                commandDirectory = targetDirectory.ifBlank { item.preferences.commandDirectory },
+                subdirectoryPlaylistTitle = false,
+            )
 
             val viewState = Task.ViewState(
                 url = itemUrl,
@@ -375,7 +379,8 @@ object PlaylistVerifier {
                 type = Task.TypeInfo.Playlist(
                     index = item.index,
                     playlistTitle = item.playlistTitle,
-                    playlistUrl = item.playlistUrl
+                    playlistUrl = item.playlistUrl,
+                    isFallback = false
                 )
             )
             val state = Task.State(

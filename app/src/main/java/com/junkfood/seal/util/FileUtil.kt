@@ -17,9 +17,9 @@ import com.junkfood.seal.R
 import java.io.File
 import okhttp3.internal.closeQuietly
 
-const val AUDIO_REGEX = "(mp3|aac|opus|m4a)$"
-const val THUMBNAIL_REGEX = "\\.(jpg|png)$"
-const val SUBTITLE_REGEX = "\\.(lrc|vtt|srt|ass|json3|srv.|ttml)$"
+const val AUDIO_REGEX = "(?i)\\.(mp3|aac|opus|m4a|ogg|flac|wav)$"
+const val THUMBNAIL_REGEX = "(?i)\\.(jpg|jpeg|png|webp)$"
+const val SUBTITLE_REGEX = "(?i)\\.(lrc|vtt|srt|ass|json3|srv\\d?|ttml|sub|ssa)$"
 private const val PRIVATE_DIRECTORY_SUFFIX = ".V-Downloader"
 
 object FileUtil {
@@ -129,85 +129,12 @@ object FileUtil {
         isSubtitleOnly: Boolean = false,
         videoId: String? = null
     ): List<String> {
-        val cleanTitleStr = title.removePrefix("[Subtitle] ").replace(Regex("^#\\d+\\s*"), "").trim()
-        val cleanedTitle = cleanFileName(cleanTitleStr)
-        val shortTitle = if (cleanedTitle.length > 8) cleanedTitle.take(8) else cleanedTitle
-        val normalizedTitle = cleanTitleStr.lowercase(java.util.Locale.US).replace(Regex("[^a-z0-9\\u0600-\\u06FF\\s]"), "").trim()
-        val titleWords = normalizedTitle.split("\\s+".toRegex()).filter { it.length >= 2 }
-        val fiveMinutesAgo = System.currentTimeMillis() - (5 * 60 * 1000L)
-
-        val targetDir = File(downloadDir)
-        if (!targetDir.exists()) return emptyList()
-
-        val allFiles = targetDir.walkTopDown()
-            .filter { file ->
-                file.isFile &&
-                !file.name.endsWith(".part", ignoreCase = true) &&
-                !file.name.endsWith(".ytdl", ignoreCase = true) &&
-                !file.name.endsWith(".tmp", ignoreCase = true) &&
-                file.length() > (if (isSubtitleOnly) 5L else 512L)
-            }
-            .toList()
-
-        // 1. Filter by specific matching criteria
-        val matchedFiles = allFiles.filter { file ->
-            val name = file.name
-            val path = file.absolutePath
-            val normalizedName = name.lowercase(java.util.Locale.US).replace(Regex("[^a-z0-9\\u0600-\\u06FF\\s]"), "").trim()
-
-            val isSubFile = name.contains(Regex(SUBTITLE_REGEX))
-            if (isSubtitleOnly && !isSubFile) return@filter false
-            if (!isSubtitleOnly && isSubFile) return@filter false
-
-            var isMatch = false
-
-            // Match by Video ID
-            if (!videoId.isNullOrBlank() && videoId.length >= 4 && (name.contains(videoId) || path.contains(videoId))) {
-                isMatch = true
-            }
-
-            // Match by exact/cleaned title
-            if (!isMatch && (path.contains(cleanTitleStr) || name.contains(cleanedTitle) || (shortTitle.isNotEmpty() && name.contains(shortTitle)))) {
-                isMatch = true
-            }
-
-            // Match by normalized words
-            if (!isMatch && titleWords.isNotEmpty()) {
-                val matchedCount = titleWords.count { normalizedName.contains(it) }
-                if (matchedCount >= (titleWords.size * 0.7).toInt().coerceAtLeast(1)) {
-                    isMatch = true
-                }
-            }
-
-            isMatch
-        }.map { it.absolutePath }.toMutableList()
-
-        // 2. Fallback: If no files matched by name, check files modified within the last 5 minutes in targetDir
-        if (matchedFiles.isEmpty()) {
-            val recentlyModified = allFiles.filter { file ->
-                val name = file.name
-                val isSubFile = name.contains(Regex(SUBTITLE_REGEX))
-                val typeMatches = if (isSubtitleOnly) isSubFile else !isSubFile && !name.contains(Regex(THUMBNAIL_REGEX))
-                typeMatches && file.lastModified() >= fiveMinutesAgo
-            }.sortedByDescending { it.lastModified() }
-            .map { it.absolutePath }
-
-            matchedFiles.addAll(recentlyModified)
-        }
-
-        if (matchedFiles.isNotEmpty()) {
-            try {
-                MediaScannerConnection.scanFile(context, matchedFiles.toTypedArray(), null, null)
-            } catch (e: Exception) {
-                Log.e(TAG, "MediaScannerConnection error: ${e.message}")
-            }
-        }
-
-        matchedFiles.removeAll {
-            it.contains(Regex(THUMBNAIL_REGEX)) || (!isSubtitleOnly && it.contains(Regex(SUBTITLE_REGEX)))
-        }
-
-        return matchedFiles
+        return com.junkfood.seal.download.engine.postprocess.MediaStorageScanner.scanAndRegister(
+            title = title,
+            downloadDir = downloadDir,
+            isSubtitleOnly = isSubtitleOnly,
+            videoId = videoId
+        )
     }
 
     fun scanDownloadDirectoryToMediaLibrary(downloadDir: String) =

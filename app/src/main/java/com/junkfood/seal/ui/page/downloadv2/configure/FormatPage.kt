@@ -184,8 +184,7 @@ fun FormatPage(
             val fallbackSpec = when {
                 isAudioOnlyPlaylist -> "bestaudio/best"
                 maxSelectedHeight != null && maxSelectedHeight > 0 -> "bestvideo[height<=$maxSelectedHeight]+bestaudio/bestvideo+bestaudio/best"
-                hasVideoOnlyFormat -> "bestvideo+bestaudio/best"
-                else -> "best"
+                else -> "bestvideo+bestaudio/best"
             }
 
             val playlistFormatId = when {
@@ -209,11 +208,12 @@ fun FormatPage(
                             mergeAudioStream = if (isSubOnly) false else mergeAudioStreamPlaylist,
                             downloadSubtitle = true,
                             convertSubtitle = subtitleFormat,
-                            autoSubtitle = selectedAutoCaptions.isNotEmpty(),
+                            autoSubtitle = selectedAutoCaptions.isNotEmpty() || isSubOnly,
                             autoTranslatedSubtitles = selectedSubtitles.isEmpty() && selectedAutoCaptions.isNotEmpty(),
                             subtitleLanguage = if (subLangString.isNotEmpty()) subLangString else taskWithState.task.preferences.subtitleLanguage,
                             splitByChapter = if (isSubOnly) false else splitByChapter,
-                            newTitle = newTitle
+                            newTitle = newTitle,
+                            playlistNumbering = taskWithState.task.preferences.playlistNumbering || isSubOnly,
                         )
                     )
                     downloader.enqueue(taskWithState.copy(task = updatedTask))

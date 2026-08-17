@@ -76,33 +76,55 @@ object UpdateUtil {
                 }
         }
 
+    fun Release.getVersion(): Version {
+        val tagVer = tagName?.toVersion()
+        if (tagVer != null && tagVer != EMPTY_VERSION) {
+            return tagVer
+        }
+        return name.toVersion()
+    }
+
     private fun getLatestRelease(): Release =
         client.newCall(requestForReleases).execute().body.use {
             val releaseList = jsonFormat.decodeFromString<List<Release>>(it.string())
             val stable = UPDATE_CHANNEL.getInt() == STABLE
             val latestRelease =
                 releaseList
-                    .filter { if (stable) it.name.toVersion() is Version.Stable else true }
-                    .maxByOrNull { it.name.toVersion() } ?: throw Exception("null response")
+                    .filter { if (stable) it.getVersion() is Version.Stable else true }
+                    .maxByOrNull { it.getVersion() } ?: throw Exception("null response")
             latestRelease
         }
 
     fun checkForUpdate(context: Context = App.context): Release? {
-        val currentVersion = context.getCurrentVersion()
+        val currentVersion = getCurrentVersion(context)
         val latestRelease = getLatestRelease()
-        val latestVersion = latestRelease.name.toVersion()
+        val latestVersion = latestRelease.getVersion()
+        Log.d(
+            TAG,
+            "checkForUpdate: currentVersion=$currentVersion (${currentVersion.toNumber()}), latestVersion=$latestVersion (${latestVersion.toNumber()})"
+        )
         return if (currentVersion < latestVersion) latestRelease else null
     }
 
-    private fun Context.getCurrentVersion(): Version =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            packageManager
-                .getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0))
-                .versionName
-                .toVersion()
-        } else {
-            packageManager.getPackageInfo(packageName, 0).versionName.toVersion()
+    fun getCurrentVersion(context: Context = App.context): Version {
+        val packageVersion =
+            runCatching {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    context.packageManager
+                        .getPackageInfo(context.packageName, PackageManager.PackageInfoFlags.of(0))
+                        .versionName
+                } else {
+                    context.packageManager.getPackageInfo(context.packageName, 0).versionName
+                }
+            }.getOrNull()
+
+        val parsed = packageVersion?.toVersion()
+        if (parsed != null && parsed != EMPTY_VERSION) {
+            return parsed
         }
+
+        return com.junkfood.seal.BuildConfig.VERSION_NAME.toVersion()
+    }
 
     private fun Context.getLatestApk() = File(getExternalFilesDir("apk"), "latest.apk")
 
@@ -149,7 +171,7 @@ object UpdateUtil {
                         .getPackageArchiveInfo(apkFile.absolutePath, 0)
                         ?.versionName
                         .toVersion()
-                if (apkVersion <= context.getCurrentVersion()) {
+                if (apkVersion <= getCurrentVersion(context)) {
                     apkFile.delete()
                 }
             }
@@ -171,9 +193,10 @@ object UpdateUtil {
                     EMPTY_VERSION
                 }
 
-            Log.d(TAG, "Cached APK version: $apkVersion, Release version: ${release.name}")
+            val releaseVersion = release.getVersion()
+            Log.d(TAG, "Cached APK version: $apkVersion, Release version: $releaseVersion")
 
-            if (latestApk.exists() && apkVersion >= release.name.toVersion()) {
+            if (latestApk.exists() && apkVersion >= releaseVersion) {
                 return@withContext flow<DownloadStatus> {
                     emit(DownloadStatus.Finished(latestApk))
                 }

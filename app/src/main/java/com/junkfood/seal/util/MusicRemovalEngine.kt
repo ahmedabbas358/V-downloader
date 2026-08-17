@@ -59,6 +59,7 @@ object MusicRemovalEngine {
         val candidates = listOf(
             File(appContext.noBackupFilesDir, "youtubedl-android/packages/ffmpeg/usr/bin/ffmpeg"),
             File(appContext.noBackupFilesDir, "youtubedl-android/packages/ffmpeg/bin/ffmpeg"),
+            File(appContext.noBackupFilesDir, "youtubedl-android/packages/ffmpeg/ffmpeg"),
             File(appContext.filesDir, "bin/ffmpeg"),
             File(appContext.filesDir, "ffmpeg"),
             File(appContext.applicationInfo.nativeLibraryDir, "libffmpeg.so")
@@ -90,6 +91,19 @@ object MusicRemovalEngine {
         val filesDir = appContext.filesDir
         if (filesDir.exists()) {
             val found = filesDir.walkTopDown().maxDepth(3).firstOrNull {
+                (it.name == "ffmpeg" || it.name == "libffmpeg.so") && it.isFile
+            }
+            if (found != null) {
+                if (!found.canExecute()) {
+                    found.setExecutable(true, false)
+                }
+                return found
+            }
+        }
+
+        val noBackupDir = appContext.noBackupFilesDir
+        if (noBackupDir.exists()) {
+            val found = noBackupDir.walkTopDown().maxDepth(4).firstOrNull {
                 (it.name == "ffmpeg" || it.name == "libffmpeg.so") && it.isFile
             }
             if (found != null) {
@@ -158,7 +172,16 @@ object MusicRemovalEngine {
                 command.add(inputFile.absolutePath)
 
                 if (isVideo) {
+                    // Map video, primary audio, and any embedded subtitles cleanly
+                    command.add("-map")
+                    command.add("0:v?")
+                    command.add("-map")
+                    command.add("0:a:0?")
+                    command.add("-map")
+                    command.add("0:s?")
                     command.add("-c:v")
+                    command.add("copy")
+                    command.add("-c:s")
                     command.add("copy")
                     command.add("-c:a")
                     command.add("aac")
@@ -229,13 +252,19 @@ object MusicRemovalEngine {
                         val replaced = tempOutputFile.renameTo(File(targetPath))
                         if (replaced) {
                             backupFile.delete()
-                            return File(targetPath)
+                            val finalFile = File(targetPath)
+                            finalFile.setLastModified(System.currentTimeMillis())
+                            com.junkfood.seal.download.engine.postprocess.MediaStorageScanner.scanSingleFile(finalFile)
+                            return finalFile
                         } else {
                             try {
                                 tempOutputFile.copyTo(File(targetPath), overwrite = true)
                                 tempOutputFile.delete()
                                 backupFile.delete()
-                                return File(targetPath)
+                                val finalFile = File(targetPath)
+                                finalFile.setLastModified(System.currentTimeMillis())
+                                com.junkfood.seal.download.engine.postprocess.MediaStorageScanner.scanSingleFile(finalFile)
+                                return finalFile
                             } catch (e: Exception) {
                                 backupFile.renameTo(File(targetPath))
                             }
@@ -244,7 +273,10 @@ object MusicRemovalEngine {
                         try {
                             tempOutputFile.copyTo(File(targetPath), overwrite = true)
                             tempOutputFile.delete()
-                            return File(targetPath)
+                            val finalFile = File(targetPath)
+                            finalFile.setLastModified(System.currentTimeMillis())
+                            com.junkfood.seal.download.engine.postprocess.MediaStorageScanner.scanSingleFile(finalFile)
+                            return finalFile
                         } catch (_: Exception) {}
                     }
                 } else {

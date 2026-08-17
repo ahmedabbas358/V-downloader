@@ -178,9 +178,16 @@
     <string name="sponsorblock_desc">إزالة أو وضع علامات على الأقسام في مقاطع الفيديو باستخدام SponsorBlock API</string>
     <string name="sponsorblock_categories_desc">حدد فئات الـSponsorBlock المراد إزالتها او تعليمها في ملف الفيديو</string>
     <string name="sponsorblock_categories">تصنيفات الـSponsorBlock</string>
-    <string name="app_up_to_date">انت على أحدث إصدار</string>
+    <string name="app_up_to_date">أنت على أحدث إصدار بالفعل</string>
     <string name="app_update_failed">فشل التحديث إلى أحدث إصدار</string>
     <string name="update">تحديث</string>
+    <string name="new_version_available">تحديث جديد متوفر</string>
+    <string name="update_now">تحديث الآن</string>
+    <string name="update_later">لاحقاً</string>
+    <string name="downloading_update">جاري تحميل التحديث…</string>
+    <string name="latest_version_badge">الإصدار الجديد: %1$s</string>
+    <string name="current_version_badge">الإصدار الحالي: %1$s</string>
+    <string name="whats_new">أبرز التحديثات والمميزات</string>
     <string name="check_for_updates">البحث عن تحديثات</string>
     <string name="check_for_updates_desc">تحقق تلقائياً من أحدث إصدار متوفر على GitHub</string>
     <string name="aria2_desc">استخدم aria2c كمدير تنزيل خارجي</string>

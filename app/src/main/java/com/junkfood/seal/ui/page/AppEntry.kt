@@ -330,7 +330,7 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
         }
         val sheetValue by dialogViewModel.sheetValueFlow.collectAsStateWithLifecycle()
         val state by dialogViewModel.sheetStateFlow.collectAsStateWithLifecycle()
-        val selectionState = dialogViewModel.selectionStateFlow.collectAsStateWithLifecycle().value
+        val selectionState by dialogViewModel.selectionStateFlow.collectAsStateWithLifecycle()
         var showDialog by remember { mutableStateOf(false) }
         val dialogSheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
     
