@@ -75,37 +75,41 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: app/build/outputs/apk/generic/release/*.apk
-          name: V-Downloader v3.0.8 - استقرار التشغيل والإنتاج ومعالجة الذاكرة
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v3.0.8' }}
+          name: V-Downloader v3.1.0 - المحرك الهندسي المطور، الترجمات، وعزل الصوت
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v3.1.0' }}
           draft: false
           prerelease: false
           make_latest: true
           body: |
-            # 🚀 V-Downloader v3.0.8 - استقرار التشغيل والإنتاج ومعالجة الذاكرة (Production Readiness & Memory Optimization)
+            # 🚀 V-Downloader v3.1.0 - المحرك الهندسي المطور، الترجمات، وعزل الصوت (Modular Download Engine & Subtitles Overhaul)
 
-            > 🔥 **أبرز التحديثات في v3.0.8 | What's New:**
-            > 🇸🇦 **عربي:** حل كافة أخطاء البناء والـ Compilation، تحسين استهلاك الذاكرة ومنع التجميد في قوائم التشغيل الضخمة، القضاء على العمليات المعلقة للـ FFmpeg، وضمان الاستقرار الكامل للإنتاج.
-            > 🇬🇧 **English:** Resolved all compilation issues, optimized memory churn with Flow sampling, ensured clean FFmpeg process cancellation, and achieved full production stability.
+            > 🔥 **أبرز التحديثات في v3.1.0 | What's New:**
+            > 🇸🇦 **عربي:** إعادة هيكلة معمارية كاملة لمحرك التنزيل، دعم متكامل لتنزيل ترجمات القوائم بالترتيب والترقيم ومكافحة الحظر، دمج الصوت في كل الجودات، إصلاح محرك إعادة تنزيل النواقص، وترقية عزل الموسيقى للمقاطع الفردية.
+            > 🇬🇧 **English:** Complete modular refactor of the download engine subsystem, robust sequential playlist subtitle extraction with anti-ban pacing and numbering, guaranteed audio-video stream merging across all resolutions, flawless missing items re-downloading, and studio-grade vocal isolation for single media.
 
             ---
 
-            ## 🛠️ أبرز التحسينات والإصلاحات في v3.0.8 | v3.0.8 Improvements:
+            ## 🛠️ أبرز التحسينات والإصلاحات في v3.1.0 | v3.1.0 Improvements:
 
-            ### 🎯 1. حل أخطاء البناء والـ Compilation (Compilation & Imports Fixes):
-            * **AR:** تصحيح استيرادات `sp` و `fillMaxWidth` في القائمة الجانبية Navigation Drawer، وضبط التبعيات وحقن المكونات في `DownloadPage` و `MusicRemovalEngine`.
-            * **EN:** Fixed missing `sp` & `fillMaxWidth` imports in NavigationDrawer, resolved dependency injection in DownloadPage, and made `processFiles` suspend in MusicRemovalEngine.
+            ### 🏗️ 1. هيكلة معمارية معيارية دقيقة (Modular Engine Architecture):
+            * **AR:** فصل كامل بين طبقات بناء الأوامر (`builder`)، التنفيذ والتقاط المسارات (`executor`)، إدارة الطابور (`queue`)، المعالجة اللاحقة (`postprocess`)، والترجمات (`subtitle`).
+            * **EN:** Strict decoupled architecture separating command builders, execution monitoring, queue lifecycle, post-processing, and subtitles.
 
-            ### 🚀 2. تحسين استهلاك الذاكرة ومنع تجمد الواجهة (Memory Optimization & Flow Sampling):
-            * **AR:** إضافة `sample(500)` لمتابعة حالات التحميل مما يمنع نسخ الـ Map آلاف المرات في الثانية ويقضي تماماً على تجمد الواجهة وانهيارات OOM في قوائم التشغيل الكبيرة.
-            * **EN:** Applied throttling to task state emissions to drastically eliminate UI freeze and GC churn during massive playlist downloads.
+            ### 💬 2. محرك الترجمات المتطور وقوائم التشغيل (Playlist Subtitles & Anti-Ban):
+            * **AR:** تنزيل ترجمات القوائم بالترتيب ملف تلو الآخر مع الترقيم `001 - Title.srt`، وإعادة المحاولة مرتين، ومهلة تهدئة ذكية ضد حظر يوتيوب.
+            * **EN:** Sequential playlist subtitle downloads with `#001` numbering, 2x automatic retries with exponential backoff, and smart rate-limit cooldown.
 
-            ### 🎙️ 3. القضاء على العمليات المعلقة وإلغاء فوري لعزل الصوت (Clean FFmpeg Process Lifecycle):
-            * **AR:** ربط عمليات FFmpeg بدورة حياة الـ Coroutine واستخدام `runInterruptible` لضمان قتل العملية فوراً وحذف الملفات المؤقتة عند إلغاء المهمة.
-            * **EN:** Bound FFmpeg execution to coroutine lifecycle to immediately destroy orphaned processes and remove temp files upon cancellation.
+            ### 🎬 3. دمج الصوت وخيارات الترجمة (Audio Merging & Subtitle Embedding):
+            * **AR:** ضمان دمج الصوت مع الفيديو في كافة الجودات دون استثناء، مع دعم دمج الترجمة داخل الفيديو أو حفظها منفصلة.
+            * **EN:** Guaranteed audio-video stream muxing across all DASH qualities, with flexible embedded or external subtitle file outputs.
 
-            ### 🏗️ 4. تنظيف وهيكلة المحركات (Architecture Clean-Up):
-            * **AR:** فصل تام بين محرك التنزيل الأساسي `DownloaderV2` ومحرك الأوامر الخام والتحديثات `CustomCommandRunner`.
-            * **EN:** Completely decoupled primary download engine from raw custom command executor.
+            ### 🔄 4. إصلاح محرك إعادة تنزيل النواقص (Missing Items Re-Download Engine):
+            * **AR:** فحص دقيق ومطابقة ذكية للملفات الموجودة والمفقودة وإعادة تنزيل العناصر الناقصة بنجاح 100% مع التقاط المسارات الحية.
+            * **EN:** High-precision playlist verification and 100% reliable re-downloading of missing items with live output path capture.
+
+            ### 🎙️ 5. ترقية عزل الموسيقى للمقاطع الفردية (Vocal Isolation Engine):
+            * **AR:** إلغاء خيار بدون موسيقى من القوائم وقصره على المقاطع الفردية، مع ترقية فلتر الاستوديو ثلاثي المراحل والحفاظ التام على الترجمة وجودة الفيديو.
+            * **EN:** Disabled music removal on playlists while upgrading single video/audio vocal isolation with 3-tier studio filters and subtitle preservation.
 
             ---
 
