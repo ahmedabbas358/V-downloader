@@ -130,13 +130,10 @@ object DownloadTaskExecutor {
      */
     suspend fun executeDownload(
         task: Task,
+        videoInfo: VideoInfo,
         onProgressUpdate: (Float, String) -> Unit,
         appContext: Context = context,
     ): Result<List<String>> = withContext(Dispatchers.IO) {
-        val videoInfo = task.info ?: return@withContext Result.failure(
-            IllegalStateException("بيانات المقطع غير متوفرة")
-        )
-
         val playlistItem = (task.type as? TypeInfo.Playlist)?.index ?: 0
         val sourcePlaylistUrl = if (playlistItem != 0) {
             (task.type as? TypeInfo.Playlist)?.playlistUrl ?: ""

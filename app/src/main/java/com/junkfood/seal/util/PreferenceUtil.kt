@@ -167,6 +167,7 @@ const val FORMAT_QUALITY = 2
 
 const val CONVERT_MP3 = 0
 const val CONVERT_M4A = 1
+const val CONVERT_OPUS = 2
 
 const val HIGH = 1
 const val MEDIUM = 2

@@ -353,6 +353,7 @@ class DownloadQueueManager(
         val job = scope.launch(Dispatchers.Default) {
             val result = DownloadTaskExecutor.executeDownload(
                 task = task,
+                videoInfo = state.videoInfo!!, // guarded: null check is on line 351
                 onProgressUpdate = { progress, progressText ->
                     val current = taskStateMap[task] ?: return@executeDownload
                     if (current.downloadState is Running) {
