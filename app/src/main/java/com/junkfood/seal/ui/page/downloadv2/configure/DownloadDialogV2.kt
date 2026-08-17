@@ -430,13 +430,28 @@ private fun DownloadDialogContent(
                                     Action.FetchPlaylistSubtitleFormats(
                                         firstVideoUrl = firstUrl,
                                         preferences = updatedPrefs,
-                                        playlistTasks = state.urlList.map { itemUrl ->
-                                            TaskFactory.TaskWithState(
-                                                task = com.junkfood.seal.download.Task(
-                                                    url = itemUrl,
-                                                    preferences = updatedPrefs
+                                        playlistTasks = state.urlList.mapIndexed { index, itemUrl ->
+                                            val task = com.junkfood.seal.download.Task(
+                                                url = itemUrl,
+                                                preferences = updatedPrefs,
+                                                type = com.junkfood.seal.download.Task.TypeInfo.Playlist(
+                                                    index = index + 1,
+                                                    playlistTitle = "",
+                                                    playlistUrl = itemUrl,
                                                 )
                                             )
+                                            val itemState = com.junkfood.seal.download.Task.State(
+                                                downloadState = com.junkfood.seal.download.Task.DownloadState.Idle,
+                                                videoInfo = null,
+                                                viewState = com.junkfood.seal.download.Task.ViewState(
+                                                    url = itemUrl,
+                                                    title = "",
+                                                    duration = 0,
+                                                    uploader = "",
+                                                    thumbnailUrl = "",
+                                                )
+                                            )
+                                            TaskFactory.TaskWithState(task, itemState)
                                         }
                                     )
                                 )
