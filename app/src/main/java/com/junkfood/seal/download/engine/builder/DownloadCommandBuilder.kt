@@ -63,9 +63,6 @@ object DownloadCommandBuilder {
                 NetworkOptionBuilder.applyProxy(this, preferences.proxyUrl)
             }
             NetworkOptionBuilder.applyNetworkResilience(this, preferences.forceIpv4, preferences.debug)
-
-            addOption("--write-subs")
-            addOption("--write-auto-subs")
         }
         return request
     }
@@ -195,6 +192,8 @@ object DownloadCommandBuilder {
             val subOpts = SubtitleOptionBuilder.buildForSubtitleOnlyDownload(
                 subtitleLanguage = preferences.subtitleLanguage,
                 convertSubtitle = preferences.convertSubtitle,
+                autoSubtitle = preferences.autoSubtitle,
+                autoTranslatedSubtitles = preferences.autoTranslatedSubtitles,
             )
             applySubtitleOptions(this, subOpts)
             return@apply
@@ -242,6 +241,11 @@ object DownloadCommandBuilder {
             if (videoClips.isEmpty()) {
                 addOption("--embed-chapters")
             }
+
+            if (removeMusic) {
+                val vocalFilter = com.junkfood.seal.util.MusicRemovalEngine.getVocalIsolationFilter()
+                addCommands(listOf("--ppa", "Merger:-af $vocalFilter", "--ppa", "ExtractAudio:-af $vocalFilter"))
+            }
         }
     }
 
@@ -260,6 +264,8 @@ object DownloadCommandBuilder {
             val subOpts = SubtitleOptionBuilder.buildForSubtitleOnlyDownload(
                 subtitleLanguage = preferences.subtitleLanguage,
                 convertSubtitle = preferences.convertSubtitle,
+                autoSubtitle = preferences.autoSubtitle,
+                autoTranslatedSubtitles = preferences.autoTranslatedSubtitles,
             )
             applySubtitleOptions(this, subOpts)
             return@apply
@@ -277,6 +283,11 @@ object DownloadCommandBuilder {
                     embedSubtitle = false,
                 )
                 applySubtitleOptions(this@apply, subOpts)
+            }
+
+            if (removeMusic) {
+                val vocalFilter = com.junkfood.seal.util.MusicRemovalEngine.getVocalIsolationFilter()
+                addCommands(listOf("--ppa", "ExtractAudio:-af $vocalFilter"))
             }
 
             if (formatIdString.isNotEmpty()) {
@@ -356,10 +367,13 @@ object DownloadCommandBuilder {
     ) {
         if (options.writeSubs) request.addOption("--write-subs")
         if (options.writeAutoSubs) request.addOption("--write-auto-subs")
-        request.addOption("--sub-langs", options.subLangs)
-        request.addOption("--sub-format", options.subFormat)
-        if (options.embedSubs) request.addOption("--embed-subs")
-        request.addOption("--convert-subs", options.convertSubs)
+        if (options.subLangs.isNotEmpty()) request.addOption("--sub-langs", options.subLangs)
+        if (options.subFormat.isNotEmpty()) request.addOption("--sub-format", options.subFormat)
+        if (options.embedSubs) {
+            request.addOption("--embed-subs")
+            request.addOption("--compat-options", "no-keep-subs")
+        }
+        if (options.convertSubs.isNotEmpty()) request.addOption("--convert-subs", options.convertSubs)
     }
 
     private fun applyFormatSorter(

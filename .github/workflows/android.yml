@@ -99,7 +99,7 @@ jobs:
         run: |
           echo "Pruning older releases from GitHub..."
           gh release list --limit 100 --json tagName -q '.[].tagName' | while read -r tag; do
-            if [ "$tag" != "v3.2.0" ] && [ -n "$tag" ]; then
+            if [ "$tag" != "v3.3.0" ] && [ -n "$tag" ]; then
               echo "Deleting old release for tag: $tag"
               gh release delete "$tag" --yes --cleanup-tag || true
             fi
@@ -110,33 +110,31 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: app/build/outputs/apk/generic/release/*.apk
-          name: V-Downloader v3.2.0 - عزل الموسيقى المتقدم، دعم الجودات المخصصة، واستقرار فائق
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v3.2.0' }}
+          name: V-Downloader v3.3.0 - التحديث الشامل: جودات كاملة، وإصلاحات جذرية للترجمة والصوتيات
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v3.3.0' }}
           draft: false
           prerelease: false
           make_latest: true
           body: |
-            # 🚀 V-Downloader v3.2.0 - التحديث الجديد | What's New
+            # 🚀 V-Downloader v3.3.0 - الإصدار الجديد
 
-            > ✨ **تحديث رئيسي جديد يحمل تحسينات شاملة على نقاء الصوت وخيارات التنزيل المخصصة واستقرار النظام.**
-
-            ---
-
-            ### 🎙️ 1. عزل الصوت وإزالة الموسيقى والآلات الموسيقية بدقة عالية
-            * **نقاء استثنائي للصوت البشري:** تقنية معالجة صوتية ذكية متعددة المراحل تعمل على إزالة الموسيقى التصويرية والآلات الموسيقية من مقاطع الفيديو والملفات الصوتية بدقة متناهية مع الحفاظ الكامل على وضوح ونقاء الصوت الأصلي.
-            * **معالجة مدمجة وسريعة:** تعمل الميزة محلياً بالكامل على جهازك بسرعة وكفاءة عالية ودون الحاجة لأي اتصال بالإنترنت أثناء المعالجة.
-
-            ### 🎛️ 2. تحسينات شاملة على خيار "مخصص" لاختيار الجودات
-            * **عرض كامل ودقيق لكافة الجودات:** إمكانية استعراض واختيار كافة التنسيقات المتاحة (فيديو، صوت فقط، دقة تصل إلى 4K) للمقاطع الفردية وقوائم التشغيل بكل سلاسة.
-            * **مرونة أكبر في تخصيص التنزيلات:** تجربة محسّنة بالكامل عند اختيار الترجمات، دمج المسارات الصوتية، أو قص أجزاء محددة من المقاطع قبل بدء التنزيل.
-
-            ### ⚡ 3. استقرار وسرعة وأداء أفضل
-            * تحسين استقرار عمليات التحميل في الخلفية على أحدث إصدارات نظام أندرويد لمنع أي توقف مفاجئ.
-            * سلاسة أعلى في التنقل بين شاشات التطبيق وسرعة أكبر في معالجة الروابط وقوائم التشغيل.
+            > ✨ **تحديث محوري يحل بشكل جذري مشاكل الجودة، الترجمات، واستخراج الصوتيات.**
 
             ---
 
-            ### 🇬🇧 What's New in v3.2.0:
-            * **Advanced AI Vocal Isolation:** Multi-stage studio-grade voice extraction and instrument suppressor for crystal-clear offline speech.
-            * **Full Custom Format Selection:** Completely overhauled custom format selector supporting all video/audio qualities for both single clips and playlists.
-            * **Maximum Stability & Performance:** Enhanced background download service stability across all Android versions with seamless UI navigation.
+            ### 📽️ 1. فتح كافة خيارات الجودة (تخطي قيود 360p)
+            * **إتاحة جميع الجودات:** تم التغلب على القيود التي كانت تحصر التنزيلات في جودة 360p لبعض المقاطع، لتتمكن الآن من التحميل بأعلى جودة متوفرة (تصل إلى 4K) وبلا انقطاع.
+            * **دمج ذكي للصوت والفيديو:** يضمن التطبيق الآن دمج أفضل مسار صوتي تلقائياً مع كافة خيارات دقة الفيديو لضمان أعلى مستوى من تجربة المشاهدة.
+
+            ### 📝 2. محرك ترجمة دقيق وخالٍ من الأخطاء
+            * **إصلاح تكرار الترجمات:** يعالج هذا التحديث مشكلة التنزيل المزدوج لملفات الترجمة (اليدوية والتلقائية)، بحيث يتم تنزيل النسخة الأمثل بملف واحد نظيف.
+            * **دمج احترافي:** تم حل جميع مشاكل دمج الترجمات داخل المقاطع وتنزيلها بشكل منفصل، مما يضمن عرض الترجمة بسلاسة تامة.
+
+            ### 🎵 3. أداء مثالي للصوتيات وعزل الموسيقى
+            * **عزل دقيق واحترافي:** تفعيل وتطبيق فلاتر عزل الموسيقى والآلات الموسيقية بشكل أدق للحصول على صوت بشري فائق النقاء وخالٍ من العيوب.
+            * **قوائم التشغيل الصوتية:** أصبح الآن بالإمكان تنزيل قوائم التشغيل كاملة كملفات صوتية فقط بكفاءة عالية، مع ضمان تطبيق إعدادات عزل الموسيقى والترجمات على كامل القائمة بنجاح.
+
+            ### 🇬🇧 What's New in v3.3.0:
+            * **Unrestricted Resolutions:** Fixed the 360p lock issue, unlocking all available formats up to 4K with guaranteed audio merging.
+            * **Subtitle Engine Overhaul:** Eliminated duplicate subtitle downloads and fixed embedding/auto-caption issues for a seamless experience.
+            * **Flawless Audio & Playlists:** Improved vocal isolation precision and completely fixed audio-only and subtitle downloads for entire playlists.

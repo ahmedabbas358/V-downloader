@@ -35,22 +35,30 @@ object MusicRemovalEngine {
 
     private const val TAG = "MusicRemovalEngine"
 
+    /**
+     * Primary universal vocal isolation filter for in-stream FFmpeg postprocessor.
+     * Uses Mid-Side center-channel extraction + speech formant bandpass + dynamic normalizer.
+     */
+    fun getVocalIsolationFilter(): String =
+        "pan=stereo|c0=0.5*c0+0.5*c1|c1=0.5*c0+0.5*c1," +
+        "highpass=f=120," +
+        "lowpass=f=7500," +
+        "equalizer=f=150:t=q:w=1.5:g=-12," +
+        "equalizer=f=3000:t=q:w=1.0:g=3.5," +
+        "dynaudnorm=f=150:g=15"
+
     // ─────────────────────────────────────────────────────────────────────────
-    // Tier 1 — Full M/S Extraction + afftdn + anlmdn (Strongest, used first)
+    // Tier 1 — Full M/S Extraction + Bandpass + Formant EQ + Normalization
     // ─────────────────────────────────────────────────────────────────────────
-    // Mid-Side center extraction removes panned instruments.
-    // afftdn nf=-25:nr=45 aggressively suppresses music treated as noise.
-    // anlmdn s=7:p=0.002:r=0.0005:m=15 removes harmonic instrument overtones.
     private const val FILTER_TIER_1 =
         "aformat=channel_layouts=stereo," +
         "pan=stereo|c0=0.5*c0+0.5*c1|c1=0.5*c0+0.5*c1," +
-        "afftdn=nf=-25:nr=45:nt=w:om=o:tr=1," +
-        "anlmdn=s=7:p=0.002:r=0.0005:m=15," +
-        "highpass=f=100," +
-        "lowpass=f=10000," +
-        "equalizer=f=250:t=q:w=1.0:g=-4," +
-        "equalizer=f=3000:t=q:w=0.8:g=2.5," +
-        "alimiter=limit=0.98:attack=5:release=50"
+        "highpass=f=120," +
+        "lowpass=f=7500," +
+        "equalizer=f=150:t=q:w=1.5:g=-12," +
+        "equalizer=f=250:t=q:w=1.0:g=-6," +
+        "equalizer=f=3000:t=q:w=0.8:g=3.5," +
+        "dynaudnorm=f=150:g=15"
 
     // ─────────────────────────────────────────────────────────────────────────
     // Tier 2 — M/S Extraction + moderate afftdn + anlmdn (First fallback)

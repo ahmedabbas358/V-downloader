@@ -115,7 +115,7 @@ object TaskFactory {
                 splitByChapter = false,
                 videoClips = emptyList(),
                 downloadSubtitle = true,
-                autoSubtitle = preferences.autoSubtitle || preferences.subtitleLanguage.isNotEmpty(),
+                autoSubtitle = preferences.autoSubtitle,
                 subtitleLanguage = preferences.subtitleLanguage,
                 autoTranslatedSubtitles = preferences.autoTranslatedSubtitles,
                 convertSubtitle = preferences.convertSubtitle,
@@ -123,7 +123,11 @@ object TaskFactory {
                 removeMusic = false,
             )
         } else {
-            preferences.copy(removeMusic = false)
+            preferences.copy(
+                extractAudio = preferences.extractAudio,
+                removeMusic = preferences.removeMusic,
+                formatIdString = if (preferences.extractAudio) "" else (if (preferences.formatIdString.isNotEmpty()) com.junkfood.seal.download.engine.builder.FormatSelectorBuilder.ensureAudioMerged(preferences.formatIdString) else ""),
+            )
         }
 
         val taskList =

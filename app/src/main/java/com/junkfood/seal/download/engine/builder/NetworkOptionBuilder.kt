@@ -84,7 +84,7 @@ object NetworkOptionBuilder {
         addOption("--file-access-retries", "5")
         addOption("--socket-timeout", "20")
         addOption("--ignore-errors")
-        addOption("--extractor-args", "youtube:player_client=android_creator,android,web,tv_embedded,ios")
+        addOption("--extractor-args", "youtube:player_client=android,default")
         addOption("--no-check-certificates")
 
         if (forceIpv4) {

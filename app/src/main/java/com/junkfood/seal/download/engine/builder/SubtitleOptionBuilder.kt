@@ -19,8 +19,8 @@ import com.junkfood.seal.util.CONVERT_VTT
  */
 object SubtitleOptionBuilder {
 
-    /** Default subtitle language pattern: Arabic, English, originals, then all */
-    private const val DEFAULT_LANG_PATTERN = "ar.*,en.*,.*-orig,all"
+    /** Default subtitle language pattern: all available */
+    private const val DEFAULT_LANG_PATTERN = "all"
 
     /** Preferred subtitle format order for yt-dlp */
     private const val SUB_FORMAT_PREFERENCE = "srt/best/ass/vtt/lrc"
@@ -28,14 +28,10 @@ object SubtitleOptionBuilder {
     /**
      * Builds a yt-dlp --sub-langs value from a raw language string.
      *
-     * Expansion rules:
-     * - Empty or "all" -> default pattern covering Arabic, English, originals, all
-     * - Bare language code (e.g., "ar") -> "ar,ar-.*,ar-orig,.*-ar"
-     * - Already qualified codes (containing "-" or ".*") -> used as-is
-     * - Multiple codes (comma-separated) -> each expanded individually
-     *
-     * @param rawLang The raw language preference string from user settings
-     * @return Expanded language pattern for --sub-langs
+     * Clean targeting:
+     * - Empty or "all" -> "all"
+     * - Specific code (e.g. "ar") -> "ar,ar-.*" (targets Arabic without duplicate cross-translations)
+     * - Multiple codes (comma-separated) -> cleaned and joined
      */
     fun buildSubLangsOption(rawLang: String): String {
         val trimmed = rawLang.trim()
@@ -49,8 +45,8 @@ object SubtitleOptionBuilder {
         val expanded = langs.flatMap { lang ->
             when {
                 lang.equals("all", ignoreCase = true) -> listOf("all")
-                lang.contains("-") || lang.contains(".*") -> listOf(lang)
-                else -> listOf(lang, "$lang-.*", "$lang-orig", ".*-$lang")
+                lang.contains(".*") || lang.contains("-") -> listOf(lang)
+                else -> listOf(lang, "$lang-.*")
             }
         }.distinct().joinToString(",")
 
@@ -101,10 +97,13 @@ object SubtitleOptionBuilder {
     fun buildForSubtitleOnlyDownload(
         subtitleLanguage: String,
         convertSubtitle: Int,
+        autoSubtitle: Boolean = false,
+        autoTranslatedSubtitles: Boolean = false,
     ): SubtitleOptions {
+        val wantsAuto = autoSubtitle || autoTranslatedSubtitles
         return SubtitleOptions(
-            writeSubs = true,
-            writeAutoSubs = true,
+            writeSubs = !wantsAuto, // If they want auto, prioritize auto. Or maybe true if they want both. Let's make manual default unless auto is explicitly requested.
+            writeAutoSubs = wantsAuto,
             subLangs = buildSubLangsOption(subtitleLanguage),
             subFormat = SUB_FORMAT_PREFERENCE,
             convertSubs = getConvertSubsValue(convertSubtitle),
@@ -129,9 +128,10 @@ object SubtitleOptionBuilder {
         autoTranslatedSubtitles: Boolean,
         embedSubtitle: Boolean,
     ): SubtitleOptions {
+        val wantsAuto = autoSubtitle || autoTranslatedSubtitles
         return SubtitleOptions(
-            writeSubs = true,
-            writeAutoSubs = autoSubtitle || autoTranslatedSubtitles || subtitleLanguage.isNotEmpty(),
+            writeSubs = !wantsAuto || subtitleLanguage.isNotEmpty(),
+            writeAutoSubs = wantsAuto,
             subLangs = buildSubLangsOption(subtitleLanguage),
             subFormat = SUB_FORMAT_PREFERENCE,
             convertSubs = getConvertSubsValue(convertSubtitle),
