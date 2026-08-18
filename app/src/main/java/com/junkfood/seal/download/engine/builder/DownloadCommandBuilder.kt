@@ -87,7 +87,6 @@ object DownloadCommandBuilder {
 
         with(request) {
             addOption("--no-mtime")
-            addOption("--no-xattr")
             addOption("--no-part")
             addOption("--force-overwrites")
 
