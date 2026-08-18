@@ -90,17 +90,20 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Pruning older releases from GitHub..."
-          gh release list --limit 1000 --json tagName -q '.[].tagName' | while read -r tag; do
+          gh release list --limit 1000 --json tagName -q '.[].tagName' 2>/dev/null | while read -r tag; do
             if [ "$tag" != "v3.5.0" ] && [ -n "$tag" ]; then
               echo "Deleting old release for tag: $tag"
-              gh release delete "$tag" --yes --cleanup-tag || true
+              gh release delete "$tag" --yes --cleanup-tag 2>/dev/null || true
             fi
-          done
+          done || true
 
       # GitHub Release creation & APK publishing
       - name: Create & Publish GitHub Release
         uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           files: app/build/outputs/apk/generic/release/*.apk
           name: V-Downloader v3.5.0 - الإصدار الذهبي الشامل (التحديث التراكمي الأضخم)
           tag_name: v3.5.0
