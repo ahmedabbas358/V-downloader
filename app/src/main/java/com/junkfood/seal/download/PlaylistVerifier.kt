@@ -8,6 +8,8 @@ import com.junkfood.seal.util.DownloadUtil
 import com.junkfood.seal.util.DownloadUtil.DownloadPreferences
 import com.junkfood.seal.util.FileUtil
 import com.junkfood.seal.util.PreferenceUtil.getString
+import com.junkfood.seal.util.VideoInfo
+import com.junkfood.seal.download.engine.resilience.FileCollisionResolver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -377,7 +379,7 @@ object PlaylistVerifier {
                 isSubOnly = isSubOnly
             )
             val videoInfo = VideoInfo(
-                id = com.junkfood.seal.download.engine.FileCollisionResolver.extractVideoId(itemUrl, fallbackId = "item_${item.index}"),
+                id = FileCollisionResolver.extractVideoId(itemUrl, fallbackId = "item_${item.index}"),
                 title = baseTitle,
                 webpageUrl = itemUrl,
                 originalUrl = itemUrl,
