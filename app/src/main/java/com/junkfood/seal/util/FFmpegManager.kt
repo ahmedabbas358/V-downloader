@@ -159,6 +159,7 @@ object FFmpegManager {
                 "-vn",
                 "-ac", channels.toString(),
                 "-ar", sampleRate.toString(),
+                "-c:a", "pcm_s16le",
                 "-f", "wav",
                 outputWav.absolutePath
             )

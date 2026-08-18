@@ -44,24 +44,20 @@ object FileUtil {
             .onFailure { onFailureCallback(it) }
 
     private fun createIntentForFile(path: String?): Intent? {
-        if (path == null) return null
-
-        val uri =
-            path
-                .runCatching {
-                    DocumentFile.fromSingleUri(context, Uri.parse(path)).run {
-                        if (this?.exists() == true) {
-                            this.uri
-                        } else if (File(this@runCatching).exists()) {
-                            FileProvider.getUriForFile(
-                                context,
-                                context.getFileProvider(),
-                                File(this@runCatching),
-                            )
-                        } else null
-                    }
-                }
-                .getOrNull() ?: return null
+        if (path.isNullOrBlank()) return null
+        val file = File(path)
+        val uri = try {
+            if (path.startsWith("content://")) {
+                Uri.parse(path)
+            } else if (file.exists()) {
+                FileProvider.getUriForFile(context, context.getFileProvider(), file)
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to resolve URI for $path", e)
+            null
+        } ?: return null
 
         return Intent().apply {
             flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
@@ -69,22 +65,36 @@ object FileUtil {
         }
     }
 
-    fun createIntentForOpeningFile(path: String?): Intent? =
-        createIntentForFile(path)?.let { intent ->
-            intent.apply {
-                action = Intent.ACTION_VIEW
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                val extension = MimeTypeMap.getFileExtensionFromUrl(path.orEmpty())
-                val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.lowercase())
-                    ?: when {
-                        path?.contains(Regex(AUDIO_REGEX)) == true -> "audio/*"
-                        path?.contains(Regex(SUBTITLE_REGEX)) == true -> "text/plain"
-                        else -> "video/*"
-                    }
-                setDataAndType(intent.data, mimeType)
+    fun createIntentForOpeningFile(path: String?): Intent? {
+        if (path.isNullOrBlank()) return null
+        val file = File(path)
+        val uri = try {
+            if (path.startsWith("content://")) {
+                Uri.parse(path)
+            } else if (file.exists()) {
+                FileProvider.getUriForFile(context, context.getFileProvider(), file)
+            } else {
+                null
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to resolve URI for opening $path", e)
+            null
+        } ?: return null
+
+        val extension = file.extension.ifEmpty { MimeTypeMap.getFileExtensionFromUrl(path) }
+        val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.lowercase(Locale.US))
+            ?: when {
+                path.contains(Regex(AUDIO_REGEX)) -> "audio/*"
+                path.contains(Regex(SUBTITLE_REGEX)) -> "text/plain"
+                else -> "video/*"
+            }
+
+        return Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, mimeType)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
+    }
 
     fun createIntentForSharingFile(path: String?): Intent? =
         createIntentForFile(path)?.apply {
