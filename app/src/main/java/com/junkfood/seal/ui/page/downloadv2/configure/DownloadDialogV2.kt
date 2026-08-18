@@ -424,7 +424,9 @@ private fun DownloadDialogContent(
                                 val updatedPrefs = preferences.copy(
                                     extractAudio = selectedDownloadType == Audio,
                                     skipDownload = selectedDownloadType == DownloadType.Subtitle,
-                                    downloadSubtitle = if (selectedDownloadType == DownloadType.Subtitle) true else preferences.downloadSubtitle
+                                    downloadSubtitle = if (selectedDownloadType == DownloadType.Subtitle) true else preferences.downloadSubtitle,
+                                    autoSubtitle = if (selectedDownloadType == DownloadType.Subtitle) true else preferences.autoSubtitle,
+                                    autoTranslatedSubtitles = if (selectedDownloadType == DownloadType.Subtitle) true else preferences.autoTranslatedSubtitles,
                                 )
                                 onActionPost(
                                     Action.FetchPlaylistSubtitleFormats(
@@ -463,7 +465,9 @@ private fun DownloadDialogContent(
                                     preferences = preferences.copy(
                                         extractAudio = selectedDownloadType == Audio,
                                         skipDownload = selectedDownloadType == DownloadType.Subtitle,
-                                        downloadSubtitle = if (selectedDownloadType == DownloadType.Subtitle) true else preferences.downloadSubtitle
+                                        downloadSubtitle = if (selectedDownloadType == DownloadType.Subtitle) true else preferences.downloadSubtitle,
+                                        autoSubtitle = if (selectedDownloadType == DownloadType.Subtitle) true else preferences.autoSubtitle,
+                                        autoTranslatedSubtitles = if (selectedDownloadType == DownloadType.Subtitle) true else preferences.autoTranslatedSubtitles,
                                     ),
                                 )
                             )
@@ -740,7 +744,9 @@ private fun ConfigurePage(
                             downloadPlaylist = isPlaylist,
                             extractAudio = selectedType == Audio,
                             skipDownload = selectedType == DownloadType.Subtitle,
-                            downloadSubtitle = if (selectedType == DownloadType.Subtitle) true else preferences.downloadSubtitle
+                            downloadSubtitle = if (selectedType == DownloadType.Subtitle) true else preferences.downloadSubtitle,
+                            autoSubtitle = if (selectedType == DownloadType.Subtitle) true else preferences.autoSubtitle,
+                            autoTranslatedSubtitles = if (selectedType == DownloadType.Subtitle) true else preferences.autoTranslatedSubtitles,
                         ),
                     )
                 )
@@ -762,6 +768,8 @@ private fun ConfigurePage(
                                 extractAudio = selectedType == Audio,
                                 skipDownload = selectedType == DownloadType.Subtitle,
                                 downloadSubtitle = if (selectedType == DownloadType.Subtitle) true else preferences.downloadSubtitle,
+                                autoSubtitle = if (selectedType == DownloadType.Subtitle) true else preferences.autoSubtitle,
+                                autoTranslatedSubtitles = if (selectedType == DownloadType.Subtitle) true else preferences.autoTranslatedSubtitles,
                             )
                         )
                     )
@@ -774,6 +782,8 @@ private fun ConfigurePage(
                                 extractAudio = selectedType == Audio,
                                 skipDownload = selectedType == DownloadType.Subtitle,
                                 downloadSubtitle = if (selectedType == DownloadType.Subtitle) true else preferences.downloadSubtitle,
+                                autoSubtitle = if (selectedType == DownloadType.Subtitle) true else preferences.autoSubtitle,
+                                autoTranslatedSubtitles = if (selectedType == DownloadType.Subtitle) true else preferences.autoTranslatedSubtitles,
                             ),
                         )
                     )

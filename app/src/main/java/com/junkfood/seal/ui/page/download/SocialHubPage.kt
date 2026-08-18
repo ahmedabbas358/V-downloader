@@ -316,6 +316,8 @@ private fun EmbeddedPlaylistSyncView(
             extractAudio = selectedType == 1,
             skipDownload = selectedType == 2,
             downloadSubtitle = if (selectedType == 2) true else basePrefs.downloadSubtitle,
+            autoSubtitle = if (selectedType == 2) true else basePrefs.autoSubtitle,
+            autoTranslatedSubtitles = if (selectedType == 2) true else basePrefs.autoTranslatedSubtitles,
             removeMusic = false
         )
     }

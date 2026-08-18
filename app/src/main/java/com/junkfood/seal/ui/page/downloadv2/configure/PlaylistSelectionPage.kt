@@ -157,6 +157,8 @@ fun PlaylistSelectionPage(
                         extractAudio = type == Audio,
                         skipDownload = type == DownloadType.Subtitle,
                         downloadSubtitle = if (type == DownloadType.Subtitle) true else preferences.downloadSubtitle,
+                        autoSubtitle = if (type == DownloadType.Subtitle) true else preferences.autoSubtitle,
+                        autoTranslatedSubtitles = if (type == DownloadType.Subtitle) true else preferences.autoTranslatedSubtitles,
                     )
                     
                     val updatedTasks = taskList.map { it.copy(task = it.task.copy(preferences = updatedPreferences)) }

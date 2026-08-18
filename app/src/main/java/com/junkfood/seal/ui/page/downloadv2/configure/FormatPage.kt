@@ -195,7 +195,7 @@ fun FormatPage(
 
             if (playlistTasks != null) {
                 val hasSelectedSubs = selectedSubtitles.isNotEmpty() || selectedAutoCaptions.isNotEmpty()
-                val chosenSubs = if (selectedSubtitles.isNotEmpty()) selectedSubtitles else selectedAutoCaptions
+                val chosenSubs = (selectedSubtitles + selectedAutoCaptions).distinct()
                 val subLangString = if (chosenSubs.isNotEmpty()) chosenSubs.joinToString(",") else ""
 
                 playlistTasks.forEach { taskWithState ->
@@ -206,10 +206,10 @@ fun FormatPage(
                             formatIdString = if (isSubOnly) "" else playlistFormatId,
                             extractAudio = if (isSubOnly) false else (taskWithState.task.preferences.extractAudio || isAudioOnlyPlaylist),
                             mergeAudioStream = if (isSubOnly) false else mergeAudioStreamPlaylist,
-                            downloadSubtitle = true,
+                            downloadSubtitle = if (isSubOnly) true else (hasSelectedSubs || taskWithState.task.preferences.downloadSubtitle),
                             convertSubtitle = subtitleFormat,
-                            autoSubtitle = selectedAutoCaptions.isNotEmpty() || isSubOnly,
-                            autoTranslatedSubtitles = selectedSubtitles.isEmpty() && selectedAutoCaptions.isNotEmpty(),
+                            autoSubtitle = true,
+                            autoTranslatedSubtitles = true,
                             subtitleLanguage = if (subLangString.isNotEmpty()) subLangString else taskWithState.task.preferences.subtitleLanguage,
                             splitByChapter = if (isSubOnly) false else splitByChapter,
                             newTitle = newTitle,
