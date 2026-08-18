@@ -40,15 +40,13 @@ object MusicRemovalEngine {
      * Uses Mid-Side center-channel extraction + speech formant bandpass + dynamic normalizer.
      */
     fun getVocalIsolationFilter(): String =
-        "aformat=channel_layouts=stereo," +
-        "pan=stereo|c0=0.5*c0+0.5*c1|c1=0.5*c0+0.5*c1," +
+        "aformat=channel_layouts=mono," +
         "afftdn=nf=-25:nr=50:nt=w:om=o," +
-        "anlmdn=s=7:p=0.005:r=0.005:m=20," +
+        "anlmdn=s=7:p=0.002:r=0.002:m=15," +
         "highpass=f=150," +
         "lowpass=f=6500," +
-        "equalizer=f=150:t=q:w=2.0:g=-15," +
+        "equalizer=f=150:t=q:w=2.0:g=-14," +
         "equalizer=f=3000:t=q:w=1.0:g=5.0," +
-        "compand=attacks=0.05:decays=0.2:points=-80/-80|-45/-80|-35/-20|0/0," +
         "dynaudnorm=f=150:g=15," +
         "alimiter=limit=0.95"
 

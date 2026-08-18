@@ -78,7 +78,8 @@ object TaskFactory {
                         skipDownload = skipDownload,
                         downloadSubtitle = downloadSubtitle || skipDownload || hasSelectedSubs,
                         convertSubtitle = subtitleFormat,
-                        autoSubtitle = if (hasSelectedSubs) selectedAutoCaptions.isNotEmpty() else (autoSubtitle || skipDownload),
+                        autoSubtitle = if (hasSelectedSubs) true else (autoSubtitle || skipDownload),
+                        autoTranslatedSubtitles = if (hasSelectedSubs) true else autoTranslatedSubtitles,
                         subtitleLanguage = if (hasSelectedSubs) subtitleLanguage else this.subtitleLanguage,
                     )
                 }

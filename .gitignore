@@ -15,7 +15,6 @@
 .externalNativeBuild
 .cxx
 local.properties
-/keystore.properties
 .kotlin
 *.patch
 *.diff

@@ -358,8 +358,11 @@ object PlaylistVerifier {
             val itemPrefs = item.preferences.copy(
                 downloadPlaylist = false,
                 playlistNumbering = true,
+                useDownloadArchive = false,
                 skipDownload = isSubOnly,
                 downloadSubtitle = if (isSubOnly) true else item.preferences.downloadSubtitle,
+                autoSubtitle = if (isSubOnly) true else item.preferences.autoSubtitle,
+                autoTranslatedSubtitles = if (isSubOnly) true else item.preferences.autoTranslatedSubtitles,
                 extractAudio = if (isSubOnly) false else isAudioOnly,
                 commandDirectory = targetDirectory.ifBlank { item.preferences.commandDirectory },
                 subdirectoryPlaylistTitle = false,

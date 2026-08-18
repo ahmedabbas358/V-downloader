@@ -925,17 +925,34 @@ private fun RenameDialog(
     )
 }
 
+private fun getLocalizedSubtitleName(code: String, formatName: String?): String {
+    val cleanCode = code.substringBefore("-")
+    val locale = try {
+        val loc = java.util.Locale.forLanguageTag(code)
+        if (loc.displayName.isNotBlank()) loc else java.util.Locale.forLanguageTag(cleanCode)
+    } catch (e: Exception) {
+        null
+    }
+    val localName = locale?.getDisplayName(java.util.Locale.getDefault())?.replaceFirstChar { it.uppercase() }
+    return when {
+        !localName.isNullOrBlank() && !formatName.isNullOrBlank() && !localName.equals(formatName, ignoreCase = true) ->
+            "$localName ($formatName)"
+        !localName.isNullOrBlank() -> localName
+        !formatName.isNullOrBlank() -> formatName
+        else -> code
+    }
+}
+
 private fun (Map<String, List<SubtitleFormat>>).filterWithSearchText(
     searchText: String
 ): Map<String, List<SubtitleFormat>> {
-    return this.filter {
-        it.run {
-            searchText.isBlank() ||
-                key.contains(searchText, ignoreCase = true) ||
-                value.any { format ->
-                    format.name?.contains(searchText, ignoreCase = true) ?: false
-                }
-        }
+    return this.filter { (code, formats) ->
+        if (searchText.isBlank()) return@filter true
+        val formatName = formats.firstOrNull()?.name.orEmpty()
+        val localized = getLocalizedSubtitleName(code, formatName)
+        code.contains(searchText, ignoreCase = true) ||
+            formatName.contains(searchText, ignoreCase = true) ||
+            localized.contains(searchText, ignoreCase = true)
     }
 }
 
@@ -1044,7 +1061,7 @@ private fun SubtitleSelectionDialog(
                                         selectedSubtitlesState.add(code)
                                     }
                                 },
-                                text = formats.first().run { name ?: protocol ?: code },
+                                text = getLocalizedSubtitleName(code, formats.firstOrNull()?.name ?: formats.firstOrNull()?.protocol ?: code),
                             )
                         }
                     }
@@ -1070,7 +1087,7 @@ private fun SubtitleSelectionDialog(
                                             selectedAutoCaptionsState.add(code)
                                         }
                                     },
-                                    text = formats.first().run { name ?: protocol ?: code },
+                                    text = getLocalizedSubtitleName(code, formats.firstOrNull()?.name ?: formats.firstOrNull()?.protocol ?: code),
                                 )
                             }
                         }

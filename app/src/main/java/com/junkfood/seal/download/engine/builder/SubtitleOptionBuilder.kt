@@ -45,8 +45,9 @@ object SubtitleOptionBuilder {
         val expanded = langs.flatMap { lang ->
             when {
                 lang.equals("all", ignoreCase = true) -> listOf("all")
-                lang.contains(".*") || lang.contains("-") -> listOf(lang)
-                else -> listOf(lang, "$lang-.*")
+                lang.contains(".*") -> listOf(lang)
+                lang.contains("-") -> listOf(lang, "${lang.substringBefore("-")}.*")
+                else -> listOf(lang, "$lang-.*", ".*-$lang", "$lang-orig")
             }
         }.distinct().joinToString(",")
 
@@ -97,13 +98,12 @@ object SubtitleOptionBuilder {
     fun buildForSubtitleOnlyDownload(
         subtitleLanguage: String,
         convertSubtitle: Int,
-        autoSubtitle: Boolean = false,
-        autoTranslatedSubtitles: Boolean = false,
+        autoSubtitle: Boolean = true,
+        autoTranslatedSubtitles: Boolean = true,
     ): SubtitleOptions {
-        val wantsAuto = autoSubtitle || autoTranslatedSubtitles
         return SubtitleOptions(
-            writeSubs = !wantsAuto, // If they want auto, prioritize auto. Or maybe true if they want both. Let's make manual default unless auto is explicitly requested.
-            writeAutoSubs = wantsAuto,
+            writeSubs = true,
+            writeAutoSubs = true,
             subLangs = buildSubLangsOption(subtitleLanguage),
             subFormat = SUB_FORMAT_PREFERENCE,
             convertSubs = getConvertSubsValue(convertSubtitle),
@@ -124,14 +124,13 @@ object SubtitleOptionBuilder {
     fun buildForMediaWithSubtitles(
         subtitleLanguage: String,
         convertSubtitle: Int,
-        autoSubtitle: Boolean,
-        autoTranslatedSubtitles: Boolean,
-        embedSubtitle: Boolean,
+        autoSubtitle: Boolean = true,
+        autoTranslatedSubtitles: Boolean = true,
+        embedSubtitle: Boolean = false,
     ): SubtitleOptions {
-        val wantsAuto = autoSubtitle || autoTranslatedSubtitles
         return SubtitleOptions(
-            writeSubs = !wantsAuto || subtitleLanguage.isNotEmpty(),
-            writeAutoSubs = wantsAuto,
+            writeSubs = true,
+            writeAutoSubs = true,
             subLangs = buildSubLangsOption(subtitleLanguage),
             subFormat = SUB_FORMAT_PREFERENCE,
             convertSubs = getConvertSubsValue(convertSubtitle),

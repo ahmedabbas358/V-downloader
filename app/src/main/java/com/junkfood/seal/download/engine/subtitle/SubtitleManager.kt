@@ -80,7 +80,9 @@ object SubtitleManager {
         return if (preferences.skipDownload) {
             SubtitleOptionBuilder.buildForSubtitleOnlyDownload(
                 subtitleLanguage = preferences.subtitleLanguage,
-                convertSubtitle = preferences.convertSubtitle
+                convertSubtitle = preferences.convertSubtitle,
+                autoSubtitle = preferences.autoSubtitle,
+                autoTranslatedSubtitles = preferences.autoTranslatedSubtitles,
             )
         } else {
             SubtitleOptionBuilder.buildForMediaWithSubtitles(

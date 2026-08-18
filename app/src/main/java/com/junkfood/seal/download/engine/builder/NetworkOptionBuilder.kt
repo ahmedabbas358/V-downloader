@@ -83,7 +83,8 @@ object NetworkOptionBuilder {
         addOption("--fragment-retries", "10")
         addOption("--file-access-retries", "5")
         addOption("--socket-timeout", "20")
-        addOption("--ignore-errors")
+        // NOTE: --ignore-errors removed intentionally — it silently swallows failures
+        // causing tasks to vanish from the queue without any error shown to the user.
         addOption("--extractor-args", "youtube:player_client=android,default")
         addOption("--no-check-certificates")
 

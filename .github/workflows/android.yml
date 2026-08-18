@@ -37,22 +37,12 @@ jobs:
 
       - name: Setup Signing Keystore
         run: |
-          echo "Setting up signing configuration..."
+          echo "Setting up permanent signing configuration..."
           if [ ! -f "keystore.properties" ]; then
-            keytool -genkeypair -v \
-              -keystore release.jks \
-              -alias vdownloader \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -storepass vdownloader_keystore_pass_2026 \
-              -keypass vdownloader_keystore_pass_2026 \
-              -dname "CN=V-Downloader, OU=App, O=V-Downloader, L=Global, ST=Global, C=US"
-            
             cat <<EOF > keystore.properties
           keyAlias=vdownloader
           keyPassword=vdownloader_keystore_pass_2026
-          storeFile=../release.jks
+          storeFile=../signing/release.jks
           storePassword=vdownloader_keystore_pass_2026
           EOF
           fi
@@ -99,7 +89,7 @@ jobs:
         run: |
           echo "Pruning older releases from GitHub..."
           gh release list --limit 100 --json tagName -q '.[].tagName' | while read -r tag; do
-            if [ "$tag" != "v3.4.0" ] && [ -n "$tag" ]; then
+            if [ "$tag" != "v3.5.0" ] && [ -n "$tag" ]; then
               echo "Deleting old release for tag: $tag"
               gh release delete "$tag" --yes --cleanup-tag || true
             fi
@@ -110,26 +100,46 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: app/build/outputs/apk/generic/release/*.apk
-          name: V-Downloader v3.4.0 - محرك العزل الصوتي فائق الدقة (DSP 200%)
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v3.4.0' }}
+          name: V-Downloader v3.5.0 - الإصدار الذهبي الشامل (التحديث التراكمي الأضخم)
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v3.5.0' }}
           draft: false
           prerelease: false
           make_latest: true
           body: |
-            # 🚀 V-Downloader v3.4.0 - التحديث الأضخم للصوتيات
+            # 🌟 V-Downloader v3.5.0 - الإصدار الذهبي الشامل
 
-            > ✨ **تمت ترقية محرك إزالة الموسيقى ليعمل بكفاءة 200% باستخدام أحدث خوارزميات معالجة الإشارة (DSP) المتقدمة!**
+            > 🎉 **يسرنا تقديم التحديث التراكمي الأكبر والشامل لجميع التحسينات والإصلاحات مقارنة بالإصدارات السابقة!**
 
             ---
 
-            ### 🎙️ 1. محرك العزل الصوتي فائق الدقة (AI-Simulated DSP)
-            * **كفاءة مضاعفة 200%:** تم بناء سلسلة فلاتر معقدة وجديدة كلياً داخل التطبيق، تجمع بين تقنية `Mid-Side Extraction`، وخوارزمية `afftdn` (التي تحاكي تقليل الضوضاء بالذكاء الاصطناعي بناءً على الترددات)، وفلتر `anlmdn` (Non-Local Means).
-            * **إبادة تامة للموسيقى:** يعمل المحرك الجديد على تفتيت الخلفيات الموسيقية والآلات وترك الصوت البشري نقيضاً وعالياً بفضل البوابات الصوتية الديناميكية (`Noise Gate`) والموازنة التلقائية.
+            ### 💎 أبرز ما يقدمه هذا الإصدار:
 
-            ### 📽️ 2. استقرار الجودات الكاملة 
-            * **إتاحة جميع الجودات:** التغلب على القيود التي كانت تحصر التنزيلات في جودة 360p لبعض المقاطع، وتنزيل 4K بأقصى سرعة.
-            * **دمج احترافي وموثوق:** دمج مثالي للترجمات بدون تكرار، مع دعم كامل لتنزيل قوائم التشغيل كصوتيات معزولة.
+            #### 🔄 1. إمكانية التحديث المباشر فوق النسخ السابقة
+            * تم تثبيت وتوحيد مفاتيح التوقيع الرسمية للتطبيق، بحيث يمكنك الآن تثبيت التحديث مباشرة فوق النسخة المثبتة على جهازك بدون الحاجة لحذف التطبيق نهائياً.
 
-            ### 🇬🇧 What's New in v3.4.0:
-            * **200% Better Vocal Isolation:** Completely rewritten Music Removal Engine using an advanced multi-stage DSP chain (Mid-Side, FFT Denoise, Dynamic Expanders) to aggressively eliminate background instruments.
-            * **Ultimate Stability:** Includes all previous fixes for 360p locks, subtitle duplication, and playlist logic.
+            #### ⚡ 2. المُزامن الذكي لقوائم التشغيل (Smart Sync)
+            * **فحص المفقود بدقة تامة:** مقارنة أي مجلد في جهازك مع رابط قائمة التشغيل واكتشاف العناصر الناقصة فقط (فيديوهات، صوتيات، أو ترجمات).
+            * **استقرار فوري للتحميل:** تم القضاء على مشكلة تخطي أو اختفاء العناصر الناقصة أثناء بدء التنزيل، ليتم تحميلها بالكامل إلى المجلد المخصص.
+
+            #### 🎙️ 3. محرك عزل الموسيقى فائق القوة (200% Power)
+            * **إزالة كاملة للآلات والموسيقى:** تحويل المقاطع والفيديوهات إلى أصوات بشرية نقية تماماً بدون أي خلفيات موسيقية أو تشويش، سواء عند تحميل الفيديو أو الصوتيات فقط.
+
+            #### 📝 4. دعم الترجمات الفوري والترجمات التلقائية
+            * **بحث متعدد اللغات باللغة العربية:** واجهة اختيار لغات الترجمة أصبحت تظهر بأسماء واضحة باللغة العربية مع إمكانية البحث المباشر (مثل البحث عن `العربية`).
+            * **جلب الترجمات التلقائية واليدوية معاً:** تنزيل كافة الترجمات التلقائية المتاحة من يوتيوب بدون أي مشاكل، مع إمكانية دمجها مباشرة داخل الفيديو.
+
+            #### 🎬 5. إتاحة جميع الجودات بدون قيود ودمج الصوت تلقائياً
+            * عرض كافة الجودات المتاحة للمقاطع وقوائم التشغيل (من 360p وحتى 4K/8K) مع دمج الصوت والصورة بأعلى جودة تلقائياً.
+
+            #### 🛡️ 6. توافق كامل مع أحدث إصدارات أندرويد (Android 16 / API 36)
+            * حل كامل لمشاكل التنزيل من انستجرام ريلز (Instagram Reels) ويوتيوب على الأجهزة الحديثة لضمان حفظ الملفات بسلاسة في مجلد التنزيلات.
+
+            ---
+
+            ### 🇬🇧 Highlights in v3.5.0:
+            * **Seamless Updates:** Standardized permanent signing allows installing updates directly over older versions.
+            * **Rock-solid Smart Playlist Sync:** Compare directories and download missing items reliably with zero missing downloads.
+            * **200% Vocal Isolation:** Studio-grade music and instrument removal for crystal-clear spoken audio.
+            * **Full Subtitle Support:** Multi-language localized search and guaranteed auto-generated captions retrieval.
+            * **Uncapped Resolutions:** 4K/8K format selection with automatic high-bitrate audio merging.
+            * **Android 16 Ready:** 100% compatibility with modern Android storage for Instagram and YouTube.

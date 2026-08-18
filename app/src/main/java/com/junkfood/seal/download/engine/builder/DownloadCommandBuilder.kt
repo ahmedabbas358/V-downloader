@@ -87,6 +87,8 @@ object DownloadCommandBuilder {
 
         with(request) {
             addOption("--no-mtime")
+            addOption("--no-xattr")
+            addOption("--no-part")
             addOption("--force-overwrites")
 
             if (preferences.skipDownload) {
@@ -134,8 +136,14 @@ object DownloadCommandBuilder {
             }
 
             if (preferences.sdcard) {
-                addOption("-P", appContext.getSdcardTempDir(videoInfo.id).absolutePath)
+                val tempDir = appContext.getSdcardTempDir(videoInfo.id)
+                tempDir.mkdirs()
+                addOption("-P", tempDir.absolutePath)
             } else {
+                val downloadDir = java.io.File(pathBuilder.toString())
+                if (!downloadDir.exists()) {
+                    downloadDir.mkdirs()
+                }
                 addOption("-P", pathBuilder.toString())
             }
 
@@ -371,9 +379,13 @@ object DownloadCommandBuilder {
         if (options.subFormat.isNotEmpty()) request.addOption("--sub-format", options.subFormat)
         if (options.embedSubs) {
             request.addOption("--embed-subs")
-            request.addOption("--compat-options", "no-keep-subs")
+            // NOTE: no-keep-subs removed -- it deletes external .srt/.vtt even when embedding fails.
         }
-        if (options.convertSubs.isNotEmpty()) request.addOption("--convert-subs", options.convertSubs)
+        if (options.convertSubs.isNotEmpty()) {
+            request.addOption("--convert-subs", options.convertSubs)
+        } else if (options.embedSubs) {
+            request.addOption("--convert-subs", "srt")
+        }
     }
 
     private fun applyFormatSorter(
