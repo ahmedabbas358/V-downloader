@@ -398,8 +398,8 @@ object PlaylistVerifier {
                 )
             )
             val state = Task.State(
-                downloadState = Task.DownloadState.ReadyWithInfo,
-                videoInfo = videoInfo,
+                downloadState = Task.DownloadState.Idle,
+                videoInfo = null,
                 viewState = viewState
             )
             downloader.enqueue(TaskFactory.TaskWithState(task, state))

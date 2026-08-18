@@ -7,6 +7,7 @@ import com.junkfood.seal.util.CONVERT_LRC
 import com.junkfood.seal.util.CONVERT_SRT
 import com.junkfood.seal.util.CONVERT_VTT
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 

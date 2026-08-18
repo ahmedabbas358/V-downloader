@@ -58,33 +58,67 @@ object NativeDspFallbackSeparationEngine : AudioSeparationEngine {
             val sideSpec = STFT.stft(side, nFft, hopLength)
 
             val hzPerBin = sampleRate.toFloat() / nFft
-            val vocalMinBin = (120f / hzPerBin).toInt().coerceIn(0, midSpec.numBins - 1)
-            val vocalMaxBin = (7500f / hzPerBin).toInt().coerceIn(0, midSpec.numBins - 1)
+            val subBassCutBin = (150f / hzPerBin).toInt().coerceIn(0, midSpec.numBins - 1)
+            val vocalMinBin = (200f / hzPerBin).toInt().coerceIn(0, midSpec.numBins - 1)
+            val vocalMaxBin = (4200f / hzPerBin).toInt().coerceIn(0, midSpec.numBins - 1)
+            val highCutBin = (5500f / hzPerBin).toInt().coerceIn(0, midSpec.numBins - 1)
 
             val cleanReal = Array(midSpec.numBins) { FloatArray(midSpec.numFrames) }
             val cleanImag = Array(midSpec.numBins) { FloatArray(midSpec.numFrames) }
 
             for (f in 0 until midSpec.numFrames) {
+                // Compute local frame spectral profile for formant detection
+                val mags = FloatArray(midSpec.numBins)
+                var frameEnergy = 0f
+                for (b in 0 until midSpec.numBins) {
+                    val mR = midSpec.real[b][f]
+                    val mI = midSpec.imag[b][f]
+                    val m = sqrt(mR * mR + mI * mI)
+                    mags[b] = m
+                    frameEnergy += m
+                }
+                val frameAvg = frameEnergy / midSpec.numBins
+
                 for (b in 0 until midSpec.numBins) {
                     val mR = midSpec.real[b][f]
                     val mI = midSpec.imag[b][f]
                     val sR = sideSpec.real[b][f]
                     val sI = sideSpec.imag[b][f]
 
-                    val midMag = sqrt(mR * mR + mI * mI)
+                    val midMag = mags[b]
                     val sideMag = sqrt(sR * sR + sI * sI)
 
-                    // Compute center-to-side ratio (Vocals are centered, instruments are stereo/panned)
+                    // 1. Stereo side cancellation (cancels panned guitars, synths, stereo effects)
                     val centerRatio = if (midMag + sideMag > 1e-6f) {
-                        (midMag / (midMag + sideMag * 1.5f)).coerceIn(0.05f, 1.0f)
+                        ((midMag - sideMag * 1.2f) / (midMag + 1e-6f)).coerceIn(0.05f, 1.0f)
                     } else {
-                        0.5f
+                        0.2f
+                    }
+
+                    // 2. Harmonic formant prominence (extracts vocal peaks, suppresses stationary musical pads)
+                    val windowStart = (b - 6).coerceAtLeast(0)
+                    val windowEnd = (b + 6).coerceAtMost(midSpec.numBins - 1)
+                    var localSum = 0f
+                    var localCount = 0
+                    for (wb in windowStart..windowEnd) {
+                        localSum += mags[wb]
+                        localCount++
+                    }
+                    val localAvg = if (localCount > 0) localSum / localCount else frameAvg
+                    val isFormantPeak = midMag > localAvg * 1.25f && midMag > frameAvg * 0.7f
+
+                    val formantGain = if (isFormantPeak) {
+                        (midMag / (localAvg * 1.8f)).coerceIn(0.4f, 1.0f)
+                    } else {
+                        0.06f // Heavily suppress non-formant broadband music
                     }
 
                     val freqGain = when {
-                        b < vocalMinBin -> 0.05f // Bass / kick drum cut
-                        b in vocalMinBin..vocalMaxBin -> centerRatio
-                        else -> centerRatio * 0.4f // Cymbals / hi-hats cut
+                        b < subBassCutBin -> 0.01f // Kill sub-bass, 808s, kicks
+                        b < vocalMinBin -> 0.08f // Bass guitars
+                        b in vocalMinBin..vocalMaxBin -> (centerRatio * formantGain).coerceIn(0.04f, 1.0f)
+                        b in vocalMaxBin..highCutBin -> (centerRatio * 0.15f) // Upper sibilance
+                        else -> 0.01f // High frequency percussion, cymbals, synths
                     }
 
                     cleanReal[b][f] = mR * freqGain

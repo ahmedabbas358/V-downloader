@@ -113,19 +113,21 @@ object AudioSeparationPipeline {
             val (rawLeft, rawRight) = readPcmWav(decodedWav)
 
             // 3. Select separation engine
-            val engine: AudioSeparationEngine = when {
-                options.enableEnsemble || options.qualityMode == QualityMode.MAX_QUALITY -> {
-                    EnsembleSeparationEngine(
-                        primaryEngine = MdxSeparationEngine(ModelRegistry.MDX_VOCALS_DEFAULT),
-                        secondaryEngine = NativeDspFallbackSeparationEngine
-                    )
+            val isModelReady = ModelManager.isModelAvailable(ModelRegistry.MDX_VOCALS_DEFAULT, appContext)
+            val engine: AudioSeparationEngine = if (isModelReady) {
+                when {
+                    options.enableEnsemble || options.qualityMode == QualityMode.MAX_QUALITY -> {
+                        EnsembleSeparationEngine(
+                            primaryEngine = MdxSeparationEngine(ModelRegistry.MDX_VOCALS_DEFAULT),
+                            secondaryEngine = NativeDspFallbackSeparationEngine
+                        )
+                    }
+                    else -> {
+                        MdxSeparationEngine(ModelRegistry.MDX_VOCALS_DEFAULT)
+                    }
                 }
-                options.qualityMode == QualityMode.BALANCED -> {
-                    MdxSeparationEngine(ModelRegistry.MDX_VOCALS_DEFAULT)
-                }
-                else -> {
-                    NativeDspFallbackSeparationEngine
-                }
+            } else {
+                NativeDspFallbackSeparationEngine
             }
 
             // 4. Run Separation
@@ -139,23 +141,24 @@ object AudioSeparationPipeline {
                 }
             )
 
-            // 5. Post-processing: Residual Music Suppression & Speech Enhancement
+            // 5. Post-processing: Strong Residual Music Suppression & Speech Enhancement
             onProgress?.invoke(0.80f, "تطبيق تصفية الترددات المتبقية وتعزيز نقاء الكلام...")
-            val (suppLeft, suppRight) = if (options.qualityMode != QualityMode.FAST) {
-                ResidualMusicSuppressor.suppressResidualsStereo(
-                    leftChannel = sepResult.vocalLeft,
-                    rightChannel = sepResult.vocalRight,
-                    sampleRate = 44100,
-                    suppressionStrength = options.residualSuppressionStrength
-                )
-            } else {
-                Pair(sepResult.vocalLeft, sepResult.vocalRight)
+            val suppressionStrength = when (options.qualityMode) {
+                QualityMode.FAST -> 0.65f
+                QualityMode.BALANCED -> 0.85f
+                QualityMode.MAX_QUALITY -> 0.95f
             }
+            val (suppLeft, suppRight) = ResidualMusicSuppressor.suppressResidualsStereo(
+                leftChannel = sepResult.vocalLeft,
+                rightChannel = sepResult.vocalRight,
+                sampleRate = 44100,
+                suppressionStrength = suppressionStrength
+            )
 
             val (finalLeft, finalRight) = SpeechEnhancer.enhanceStereo(
                 left = suppLeft,
                 right = suppRight,
-                presenceBoostDb = options.speechEnhancementDb
+                presenceBoostDb = options.speechEnhancementDb.coerceAtLeast(3.0f)
             )
 
             // 6. Write to clean output WAV

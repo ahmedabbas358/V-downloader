@@ -36,17 +36,18 @@ data class ExtractionContext(
  */
 object YoutubeClientStrategy {
 
-    // Default primary client chains for normal operation
+    // Default primary client chains for normal operation (Web/iOS avoids SABR-only streams on Android)
     private val DEFAULT_CHAIN = listOf(
-        YoutubeClient.ANDROID,
+        YoutubeClient.WEB,
+        YoutubeClient.IOS,
         YoutubeClient.DEFAULT
     )
 
     private val FALLBACK_CHAINS = listOf(
-        listOf(YoutubeClient.ANDROID, YoutubeClient.DEFAULT),
-        listOf(YoutubeClient.IOS, YoutubeClient.WEB),
-        listOf(YoutubeClient.MWEB, YoutubeClient.ANDROID),
-        listOf(YoutubeClient.WEB, YoutubeClient.DEFAULT)
+        listOf(YoutubeClient.WEB, YoutubeClient.IOS, YoutubeClient.DEFAULT),
+        listOf(YoutubeClient.IOS, YoutubeClient.MWEB),
+        listOf(YoutubeClient.MWEB, YoutubeClient.WEB),
+        listOf(YoutubeClient.ANDROID_EMBED, YoutubeClient.WEB, YoutubeClient.DEFAULT)
     )
 
     /**

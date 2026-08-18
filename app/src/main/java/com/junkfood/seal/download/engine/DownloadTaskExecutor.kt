@@ -258,6 +258,61 @@ object DownloadTaskExecutor {
                 // Handle SponsorBlock failure gracefully
                 if (task.preferences.sponsorBlock && error?.message?.contains("SponsorBlock", ignoreCase = true) == true) {
                     Log.w(TAG, "SponsorBlock failed, proceeding with post-processing: ${error.message}")
+                } else if (task.preferences.downloadSubtitle && !task.preferences.skipDownload &&
+                    (error?.message?.contains("subtitles", ignoreCase = true) == true ||
+                     error?.message?.contains("subtitle", ignoreCase = true) == true ||
+                     error?.message?.contains("429", ignoreCase = true) == true)
+                ) {
+                    Log.w(TAG, "Subtitle download failed during media download (${error?.message}), falling back to media-only download...")
+                    val fallbackPreferences = task.preferences.copy(downloadSubtitle = false)
+                    val fallbackRequest = DownloadCommandBuilder.buildDownloadRequest(
+                        url = videoInfo.originalUrl ?: videoInfo.webpageUrl ?: task.url,
+                        videoInfo = videoInfo,
+                        preferences = fallbackPreferences,
+                        isAudioDownload = isAudioDownload,
+                        playlistItem = playlistItem,
+                        playlistUrl = sourcePlaylistUrl,
+                        fallbackPlaylistTitle = fallbackPlaylistTitle,
+                        isFallback = isFallback,
+                        appContext = appContext,
+                    )
+                    val retryResult = runCatching {
+                        YoutubeDL.getInstance().execute(
+                            request = fallbackRequest,
+                            processId = task.id,
+                            callback = { progressPercentage, _, text ->
+                                for (pattern in pathPatterns) {
+                                    val match = pattern.find(text)
+                                    if (match != null) {
+                                        val captured = match.groupValues[1].trim().removeSurrounding("\"").removeSurrounding("'")
+                                        if (captured.isNotBlank() && (captured.startsWith("/") || captured.contains(":\\"))) {
+                                            discoveredPaths.add(captured)
+                                        }
+                                    }
+                                }
+                                val isMerging = text.contains("Merger", ignoreCase = true) ||
+                                        text.contains("ffmpeg", ignoreCase = true) ||
+                                        text.contains("Postprocessor", ignoreCase = true) ||
+                                        text.contains("Merging", ignoreCase = true) ||
+                                        text.contains("ExtractAudio", ignoreCase = true)
+
+                                val effectiveProgress = when {
+                                    isMerging -> 0.95f
+                                    else -> (progressPercentage / 100f).coerceIn(0f, 0.99f)
+                                }
+                                val effectiveText = if (isMerging) "جاري دمج الصوت والفيديو..." else text
+
+                                val currentTime = System.currentTimeMillis()
+                                if (currentTime - lastUpdateTime > 250L || isMerging) {
+                                    lastUpdateTime = currentTime
+                                    onProgressUpdate(effectiveProgress, effectiveText)
+                                }
+                            }
+                        )
+                    }
+                    if (retryResult.isFailure) {
+                        return@withContext Result.failure(retryResult.exceptionOrNull() ?: IllegalStateException("فشل التحميل"))
+                    }
                 } else {
                     return@withContext Result.failure(error ?: IllegalStateException("فشل التحميل"))
                 }

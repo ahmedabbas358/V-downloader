@@ -376,21 +376,22 @@ class DownloadQueueManager(
                     )
                 )
 
+                val notifId = task.id.hashCode()
                 val notifText = appContext.getString(
                     if (pathList.isEmpty()) R.string.status_completed else R.string.download_finish_notification
                 )
                 val openIntent = FileUtil.createIntentForOpeningFile(primaryPath)
                 val notifPendingIntent = if (openIntent != null) {
-                    PendingIntent.getActivity(appContext, 0, openIntent, PendingIntent.FLAG_IMMUTABLE)
+                    PendingIntent.getActivity(appContext, notifId, openIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
                 } else {
                     val launchIntent = Intent(appContext, MainActivity::class.java).apply {
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
                     }
-                    PendingIntent.getActivity(appContext, 0, launchIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+                    PendingIntent.getActivity(appContext, notifId, launchIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
                 }
 
                 NotificationUtil.finishNotification(
-                    notificationId = task.id.hashCode(),
+                    notificationId = notifId,
                     title = current.viewState.title,
                     text = notifText,
                     filePath = primaryPath,

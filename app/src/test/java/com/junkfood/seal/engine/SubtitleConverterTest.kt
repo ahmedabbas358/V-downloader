@@ -4,6 +4,7 @@ import com.junkfood.seal.download.engine.subtitle.conversion.SubtitleConverter
 import com.junkfood.seal.download.engine.subtitle.model.SubtitleOutputFormat
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -16,7 +17,7 @@ class SubtitleConverterTest {
     val tempFolder = TemporaryFolder()
 
     @Test
-    fun testVttToSrtConversion() = runBlocking {
+    fun testVttToSrtConversion() = runBlocking<Unit> {
         val vttFile = tempFolder.newFile("sample.vtt").apply {
             writeText(
                 """
@@ -46,7 +47,7 @@ class SubtitleConverterTest {
     }
 
     @Test
-    fun testSrtToVttConversion() = runBlocking {
+    fun testSrtToVttConversion() = runBlocking<Unit> {
         val srtFile = tempFolder.newFile("sample.srt").apply {
             writeText(
                 """
@@ -70,7 +71,7 @@ class SubtitleConverterTest {
     }
 
     @Test
-    fun testTtmlToSrtConversion() = runBlocking {
+    fun testTtmlToSrtConversion() = runBlocking<Unit> {
         val ttmlFile = tempFolder.newFile("sample.ttml").apply {
             writeText(
                 """
@@ -96,7 +97,7 @@ class SubtitleConverterTest {
     }
 
     @Test
-    fun testShiftSubtitleTiming() = runBlocking {
+    fun testShiftSubtitleTiming() = runBlocking<Unit> {
         val srtFile = tempFolder.newFile("timing.srt").apply {
             writeText(
                 """
