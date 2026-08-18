@@ -375,6 +375,7 @@ object DownloadCommandBuilder {
         } else if (options.embedSubs) {
             request.addOption("--convert-subs", "srt")
         }
+        request.addOption("--compat-options", "no-abort-on-error")
     }
 
     private fun applyFormatSorter(
