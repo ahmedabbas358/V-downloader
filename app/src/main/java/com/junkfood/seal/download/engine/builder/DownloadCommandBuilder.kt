@@ -249,11 +249,6 @@ object DownloadCommandBuilder {
             if (videoClips.isEmpty()) {
                 addOption("--embed-chapters")
             }
-
-            if (removeMusic) {
-                val vocalFilter = com.junkfood.seal.util.MusicRemovalEngine.getVocalIsolationFilter()
-                addCommands(listOf("--ppa", "Merger:-af $vocalFilter", "--ppa", "ExtractAudio:-af $vocalFilter"))
-            }
         }
     }
 
@@ -291,11 +286,6 @@ object DownloadCommandBuilder {
                     embedSubtitle = false,
                 )
                 applySubtitleOptions(this@apply, subOpts)
-            }
-
-            if (removeMusic) {
-                val vocalFilter = com.junkfood.seal.util.MusicRemovalEngine.getVocalIsolationFilter()
-                addCommands(listOf("--ppa", "ExtractAudio:-af $vocalFilter"))
             }
 
             if (formatIdString.isNotEmpty()) {

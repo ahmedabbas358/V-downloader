@@ -230,43 +230,6 @@ class DownloadQueueManager(
         val state = taskStateMap[task] ?: return
         if (state.downloadState != Idle) return
 
-        // 1. Check if file already exists on disk ONLY if we have a real VideoInfo or a reliable extracted video ID
-        val extractedId = FileCollisionResolver.extractVideoId(task.url, state.videoInfo?.id.orEmpty())
-        val isAudio = DownloadUtil.isAudioOnlyDownload(task.preferences, state.videoInfo ?: VideoInfo(id = task.id))
-        val playlistTitle = (task.type as? TypeInfo.Playlist)?.playlistTitle.orEmpty()
-        val isSubOnly = task.preferences.skipDownload && task.preferences.downloadSubtitle
-
-        if (extractedId.length >= 5 || state.videoInfo != null) {
-            val existingPath = FileCollisionResolver.checkExistingFile(
-                url = task.url,
-                title = state.viewState.title,
-                videoId = extractedId,
-                isSubtitleOnly = isSubOnly,
-                isAudioDownload = isAudio,
-                playlistTitle = playlistTitle,
-                isPrivateDirectory = task.preferences.privateDirectory,
-                subdirectoryPlaylistTitle = task.preferences.subdirectoryPlaylistTitle,
-            )
-
-            if (existingPath != null) {
-                Log.d(TAG, "File already exists on disk, auto-completing: $existingPath")
-                taskStateMap[task] = state.copy(downloadState = Completed(existingPath))
-                val text = appContext.getString(R.string.status_completed)
-                val openIntent = FileUtil.createIntentForOpeningFile(existingPath)
-                val pendingIntent = if (openIntent != null) {
-                    PendingIntent.getActivity(appContext, 0, openIntent, PendingIntent.FLAG_IMMUTABLE)
-                } else null
-                NotificationUtil.finishNotification(
-                    notificationId = task.id.hashCode(),
-                    title = state.viewState.title,
-                    text = text,
-                    filePath = existingPath,
-                    intent = pendingIntent,
-                )
-                return
-            }
-        }
-
         if (task.type is TypeInfo.CustomCommand) {
             executeCustomCommandTask(task)
         } else {

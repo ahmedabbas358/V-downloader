@@ -349,7 +349,7 @@ fun LazyListScope.ActionButtons(
                 }
             }
             val path = downloadState.filePath
-            if (path != null) {
+            if (path != null && !viewState.isSubOnly && (FileUtil.isVideoFile(path) || FileUtil.isAudioFile(path))) {
                 item(key = "PreviewButton") {
                     PreviewButton(modifier = Modifier.animateItem()) {
                         onActionPost(task, UiAction.PreviewMedia(path))
