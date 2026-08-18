@@ -91,8 +91,8 @@ jobs:
         run: |
           echo "Pruning older releases from GitHub..."
           gh release list --limit 1000 --json tagName -q '.[].tagName' 2>/dev/null | while read -r tag; do
-            if [ "$tag" != "v3.5.0" ] && [ -n "$tag" ]; then
-              echo "Deleting old release for tag: $tag"
+            if [ -n "$tag" ]; then
+              echo "Deleting release for tag: $tag"
               gh release delete "$tag" --yes --cleanup-tag 2>/dev/null || true
             fi
           done || true
@@ -107,6 +107,7 @@ jobs:
           files: app/build/outputs/apk/generic/release/*.apk
           name: V-Downloader v3.5.0 - الإصدار الذهبي الشامل (التحديث التراكمي الأضخم)
           tag_name: v3.5.0
+          target_commitish: ${{ github.sha }}
           draft: false
           prerelease: false
           make_latest: true
