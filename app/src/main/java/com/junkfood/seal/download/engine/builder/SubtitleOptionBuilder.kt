@@ -46,8 +46,8 @@ object SubtitleOptionBuilder {
             when {
                 lang.equals("all", ignoreCase = true) -> listOf("all")
                 lang.contains(".*") -> listOf(lang)
-                lang.contains("-") -> listOf(lang, "${lang.substringBefore("-")}.*")
-                else -> listOf(lang, "$lang-.*", ".*-$lang", "$lang-orig")
+                lang.contains("-") -> listOf(lang)
+                else -> listOf(lang, "$lang-.*")
             }
         }.distinct().joinToString(",")
 
