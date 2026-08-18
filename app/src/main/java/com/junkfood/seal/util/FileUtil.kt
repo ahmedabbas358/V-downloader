@@ -17,12 +17,16 @@ import com.junkfood.seal.R
 import java.io.File
 import okhttp3.internal.closeQuietly
 
-const val AUDIO_REGEX = "(?i)\\.(mp3|aac|opus|m4a|ogg|flac|wav)$"
+const val VIDEO_REGEX = "(?i)\\.(mp4|mkv|webm|mov|avi|flv|m4v|ts|3gp)$"
+const val AUDIO_REGEX = "(?i)\\.(mp3|aac|opus|m4a|ogg|flac|wav|wma|mka|m4b)$"
 const val THUMBNAIL_REGEX = "(?i)\\.(jpg|jpeg|png|webp)$"
 const val SUBTITLE_REGEX = "(?i)\\.(lrc|vtt|srt|ass|json3|srv\\d?|ttml|sub|ssa)$"
 private const val PRIVATE_DIRECTORY_SUFFIX = ".V-Downloader"
 
 object FileUtil {
+    fun isVideoFile(file: File): Boolean = file.name.contains(Regex(VIDEO_REGEX))
+    fun isAudioFile(file: File): Boolean = file.name.contains(Regex(AUDIO_REGEX))
+    fun isSubtitleFile(file: File): Boolean = file.name.contains(Regex(SUBTITLE_REGEX))
     fun openFileFromResult(downloadResult: Result<List<String>>) {
         val filePaths = downloadResult.getOrNull()
         if (filePaths.isNullOrEmpty()) return

@@ -960,7 +960,7 @@ private fun AdditionalSettings(
                             com.junkfood.seal.util.REMOVE_MUSIC.updateBoolean(!removeMusic)
                             onPreferenceUpdate()
                         },
-                        label = "تنزيل بدون موسيقى",
+                        label = "عزل الصوت بالذكاء الاصطناعي (AI Voice)",
                     )
                 }
             }

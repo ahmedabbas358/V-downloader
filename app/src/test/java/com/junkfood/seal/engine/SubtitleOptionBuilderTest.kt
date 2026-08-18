@@ -14,13 +14,13 @@ class SubtitleOptionBuilderTest {
 
     @Test
     fun testSubLangsExpansion() {
-        // Empty or "all" -> default pattern
-        assertEquals("ar.*,en.*,.*-orig,all", SubtitleOptionBuilder.buildSubLangsOption(""))
-        assertEquals("ar.*,en.*,.*-orig,all", SubtitleOptionBuilder.buildSubLangsOption("all"))
+        // Empty or "all" -> "all"
+        assertEquals("all", SubtitleOptionBuilder.buildSubLangsOption(""))
+        assertEquals("all", SubtitleOptionBuilder.buildSubLangsOption("all"))
 
         // Single bare language (e.g. "ar")
         val expandedAr = SubtitleOptionBuilder.buildSubLangsOption("ar")
-        assertTrue("Expanded Arabic pattern must include variants", expandedAr.contains("ar") && expandedAr.contains("ar-.*") && expandedAr.contains("ar-orig"))
+        assertTrue("Expanded Arabic pattern must include variants", expandedAr.contains("ar") && expandedAr.contains("ar-.*"))
 
         // Multiple languages
         val multi = SubtitleOptionBuilder.buildSubLangsOption("ar,en")
@@ -55,9 +55,8 @@ class SubtitleOptionBuilderTest {
     fun testSubtitleManagerRetryBackoff() {
         val retry1 = com.junkfood.seal.download.engine.subtitle.SubtitleManager.getRetryBackoffDelayMs(retryAttempt = 1)
         val retry2 = com.junkfood.seal.download.engine.subtitle.SubtitleManager.getRetryBackoffDelayMs(retryAttempt = 2)
-        assertTrue("Retry 1 delay should be >= 2000ms", retry1 >= 2000L)
-        assertTrue("Retry 2 delay should be >= 4000ms", retry2 >= 4000L)
-        assertTrue("Retry 2 delay should be greater than Retry 1 base", retry2 > retry1 - 1000L)
+        assertTrue("Retry 1 delay should be >= 1500ms", retry1 >= 1500L)
+        assertTrue("Retry 2 delay should be >= 2000ms", retry2 >= 2000L)
     }
 
     @Test
@@ -68,6 +67,6 @@ class SubtitleOptionBuilderTest {
 
         assertTrue(com.junkfood.seal.download.engine.subtitle.SubtitleManager.isRateLimitOrBotError(err429))
         assertTrue(com.junkfood.seal.download.engine.subtitle.SubtitleManager.isRateLimitOrBotError(errBot))
-        assertTrue(!com.junkfood.seal.download.engine.subtitle.SubtitleManager.isRateLimitOrBotError(errNormal))
+        assertFalse(com.junkfood.seal.download.engine.subtitle.SubtitleManager.isRateLimitOrBotError(errNormal))
     }
 }

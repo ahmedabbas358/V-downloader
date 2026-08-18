@@ -2,27 +2,37 @@ package com.junkfood.seal.download.engine.subtitle
 
 import com.junkfood.seal.download.Task
 import com.junkfood.seal.download.engine.builder.SubtitleOptionBuilder
+import com.junkfood.seal.download.engine.subtitle.model.SubtitleDiscoveryResult
+import com.junkfood.seal.download.engine.subtitle.model.SubtitleDownloadResult
+import com.junkfood.seal.download.engine.subtitle.model.SubtitleFailure
+import com.junkfood.seal.download.engine.subtitle.model.SubtitleProgress
+import com.junkfood.seal.download.engine.subtitle.resilience.RequestCoordinator
+import com.junkfood.seal.download.engine.subtitle.resilience.RetryPolicy
 import com.junkfood.seal.util.DownloadUtil.DownloadPreferences
+import com.junkfood.seal.util.VideoInfo
 import kotlinx.coroutines.sync.Mutex
-import kotlin.random.Random
+import java.io.File
 
 /**
  * SubtitleManager
  *
- * Manages concurrency, anti-ban rate limiting, and mutex locks for subtitle extraction
- * to prevent YouTube IP bans, rate-limiting (HTTP 429), and directory collisions
- * during sequential playlist subtitle downloads.
+ * Primary facade for the Subtitle Subsystem.
+ * Exposes thread-safe locks, anti-ban pacing, error classification, option building,
+ * and high-level execution pipelines.
  */
 object SubtitleManager {
 
     /** Global mutex to ensure sequential execution of subtitle-only tasks */
-    val subtitleMutex = Mutex()
+    val subtitleMutex: Mutex
+        get() = RequestCoordinator.globalSubtitleMutex
+
+    val useCase = SubtitleUseCase()
 
     /** Normal inter-item delay for playlist subtitles to prevent bot scraper detection (1.5s - 2.5s) */
-    const val DEFAULT_INTER_ITEM_DELAY_MS = 1800L
+    const val DEFAULT_INTER_ITEM_DELAY_MS = RequestCoordinator.DEFAULT_INTER_ITEM_DELAY_MS
 
     /** Extended cooling-off delay when YouTube returns 429 Too Many Requests or Bot Detection (5s - 8s) */
-    const val RATE_LIMIT_COOLDOWN_DELAY_MS = 6000L
+    const val RATE_LIMIT_COOLDOWN_DELAY_MS = RequestCoordinator.RATE_LIMIT_COOLDOWN_DELAY_MS
 
     /**
      * Checks if a given task is a subtitle-only task (--skip-download mode).
@@ -33,28 +43,18 @@ object SubtitleManager {
 
     /**
      * Calculates an intelligent anti-ban delay with jitter for sequential playlist items.
-     *
-     * @param isRateLimited Whether a rate-limit error was encountered recently
-     * @return Delay in milliseconds
      */
     fun getAntiBanDelayMs(isRateLimited: Boolean = false): Long {
-        val baseDelay = if (isRateLimited) RATE_LIMIT_COOLDOWN_DELAY_MS else DEFAULT_INTER_ITEM_DELAY_MS
-        val jitter = Random.nextLong(200L, 800L)
-        return baseDelay + jitter
+        return RequestCoordinator.getPacingDelayMs(isRateLimited)
     }
 
     /**
      * Calculates exponential backoff delay for retry attempts.
-     *
-     * @param retryAttempt 1 for 1st retry, 2 for 2nd retry
-     * @param isRateLimited Whether the failure was caused by rate limiting
-     * @return Delay in milliseconds
      */
     fun getRetryBackoffDelayMs(retryAttempt: Int, isRateLimited: Boolean = false): Long {
-        val base = if (isRateLimited) 4000L else 2000L
-        val multiplier = (1 shl (retryAttempt - 1)).coerceAtLeast(1)
-        val jitter = Random.nextLong(300L, 1000L)
-        return (base * multiplier) + jitter
+        val failure = if (isRateLimited) SubtitleFailure.Http429() else SubtitleFailure.Timeout(20000L)
+        val decision = RetryPolicy.evaluate(failure, retryAttempt)
+        return decision.delayMs.coerceAtLeast(1500L)
     }
 
     /**
@@ -62,15 +62,10 @@ object SubtitleManager {
      */
     fun isRateLimitOrBotError(throwable: Throwable?): Boolean {
         if (throwable == null) return false
-        val message = throwable.message.orEmpty().lowercase()
-        return message.contains("429") ||
-            message.contains("too many requests") ||
-            message.contains("sign in to confirm you're not a bot") ||
-            message.contains("confirm you’re not a bot") ||
-            message.contains("bot detection") ||
-            message.contains("http error 403") ||
-            message.contains("rate limit") ||
-            message.contains("blocked")
+        val failure = SubtitleFailure.fromThrowable(throwable)
+        return failure is SubtitleFailure.Http429 ||
+                failure is SubtitleFailure.PoTokenRequired ||
+                failure is SubtitleFailure.Http403
     }
 
     /**
@@ -94,5 +89,28 @@ object SubtitleManager {
             )
         }
     }
-}
 
+    /**
+     * Discovers subtitles for a video.
+     */
+    suspend fun discoverSubtitles(
+        url: String,
+        preferences: DownloadPreferences,
+        videoInfo: VideoInfo? = null
+    ): SubtitleDiscoveryResult {
+        return useCase.discoverSubtitles(url, preferences, videoInfo)
+    }
+
+    /**
+     * Downloads subtitles using the robust Subtitle Engine.
+     */
+    suspend fun downloadSubtitles(
+        url: String,
+        videoInfo: VideoInfo? = null,
+        preferences: DownloadPreferences,
+        destinationDir: File,
+        onProgress: (SubtitleProgress) -> Unit = {}
+    ): SubtitleDownloadResult {
+        return useCase.downloadSubtitles(url, videoInfo, preferences, destinationDir, onProgress)
+    }
+}

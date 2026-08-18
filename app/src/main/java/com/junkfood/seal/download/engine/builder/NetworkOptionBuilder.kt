@@ -85,7 +85,7 @@ object NetworkOptionBuilder {
         addOption("--socket-timeout", "20")
         // NOTE: --ignore-errors removed intentionally — it silently swallows failures
         // causing tasks to vanish from the queue without any error shown to the user.
-        addOption("--extractor-args", "youtube:player_client=android,default")
+        addOption("--extractor-args", com.junkfood.seal.download.engine.subtitle.youtube.YoutubeClientStrategy.buildExtractorArgs())
         addOption("--no-check-certificates")
 
         if (forceIpv4) {

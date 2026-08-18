@@ -28,7 +28,7 @@ object MediaProcessingEngine {
         outputFile: File
     ): Result<File> = withContext(Dispatchers.IO) {
         runCatching {
-            val ffmpeg = MusicRemovalEngine.getFFmpegExecutable(context)
+            val ffmpeg = FFmpegManager.getFFmpegExecutable(context)
                 ?: throw IllegalStateException("FFmpeg binary not found")
 
             outputFile.parentFile?.mkdirs()
@@ -70,13 +70,13 @@ object MediaProcessingEngine {
         outputFile: File
     ): Result<File> = withContext(Dispatchers.IO) {
         runCatching {
-            val ffmpeg = MusicRemovalEngine.getFFmpegExecutable(context)
+            val ffmpeg = FFmpegManager.getFFmpegExecutable(context)
                 ?: throw IllegalStateException("FFmpeg binary not found")
 
             outputFile.parentFile?.mkdirs()
             if (outputFile.exists()) outputFile.delete()
 
-            val isVideo = MusicRemovalEngine.isVideoFile(inputFile)
+            val isVideo = FileUtil.isVideoFile(inputFile)
             val cmd = mutableListOf(
                 ffmpeg.absolutePath,
                 "-y",
@@ -127,7 +127,7 @@ object MediaProcessingEngine {
     ): Result<File> = withContext(Dispatchers.IO) {
         runCatching {
             val lyricsText = lrcFile.readText()
-            val ffmpeg = MusicRemovalEngine.getFFmpegExecutable(context)
+            val ffmpeg = FFmpegManager.getFFmpegExecutable(context)
                 ?: throw IllegalStateException("FFmpeg binary not found")
 
             outputFile.parentFile?.mkdirs()

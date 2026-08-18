@@ -68,7 +68,6 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.FileProvider
 import com.junkfood.seal.util.FileUtil
-import com.junkfood.seal.util.MusicRemovalEngine
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import java.io.File
@@ -80,7 +79,7 @@ fun MediaPreviewDialog(
     onDismissRequest: () -> Unit
 ) {
     val context = LocalContext.current
-    val isVideo = remember(file) { MusicRemovalEngine.isVideoFile(file) }
+    val isVideo = remember(file) { FileUtil.isVideoFile(file) }
 
     var isPlaying by remember { mutableStateOf(false) }
     var currentPositionMs by remember { mutableIntStateOf(0) }

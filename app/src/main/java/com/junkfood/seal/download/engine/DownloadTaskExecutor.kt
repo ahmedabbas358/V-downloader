@@ -158,6 +158,45 @@ object DownloadTaskExecutor {
         )
 
         val isSubtitleTask = task.preferences.skipDownload && task.preferences.downloadSubtitle
+        if (isSubtitleTask) {
+            val basePath = OutputTemplateBuilder.resolveBaseDirectory(task.preferences, isAudioDownload = false)
+            val targetDir = if (playlistItem != 0 && task.preferences.commandDirectory.isBlank()) {
+                val playlistName = fallbackPlaylistTitle.ifEmpty { videoInfo.playlist.orEmpty() }.ifEmpty { "Playlist" }
+                java.io.File(basePath, "[Subtitles] ${com.junkfood.seal.util.FileUtil.cleanFileName(playlistName)}")
+            } else {
+                java.io.File(basePath)
+            }
+
+            val subtitleRes = SubtitleManager.downloadSubtitles(
+                url = videoInfo.originalUrl ?: videoInfo.webpageUrl ?: task.url,
+                videoInfo = videoInfo,
+                preferences = task.preferences,
+                destinationDir = targetDir,
+                onProgress = { progress ->
+                    onProgressUpdate(progress.progress, progress.statusMessage)
+                }
+            )
+
+            return@withContext when (subtitleRes) {
+                is com.junkfood.seal.download.engine.subtitle.model.SubtitleDownloadResult.Success -> {
+                    val paths = subtitleRes.downloadedFiles.map { it.absolutePath }
+                    PostDownloadCoordinator.handleDownloadCompletion(
+                        preferences = task.preferences,
+                        videoInfo = videoInfo,
+                        downloadPath = targetDir.absolutePath,
+                        sdcardUri = task.preferences.sdcardUri,
+                        playlistItem = playlistItem,
+                        fallbackPlaylistTitle = fallbackPlaylistTitle,
+                        discoveredPaths = paths,
+                        appContext = appContext,
+                    )
+                }
+                is com.junkfood.seal.download.engine.subtitle.model.SubtitleDownloadResult.Failure -> {
+                    Result.failure(subtitleRes.error)
+                }
+            }
+        }
+
         var acquiredSubtitleLock = false
 
         try {
