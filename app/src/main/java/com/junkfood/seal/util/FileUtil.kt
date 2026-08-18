@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Environment
 import android.provider.DocumentsContract
 import android.util.Log
+import java.util.Locale
 import android.webkit.MimeTypeMap
 import androidx.annotation.CheckResult
 import androidx.core.content.FileProvider
