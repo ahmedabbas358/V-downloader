@@ -7,7 +7,7 @@ package com.junkfood.seal.download.engine.subtitle.model
 sealed class SubtitleFailure(
     val userFriendlyMessage: String,
     val isRecoverable: Boolean = false,
-    val cause: Throwable? = null
+    cause: Throwable? = null
 ) : Exception(userFriendlyMessage, cause) {
 
     // Content availability
@@ -34,8 +34,8 @@ sealed class SubtitleFailure(
         SubtitleFailure("YouTube JavaScript challenge/EJS execution failed: $reason", isRecoverable = true)
 
     // Network & HTTP
-    data class NetworkError(val details: String, override val cause: Throwable? = null) :
-        SubtitleFailure("Network connection error: $details", isRecoverable = true, cause = cause)
+    data class NetworkError(val details: String, val throwable: Throwable? = null) :
+        SubtitleFailure("Network connection error: $details", isRecoverable = true, cause = throwable)
     data class Http403(val url: String? = null) :
         SubtitleFailure("YouTube returned HTTP 403 Forbidden", isRecoverable = true)
     data class Http429(val retryAfterSeconds: Long? = null) :
@@ -57,8 +57,8 @@ sealed class SubtitleFailure(
     data class YtDlpFailure(val exitCode: Int, val rawError: String) :
         SubtitleFailure("yt-dlp subtitle process failed ($exitCode): $rawError", isRecoverable = true)
     data object Canceled : SubtitleFailure("Subtitle extraction was canceled by user", isRecoverable = false)
-    data class Unknown(val rawMessage: String, override val cause: Throwable? = null) :
-        SubtitleFailure("Unexpected subtitle error: $rawMessage", isRecoverable = false, cause = cause)
+    data class Unknown(val rawMessage: String, val throwable: Throwable? = null) :
+        SubtitleFailure("Unexpected subtitle error: $rawMessage", isRecoverable = false, cause = throwable)
 
     companion object {
         /**
