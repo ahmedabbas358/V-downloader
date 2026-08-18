@@ -51,47 +51,30 @@ object MusicRemovalEngine {
         "alimiter=limit=0.95"
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Tier 1 — Full M/S Extraction + Bandpass + Formant EQ + Normalization
+    // Tier 1 — Blumlein Mid-Side Center Isolation + Voice Bandpass + Formant EQ
     // ─────────────────────────────────────────────────────────────────────────
     private const val FILTER_TIER_1 =
-        "aformat=channel_layouts=stereo," +
         "pan=stereo|c0=0.5*c0+0.5*c1|c1=0.5*c0+0.5*c1," +
         "highpass=f=120," +
         "lowpass=f=7500," +
-        "equalizer=f=150:t=q:w=1.5:g=-12," +
+        "equalizer=f=150:t=q:w=1.5:g=-14," +
         "equalizer=f=250:t=q:w=1.0:g=-6," +
-        "equalizer=f=3000:t=q:w=0.8:g=3.5," +
-        "dynaudnorm=f=150:g=15"
+        "equalizer=f=3000:t=q:w=0.8:g=4.0"
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Tier 2 — M/S Extraction + moderate afftdn + anlmdn (First fallback)
+    // Tier 2 — Center Vocal Channel Summation + Speech Range Bandpass
     // ─────────────────────────────────────────────────────────────────────────
-    // More conservative reduction (nr=35) to avoid vocal artifacts.
-    // Suitable for recordings with high vocal-music overlap.
     private const val FILTER_TIER_2 =
-        "aformat=channel_layouts=stereo," +
         "pan=stereo|c0=0.5*c0+0.5*c1|c1=0.5*c0+0.5*c1," +
-        "afftdn=nf=-20:nr=35:nt=w:om=o," +
-        "anlmdn=s=5:p=0.003:r=0.001:m=10," +
-        "highpass=f=85," +
-        "lowpass=f=11000," +
-        "equalizer=f=300:t=q:w=1.2:g=-3," +
-        "equalizer=f=2800:t=q:w=1.0:g=2.0," +
-        "alimiter=limit=0.98:attack=5:release=50"
+        "highpass=f=100," +
+        "lowpass=f=8000"
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Tier 3 — M/S Extraction + light afftdn only (Last resort fallback)
+    // Tier 3 — Direct Universal Speech Bandpass
     // ─────────────────────────────────────────────────────────────────────────
-    // Minimal processing to ensure some music removal when other tiers fail.
     private const val FILTER_TIER_3 =
-        "aformat=channel_layouts=stereo," +
-        "pan=stereo|c0=0.5*c0+0.5*c1|c1=0.5*c0+0.5*c1," +
-        "afftdn=nf=-15:nr=25:nt=w," +
-        "highpass=f=90," +
-        "lowpass=f=12000," +
-        "equalizer=f=150:t=q:w=1.5:g=-6," +
-        "equalizer=f=2200:t=q:w=1.0:g=2.0," +
-        "alimiter=limit=0.98:attack=5:release=50"
+        "highpass=f=120," +
+        "lowpass=f=6500"
 
     private val VOCAL_FILTERS = listOf(FILTER_TIER_1, FILTER_TIER_2, FILTER_TIER_3)
 
@@ -112,12 +95,13 @@ object MusicRemovalEngine {
      * Finds the native FFmpeg executable extracted by youtubedl-android or the system.
      */
     fun getFFmpegExecutable(appContext: Context = context): File? {
-        val candidates = listOf(
+        val candidates = listOfNotNull(
+            File(appContext.noBackupFilesDir, "youtubedl-android/packages/ffmpeg/usr/bin/ffmpeg"),
             File(appContext.noBackupFilesDir, "packages/ffmpeg/usr/bin/ffmpeg"),
             File(appContext.noBackupFilesDir, "packages/ffmpeg/bin/ffmpeg"),
-            File(appContext.noBackupFilesDir, "youtubedl-android/packages/ffmpeg/usr/bin/ffmpeg"),
             File(appContext.noBackupFilesDir, "youtubedl-android/packages/ffmpeg/bin/ffmpeg"),
             File(appContext.noBackupFilesDir, "usr/bin/ffmpeg"),
+            File(appContext.filesDir, "youtubedl-android/packages/ffmpeg/usr/bin/ffmpeg"),
             File(appContext.filesDir, "packages/ffmpeg/usr/bin/ffmpeg"),
             File(appContext.filesDir, "bin/ffmpeg"),
             File(appContext.filesDir, "ffmpeg"),
@@ -135,9 +119,11 @@ object MusicRemovalEngine {
 
         // Deep search within packages and app storage directories
         val searchDirs = listOfNotNull(
+            File(appContext.noBackupFilesDir, "youtubedl-android"),
             File(appContext.noBackupFilesDir, "packages"),
-            File(appContext.noBackupFilesDir, "youtubedl-android/packages"),
             appContext.noBackupFilesDir,
+            File(appContext.filesDir, "youtubedl-android"),
+            File(appContext.filesDir, "packages"),
             appContext.filesDir,
             File(appContext.applicationInfo.nativeLibraryDir)
         )
@@ -348,12 +334,18 @@ object MusicRemovalEngine {
             val processBuilder = ProcessBuilder(command)
             val env = processBuilder.environment()
 
-            val ffmpegDir = ffmpegBin.parentFile?.parentFile ?: File(context.noBackupFilesDir, "youtubedl-android/packages/ffmpeg")
-            val usrLib = File(ffmpegDir, "usr/lib").absolutePath
-            val lib = File(ffmpegDir, "lib").absolutePath
-            val nativeLib = context.applicationInfo.nativeLibraryDir
+            val possibleLibDirs = listOfNotNull(
+                ffmpegBin.parentFile?.parentFile?.let { File(it, "lib") },
+                ffmpegBin.parentFile?.parentFile?.let { File(it, "usr/lib") },
+                File(context.noBackupFilesDir, "youtubedl-android/packages/ffmpeg/usr/lib"),
+                File(context.noBackupFilesDir, "packages/ffmpeg/usr/lib"),
+                File(context.filesDir, "youtubedl-android/packages/ffmpeg/usr/lib"),
+                File(context.filesDir, "packages/ffmpeg/usr/lib"),
+                File(context.applicationInfo.nativeLibraryDir)
+            ).filter { it.exists() && it.isDirectory }.map { it.absolutePath }.distinct()
 
-            env["LD_LIBRARY_PATH"] = "$usrLib:$lib:$nativeLib"
+            val ldLibraryPath = (possibleLibDirs + listOfNotNull(System.getenv("LD_LIBRARY_PATH"))).joinToString(":")
+            env["LD_LIBRARY_PATH"] = ldLibraryPath
             env["PATH"] = "${ffmpegBin.parent}:${System.getenv("PATH") ?: ""}"
             env["TMPDIR"] = context.cacheDir.absolutePath
 

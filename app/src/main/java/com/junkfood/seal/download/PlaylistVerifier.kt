@@ -376,6 +376,15 @@ object PlaylistVerifier {
                 thumbnailUrl = null,
                 isSubOnly = isSubOnly
             )
+            val videoInfo = VideoInfo(
+                id = com.junkfood.seal.download.engine.FileCollisionResolver.extractVideoId(itemUrl, fallbackId = "item_${item.index}"),
+                title = baseTitle,
+                webpageUrl = itemUrl,
+                originalUrl = itemUrl,
+                uploader = item.playlistTitle,
+                extractor = "Youtube",
+                extractorKey = "Youtube"
+            )
             val task = Task(
                 url = itemUrl,
                 preferences = itemPrefs,
@@ -383,12 +392,12 @@ object PlaylistVerifier {
                     index = item.index,
                     playlistTitle = item.playlistTitle,
                     playlistUrl = item.playlistUrl,
-                    isFallback = false
+                    isFallback = true
                 )
             )
             val state = Task.State(
-                downloadState = Task.DownloadState.Idle,
-                videoInfo = null,
+                downloadState = Task.DownloadState.ReadyWithInfo,
+                videoInfo = videoInfo,
                 viewState = viewState
             )
             downloader.enqueue(TaskFactory.TaskWithState(task, state))

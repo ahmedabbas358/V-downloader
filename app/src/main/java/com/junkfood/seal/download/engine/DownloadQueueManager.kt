@@ -233,6 +233,7 @@ class DownloadQueueManager(
         if (task.type is TypeInfo.CustomCommand) {
             executeCustomCommandTask(task)
         } else {
+            taskStateMap[task] = state.copy(downloadState = FetchingInfo(taskId = task.id))
             fetchInfoForTask(task)
         }
     }
@@ -436,8 +437,8 @@ class DownloadQueueManager(
                         preferences = task.preferences.copy(downloadPlaylist = false)
                     )
                     val oldState = taskStateMap.remove(task)
-                    if (oldState != null) {
-                        taskStateMap[fallbackTask] = oldState.copy(downloadState = Idle, videoInfo = null)
+                    if (oldState != null && oldState.videoInfo != null) {
+                        taskStateMap[fallbackTask] = oldState.copy(downloadState = ReadyWithInfo)
                         processQueue()
                         return@onFailure
                     }
