@@ -3,10 +3,13 @@ package com.junkfood.seal.audio.musicremoval.engine
 import android.content.Context
 import android.util.Log
 import com.junkfood.seal.App.Companion.context
+import com.junkfood.seal.audio.musicremoval.MusicRemovalCapabilities
 import com.junkfood.seal.audio.musicremoval.MusicRemovalConfig
+import com.junkfood.seal.audio.musicremoval.MusicRemovalEngine
 import com.junkfood.seal.audio.musicremoval.analysis.SeparationQualityEvaluator
 import com.junkfood.seal.audio.musicremoval.analysis.UvrModelSelector
 import com.junkfood.seal.audio.musicremoval.cache.UvrFileManager
+import com.junkfood.seal.audio.musicremoval.model.UvrModelRegistry
 import com.junkfood.seal.audio.musicremoval.postprocessor.UvrResidualSuppression
 import com.junkfood.seal.audio.musicremoval.postprocessor.UvrSpeechProtection
 import com.junkfood.seal.audio.musicremoval.preprocessor.UvrAudioPreprocessor
@@ -28,19 +31,26 @@ import java.util.concurrent.CancellationException
  * The unified, production-grade Ultimate Vocal Remover (UVR) engine implementation.
  * Performs deep offline neural music removal and speech preservation.
  */
-object UvrMusicRemovalEngine {
+object UvrMusicRemovalEngine : MusicRemovalEngine {
 
     private const val TAG = "UvrMusicRemovalEngine"
+
+    override val capabilities: MusicRemovalCapabilities
+        get() = MusicRemovalCapabilities(
+            engineName = "Ultimate Vocal Remover (UVR)",
+            isNeuralAccelerated = true,
+            supportedModels = UvrModelRegistry.ALL_UVR_MODELS
+        )
 
     /**
      * Processes multiple files sequentially with progress reporting.
      */
-    suspend fun processFiles(
+    override suspend fun processFiles(
         filePaths: List<String>,
         isAudioOnly: Boolean,
-        config: MusicRemovalConfig = MusicRemovalConfig(),
-        appContext: Context = context,
-        onProgress: ((Float, String) -> Unit)? = null
+        config: MusicRemovalConfig,
+        appContext: Context,
+        onProgress: ((Float, String) -> Unit)?
     ): List<String> = withContext(Dispatchers.IO) {
         val resultPaths = mutableListOf<String>()
         val totalFiles = filePaths.size
@@ -88,12 +98,12 @@ object UvrMusicRemovalEngine {
     /**
      * Processes a single media file through the complete UVR pipeline.
      */
-    suspend fun processSingleFile(
+    override suspend fun processSingleFile(
         inputFile: File,
         isAudioOnly: Boolean,
-        config: MusicRemovalConfig = MusicRemovalConfig(),
-        appContext: Context = context,
-        onProgress: ((Float, String) -> Unit)? = null
+        config: MusicRemovalConfig,
+        appContext: Context,
+        onProgress: ((Float, String) -> Unit)?
     ): File = withContext(Dispatchers.IO) {
         if (!currentCoroutineContext().isActive) throw CancellationException("Processing cancelled")
 

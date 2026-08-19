@@ -51,26 +51,26 @@ interface MusicRemovalEngine {
         onProgress: ((Float, String) -> Unit)? = null
     ): File
 
-    companion object : MusicRemovalEngine {
-        override val capabilities: MusicRemovalCapabilities
-            get() = MusicRemovalCapabilities()
+    companion object {
+        val capabilities: MusicRemovalCapabilities
+            get() = UvrMusicRemovalEngine.capabilities
 
-        override suspend fun processFiles(
+        suspend fun processFiles(
             filePaths: List<String>,
             isAudioOnly: Boolean,
-            config: MusicRemovalConfig,
-            appContext: Context,
-            onProgress: ((Float, String) -> Unit)?
+            config: MusicRemovalConfig = MusicRemovalConfig(),
+            appContext: Context = context,
+            onProgress: ((Float, String) -> Unit)? = null
         ): List<String> {
             return UvrMusicRemovalEngine.processFiles(filePaths, isAudioOnly, config, appContext, onProgress)
         }
 
-        override suspend fun processSingleFile(
+        suspend fun processSingleFile(
             inputFile: File,
             isAudioOnly: Boolean,
-            config: MusicRemovalConfig,
-            appContext: Context,
-            onProgress: ((Float, String) -> Unit)?
+            config: MusicRemovalConfig = MusicRemovalConfig(),
+            appContext: Context = context,
+            onProgress: ((Float, String) -> Unit)? = null
         ): File {
             return UvrMusicRemovalEngine.processSingleFile(inputFile, isAudioOnly, config, appContext, onProgress)
         }
