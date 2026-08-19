@@ -17,13 +17,66 @@ import java.util.Locale
  */
 object LanguageMatcher {
 
+    private val LANGUAGE_NAME_ALIASES = mapOf(
+        "العربية" to "ar",
+        "arabic" to "ar",
+        "انجليزي" to "en",
+        "إنجليزية" to "en",
+        "الانجليزية" to "en",
+        "الإنجليزية" to "en",
+        "english" to "en",
+        "فرنسي" to "fr",
+        "فرنسية" to "fr",
+        "الفرنسية" to "fr",
+        "french" to "fr",
+        "اسباني" to "es",
+        "إسباني" to "es",
+        "إسبانية" to "es",
+        "الإسبانية" to "es",
+        "spanish" to "es",
+        "ألماني" to "de",
+        "ألمانية" to "de",
+        "الألمانية" to "de",
+        "german" to "de",
+        "تركي" to "tr",
+        "تركية" to "tr",
+        "التركية" to "tr",
+        "turkish" to "tr",
+        "ياباني" to "ja",
+        "يابانية" to "ja",
+        "اليابانية" to "ja",
+        "japanese" to "ja",
+        "كوري" to "ko",
+        "كورية" to "ko",
+        "الكورية" to "ko",
+        "korean" to "ko",
+        "صيني" to "zh",
+        "صينية" to "zh",
+        "الصينية" to "zh",
+        "chinese" to "zh",
+        "روسي" to "ru",
+        "روسية" to "ru",
+        "الروسية" to "ru",
+        "russian" to "ru",
+        "هندي" to "hi",
+        "هندية" to "hi",
+        "الهندية" to "hi",
+        "hindi" to "hi",
+        "فارسي" to "fa",
+        "فارسية" to "fa",
+        "الفارسية" to "fa",
+        "persian" to "fa",
+        "أردية" to "ur",
+        "اردو" to "ur",
+        "urdu" to "ur"
+    )
+
     /**
-     * Normalizes a language tag to lowercase standard format (e.g. "en_US" -> "en-us").
+     * Normalizes a language tag to lowercase standard format (e.g. "en_US" -> "en-us", "العربية" -> "ar").
      */
     fun normalizeLangCode(code: String): String {
-        return code.trim()
-            .lowercase(Locale.US)
-            .replace('_', '-')
+        val trimmed = code.trim().lowercase(Locale.US).replace('_', '-')
+        return LANGUAGE_NAME_ALIASES[trimmed] ?: trimmed
     }
 
     /**

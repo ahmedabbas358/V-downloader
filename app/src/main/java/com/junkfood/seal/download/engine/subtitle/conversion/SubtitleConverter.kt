@@ -109,31 +109,41 @@ object SubtitleConverter {
                         inHeader = false
                     }
 
-                    // Convert VTT timestamps to SRT timestamps (periods to commas, ensure 2-digit hours)
+                    // Convert VTT timestamps to SRT timestamps
                     if (currentLine.contains("-->")) {
-                        if (!lastWasEmpty) {
+                        val parts = currentLine.split("-->")
+                        if (parts.size == 2) {
+                            if (!lastWasEmpty) {
+                                writer.newLine()
+                            }
+                            writer.write(cueIndex.toString())
                             writer.newLine()
+                            cueIndex++
+
+                            val startStr = formatVttToSrtTime(parts[0].trim())
+                            val endStr = formatVttToSrtTime(parts[1].trim().split(Regex("""\s+"""))[0])
+
+                            writer.write("$startStr --> $endStr")
+                            writer.newLine()
+                            lastWasEmpty = false
                         }
-                        writer.write(cueIndex.toString())
-                        writer.newLine()
-                        cueIndex++
-
-                        val convertedTimestamp = currentLine
-                            .replace(Regex("""(\d{2}):(\d{2})\.(\d{3})"""), "00:$1:$2,$3") // 00:00.000 -> 00:00:00,000
-                            .replace(Regex("""(\d{2}):(\d{2}):(\d{2})\.(\d{3})"""), "$1:$2:$3,$4") // 00:00:00.000 -> 00:00:00,000
-                            .replace(Regex("""\s+align:[a-z]+\s*"""), "")
-                            .replace(Regex("""\s+position:[0-9%]+\s*"""), "")
-                            .replace(Regex("""\s+line:[0-9%]+\s*"""), "")
-
-                        writer.write(convertedTimestamp)
-                        writer.newLine()
-                        lastWasEmpty = false
                     } else if (currentLine.isNotEmpty()) {
-                        // Strip VTT formatting tags e.g. <c.color>, </c>, <v Speaker>
-                        val cleanText = currentLine.replace(Regex("""<[^>]+>"""), "")
-                        writer.write(cleanText)
-                        writer.newLine()
-                        lastWasEmpty = false
+                        // Strip VTT formatting tags e.g. <c.color>, </c>, <v Speaker>, and inline timestamps <00:00:01.000>
+                        val cleanText = currentLine
+                            .replace(Regex("""<\d{1,2}:\d{2}(?::\d{2})?\.\d{3}>"""), "")
+                            .replace(Regex("""<[^>]+>"""), "")
+                            .replace("&amp;", "&")
+                            .replace("&lt;", "<")
+                            .replace("&gt;", ">")
+                            .replace("&quot;", "\"")
+                            .replace("&#39;", "'")
+                            .trim()
+
+                        if (cleanText.isNotEmpty()) {
+                            writer.write(cleanText)
+                            writer.newLine()
+                            lastWasEmpty = false
+                        }
                     } else {
                         if (!lastWasEmpty) {
                             writer.newLine()
@@ -142,6 +152,27 @@ object SubtitleConverter {
                     }
                 }
             }
+        }
+    }
+
+    private fun formatVttToSrtTime(time: String): String {
+        val clean = time.trim()
+        val parts = clean.split(":")
+        return when (parts.size) {
+            2 -> {
+                // MM:SS.mmm -> 00:MM:SS,mmm
+                val m = parts[0].padStart(2, '0')
+                val s = parts[1].replace('.', ',')
+                "00:$m:$s"
+            }
+            3 -> {
+                // HH:MM:SS.mmm -> HH:MM:SS,mmm
+                val h = parts[0].padStart(2, '0')
+                val m = parts[1].padStart(2, '0')
+                val s = parts[2].replace('.', ',')
+                "$h:$m:$s"
+            }
+            else -> clean.replace('.', ',')
         }
     }
 

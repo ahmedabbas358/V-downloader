@@ -265,6 +265,14 @@ object PlaylistVerifier {
                     }
                 }
 
+                if (matchedFile != null && isSubtitleOnly) {
+                    val isValidSub = com.junkfood.seal.download.engine.subtitle.validation.SubtitleValidator.validateFile(matchedFile).isSuccess
+                    if (!isValidSub) {
+                        Log.w(TAG, "Rejecting corrupt/invalid subtitle file on disk: ${matchedFile.absolutePath}")
+                        matchedFile = null
+                    }
+                }
+
                 if (matchedFile != null) {
                     // Consume the matched file so it CANNOT be matched by any other item!
                     availableFiles.remove(matchedFile)
