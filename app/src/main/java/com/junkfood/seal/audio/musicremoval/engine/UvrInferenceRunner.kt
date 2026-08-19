@@ -6,47 +6,60 @@ import ai.onnxruntime.OrtSession
 import android.util.Log
 import com.junkfood.seal.App.Companion.context
 import com.junkfood.seal.audio.musicremoval.MusicRemovalConfig
-import com.junkfood.seal.audio.musicremoval.analysis.ResidualAnalyzer
-import com.junkfood.seal.audio.musicremoval.model.ModelManager
-import com.junkfood.seal.audio.musicremoval.model.ModelRegistry
-import com.junkfood.seal.audio.musicremoval.model.ModelSpec
-import com.junkfood.seal.audio.musicremoval.preprocessor.AudioChunkProcessor
+import com.junkfood.seal.audio.musicremoval.analysis.SeparationQualityEvaluator
+import com.junkfood.seal.audio.musicremoval.model.UvrModelManager
+import com.junkfood.seal.audio.musicremoval.model.UvrModelSpec
+import com.junkfood.seal.audio.musicremoval.preprocessor.UvrChunkProcessor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.nio.FloatBuffer
 
 /**
- * MDXEngine
+ * UvrSeparationResult
  *
- * Runs UVR MDX23C / MDX-Net dilated DenseNet models via ONNX Runtime.
+ * Result of a UVR model separation.
  */
-class MDXEngine(
-    private val modelSpec: ModelSpec = ModelRegistry.MDX23C_VOCALS
-) : SourceSeparationEngine {
+data class UvrSeparationResult(
+    val vocalLeft: FloatArray,
+    val vocalRight: FloatArray,
+    val quality: SeparationQualityEvaluator.QualityReport,
+    val modelUsed: String,
+    val processingTimeMs: Long = 0L
+)
 
-    override val engineName: String = "MDX23C Engine (${modelSpec.name})"
+/**
+ * UvrInferenceRunner
+ *
+ * Direct headless inference engine for Ultimate Vocal Remover (UVR) models using ONNX Runtime.
+ */
+object UvrInferenceRunner {
 
-    override val isAvailable: Boolean
-        get() = ModelManager.isModelAvailable(modelSpec, context)
+    private const val TAG = "UvrInferenceRunner"
 
-    companion object {
-        private const val TAG = "MDXEngine"
-    }
-
-    override suspend fun separate(
-        input: AudioInput,
+    /**
+     * Executes separation using a specified UVR model specification.
+     */
+    suspend fun runInference(
+        leftChannel: FloatArray,
+        rightChannel: FloatArray,
+        modelSpec: UvrModelSpec,
         config: MusicRemovalConfig,
-        onProgress: ((Float, String) -> Unit)?
-    ): SeparationResult = withContext(Dispatchers.Default) {
+        sampleRate: Int = 44100,
+        onProgress: ((Float, String) -> Unit)? = null
+    ): UvrSeparationResult = withContext(Dispatchers.Default) {
         val startTime = System.currentTimeMillis()
-        val modelFile = ModelManager.getModelFile(modelSpec, context)
+        val modelFile = UvrModelManager.getModelFile(modelSpec, context)
 
-        if (!isAvailable || !ModelManager.verifyModelIntegrity(modelSpec, context)) {
-            Log.w(TAG, "MDX ONNX model not ready, falling back to Native DSP...")
-            return@withContext NativeDspEngine.separate(input, config, onProgress)
+        // Ensure model is downloaded and verified
+        if (!UvrModelManager.isModelAvailable(modelSpec, context) || !UvrModelManager.verifyModelIntegrity(modelSpec, context)) {
+            Log.d(TAG, "Model ${modelSpec.name} not present locally, triggering on-demand download...")
+            onProgress?.invoke(0.05f, "تنزيل نموذج UVR (${modelSpec.name})...")
+            UvrModelManager.downloadModel(modelSpec, context) { p, msg ->
+                onProgress?.invoke(0.05f + p * 0.15f, msg)
+            }.getOrThrow()
         }
 
-        onProgress?.invoke(0.05f, "تهيئة نموذج MDX23C...")
+        onProgress?.invoke(0.20f, "تهيئة جلسة UVR (${modelSpec.name})...")
         val env = OrtEnvironment.getEnvironment()
         val sessionOptions = OrtSession.SessionOptions().apply {
             setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
@@ -55,25 +68,20 @@ class MDXEngine(
             }
         }
 
-        val session = try {
-            env.createSession(modelFile.absolutePath, sessionOptions)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to initialize MDX session", e)
-            return@withContext NativeDspEngine.separate(input, config, onProgress)
-        }
+        val session = env.createSession(modelFile.absolutePath, sessionOptions)
 
         try {
             val chunkSamples = modelSpec.chunkSamples
             val overlapSamples = modelSpec.overlapSamples
             val inputName = session.inputNames.iterator().next()
 
-            val (outLeft, outRight) = AudioChunkProcessor.processStreaming(
-                leftChannel = input.leftChannel,
-                rightChannel = input.rightChannel,
+            val (outLeft, outRight) = UvrChunkProcessor.processStreaming(
+                leftChannel = leftChannel,
+                rightChannel = rightChannel,
                 chunkSamples = chunkSamples,
                 overlapSamples = overlapSamples,
                 onProgress = { p ->
-                    onProgress?.invoke(0.10f + p * 0.70f, "فصل عبر MDX23C: ${(p * 100).toInt()}%")
+                    onProgress?.invoke(0.20f + p * 0.55f, "فصل عبر UVR (${modelSpec.name}): ${(p * 100).toInt()}%")
                 }
             ) { leftChunk, rightChunk ->
                 val floatBuffer = FloatBuffer.allocate(2 * chunkSamples)
@@ -107,19 +115,19 @@ class MDXEngine(
                 Pair(chunkL, chunkR)
             }
 
-            val quality = ResidualAnalyzer.evaluate(
-                originalLeft = input.leftChannel,
-                originalRight = input.rightChannel,
+            val quality = SeparationQualityEvaluator.evaluate(
+                originalLeft = leftChannel,
+                originalRight = rightChannel,
                 separatedLeft = outLeft,
                 separatedRight = outRight,
-                sampleRate = input.sampleRate
+                sampleRate = sampleRate
             )
 
-            SeparationResult(
+            UvrSeparationResult(
                 vocalLeft = outLeft,
                 vocalRight = outRight,
                 quality = quality,
-                modelUsed = engineName,
+                modelUsed = modelSpec.name,
                 processingTimeMs = System.currentTimeMillis() - startTime
             )
         } finally {

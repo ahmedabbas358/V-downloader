@@ -14,14 +14,14 @@ import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
 /**
- * ModelManager
+ * UvrModelManager
  *
- * Manages lifecycle, SHA-256 integrity verification, on-demand downloading, and caching of ONNX models.
+ * Manages lifecycle, SHA-256 integrity verification, on-demand downloading, and storage of UVR ONNX models.
  */
-object ModelManager {
+object UvrModelManager {
 
-    private const val TAG = "ModelManager"
-    private const val MODELS_SUBDIR = "ai_models"
+    private const val TAG = "UvrModelManager"
+    private const val UVR_MODELS_SUBDIR = "uvr_models"
 
     private val httpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
@@ -31,24 +31,24 @@ object ModelManager {
     }
 
     /**
-     * Resolves the storage directory for AI models on device.
+     * Storage directory for UVR models on device.
      */
     fun getModelsDirectory(appContext: Context = context): File {
-        val dir = File(appContext.noBackupFilesDir, MODELS_SUBDIR)
+        val dir = File(appContext.noBackupFilesDir, UVR_MODELS_SUBDIR)
         if (!dir.exists()) dir.mkdirs()
         return dir
     }
 
     /**
-     * Resolves the file destination for a given [ModelSpec].
+     * Resolves the target file on disk for a given [UvrModelSpec].
      */
-    fun getModelFile(spec: ModelSpec, appContext: Context = context): File =
+    fun getModelFile(spec: UvrModelSpec, appContext: Context = context): File =
         File(getModelsDirectory(appContext), spec.fileName)
 
     /**
-     * Checks if a model file exists, is non-empty, and satisfies minimum size constraints.
+     * Checks if a model file exists, is non-empty, and satisfies minimum size requirements.
      */
-    fun isModelAvailable(spec: ModelSpec, appContext: Context = context): Boolean {
+    fun isModelAvailable(spec: UvrModelSpec, appContext: Context = context): Boolean {
         val file = getModelFile(spec, appContext)
         return file.exists() && file.length() >= (spec.sizeBytes / 2).coerceAtLeast(1024L * 1024L)
     }
@@ -60,7 +60,7 @@ object ModelManager {
         if (!file.exists()) return ""
         val digest = MessageDigest.getInstance("SHA-256")
         FileInputStream(file).use { fis ->
-            val buffer = ByteArray(8192)
+            val buffer = ByteArray(16384)
             var bytesRead: Int
             while (fis.read(buffer).also { bytesRead = it } != -1) {
                 digest.update(buffer, 0, bytesRead)
@@ -70,23 +70,22 @@ object ModelManager {
     }
 
     /**
-     * Verifies the integrity of a model file against its expected SHA-256 or size.
+     * Verifies the integrity of a UVR model file.
      */
-    fun verifyModelIntegrity(spec: ModelSpec, appContext: Context = context): Boolean {
+    fun verifyModelIntegrity(spec: UvrModelSpec, appContext: Context = context): Boolean {
         val file = getModelFile(spec, appContext)
         if (!file.exists()) return false
 
-        // Quick check: File size should be within 10% of expected or valid ONNX
         if (file.length() < 1024L * 1024L) {
-            Log.w(TAG, "Model file ${file.name} is too small (${file.length()} bytes)")
+            Log.w(TAG, "UVR model file ${file.name} is too small (${file.length()} bytes)")
             return false
         }
 
-        // Deep SHA-256 verification when hash is provided and non-placeholder
+        // Validate hash if non-placeholder
         if (spec.sha256.isNotBlank() && !spec.sha256.startsWith("a1b2c3d4") && !spec.sha256.startsWith("e3b0c442")) {
-            val calculatedHash = computeSha256(file)
-            if (!calculatedHash.equals(spec.sha256, ignoreCase = true)) {
-                Log.e(TAG, "SHA-256 mismatch for ${spec.name}. Expected ${spec.sha256}, got $calculatedHash")
+            val calculated = computeSha256(file)
+            if (!calculated.equals(spec.sha256, ignoreCase = true)) {
+                Log.e(TAG, "SHA-256 mismatch for ${spec.name}. Expected ${spec.sha256}, got $calculated")
                 return false
             }
         }
@@ -95,33 +94,33 @@ object ModelManager {
     }
 
     /**
-     * Downloads a model file with progress tracking.
+     * Downloads a UVR model file with progress tracking and atomic move.
      */
     suspend fun downloadModel(
-        spec: ModelSpec,
+        spec: UvrModelSpec,
         appContext: Context = context,
         onProgress: ((Float, String) -> Unit)? = null
     ): Result<File> = withContext(Dispatchers.IO) {
         runCatching {
             val targetFile = getModelFile(spec, appContext)
-            val tempFile = File(getModelsDirectory(appContext), "${spec.fileName}.download")
+            val tempFile = File(getModelsDirectory(appContext), "${spec.fileName}.download_${System.currentTimeMillis()}")
 
             if (isModelAvailable(spec, appContext) && verifyModelIntegrity(spec, appContext)) {
-                Log.d(TAG, "Model ${spec.name} is already available and verified.")
+                Log.d(TAG, "UVR Model ${spec.name} is already available and verified.")
                 return@runCatching targetFile
             }
 
             Log.d(TAG, "Starting download for ${spec.name} from ${spec.downloadUrl}")
-            onProgress?.invoke(0.01f, "بدء تنزيل نموذج ${spec.name}...")
+            onProgress?.invoke(0.01f, "بدء تنزيل نموذج UVR: ${spec.name}...")
 
             val request = Request.Builder().url(spec.downloadUrl).build()
             val response = httpClient.newCall(request).execute()
 
             if (!response.isSuccessful) {
-                throw IllegalStateException("Failed to download model: HTTP ${response.code}")
+                throw IllegalStateException("Failed to download UVR model: HTTP ${response.code}")
             }
 
-            val body = response.body ?: throw IllegalStateException("Empty response body from model server")
+            val body = response.body ?: throw IllegalStateException("Empty response body from UVR model server")
             val totalBytes = if (body.contentLength() > 0) body.contentLength() else spec.sizeBytes
 
             tempFile.parentFile?.mkdirs()
@@ -141,7 +140,7 @@ object ModelManager {
                             val progress = (totalRead.toFloat() / totalBytes).coerceIn(0f, 0.99f)
                             val mbRead = totalRead / (1024 * 1024)
                             val totalMb = totalBytes / (1024 * 1024)
-                            onProgress?.invoke(progress, "تنزيل النموذج: $mbRead MB / $totalMb MB")
+                            onProgress?.invoke(progress, "تنزيل نموذج UVR: $mbRead MB / $totalMb MB")
                         }
                     }
                 }
@@ -153,8 +152,8 @@ object ModelManager {
                 tempFile.delete()
             }
 
-            Log.d(TAG, "Model download completed successfully: ${targetFile.absolutePath}")
-            onProgress?.invoke(1.0f, "اكتمل تنزيل وتثبيت النموذج بنجاح.")
+            Log.d(TAG, "UVR Model download completed successfully: ${targetFile.absolutePath}")
+            onProgress?.invoke(1.0f, "اكتمل تنزيل وتثبيت نموذج UVR بنجاح.")
             targetFile
         }
     }
@@ -162,7 +161,7 @@ object ModelManager {
     /**
      * Deletes a model from local storage.
      */
-    fun deleteModel(spec: ModelSpec, appContext: Context = context): Boolean {
+    fun deleteModel(spec: UvrModelSpec, appContext: Context = context): Boolean {
         val file = getModelFile(spec, appContext)
         return if (file.exists()) file.delete() else true
     }
