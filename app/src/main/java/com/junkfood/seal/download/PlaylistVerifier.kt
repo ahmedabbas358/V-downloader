@@ -227,12 +227,12 @@ object PlaylistVerifier {
                     // Strategy 3: Prefix Index Match (001 - Title, 01 - Title, #01 Title, [001] Title)
                     val startsWithIndex = fileName.startsWith("$formattedIndex3 - ") ||
                             fileName.startsWith("$formattedIndex3. ") ||
-                            fileName.startsWith("$formattedIndex3_") ||
+                            fileName.startsWith("${formattedIndex3}_") ||
                             fileName.startsWith("$formattedIndex3 ") ||
                             fileName.startsWith("$formattedIndex3-") ||
                             fileName.startsWith("$formattedIndex2 - ") ||
                             fileName.startsWith("$formattedIndex2. ") ||
-                            fileName.startsWith("$formattedIndex2_") ||
+                            fileName.startsWith("${formattedIndex2}_") ||
                             fileName.startsWith("$formattedIndex2 ") ||
                             fileName.startsWith("$formattedIndex2-") ||
                             fileName.startsWith("[$formattedIndex3]") ||
