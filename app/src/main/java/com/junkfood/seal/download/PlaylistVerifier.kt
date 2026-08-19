@@ -210,36 +210,42 @@ object PlaylistVerifier {
                     val fileName = file.name
                     val cleanName = cleanFileNameForMatching(fileName)
                     val normalizedFileName = normalizeText(cleanName)
+                    val titleWithoutIndexPrefix = normalizeText(cleanName.replace(Regex("^\\d{1,4}\\s*[-_.]\\s*"), ""))
 
-                    // Strategy 1: Exact Video ID Match (High Confidence)
-                    if (extractedId.length >= 6) {
-                        if (fileName.contains(extractedId, ignoreCase = true)) {
-                            matchedFile = file
-                            break
-                        }
-                    }
-
-                    // Strategy 2: Exact Full Title Match
-                    if (normalizedTitle.length >= 4 && normalizedFileName == normalizedTitle) {
+                    // Strategy 1: Exact Video ID Match (100% Deterministic)
+                    if (extractedId.length >= 6 && fileName.contains(extractedId, ignoreCase = true)) {
                         matchedFile = file
                         break
                     }
 
-                    // Strategy 3: Formatted Index Match + Title Confirmation
-                    val indexMatches = fileName.startsWith(formattedIndex3) ||
-                            fileName.startsWith(formattedIndex2) ||
-                            fileName.startsWith("#$formattedIndex1") ||
-                            fileName.startsWith("#$formattedIndex2") ||
-                            fileName.startsWith("#$formattedIndex3") ||
-                            Regex("(?:^|[\\[\\(\\_\\-\\s#])$formattedIndex3(?:[\\s\\-\\_\\.\\]\\)]|$)").containsMatchIn(fileName) ||
-                            Regex("(?:^|[\\[\\(\\_\\-\\s#])$formattedIndex2(?:[\\s\\-\\_\\.\\]\\)]|$)").containsMatchIn(fileName)
+                    // Strategy 2: Exact Full Title Match (>= 5 chars)
+                    if (normalizedTitle.length >= 5 && (normalizedFileName == normalizedTitle || titleWithoutIndexPrefix == normalizedTitle)) {
+                        matchedFile = file
+                        break
+                    }
 
-                    if (indexMatches) {
-                        val tokensToCheck = if (significantTokens.isNotEmpty()) significantTokens else titleTokens
-                        if (tokensToCheck.isNotEmpty()) {
-                            val matchedCount = tokensToCheck.count { normalizedFileName.contains(it) }
-                            val requiredCount = (tokensToCheck.size * 0.4).toInt().coerceAtLeast(1)
-                            if (matchedCount >= requiredCount) {
+                    // Strategy 3: Prefix Index Match (001 - Title, 01 - Title, #01 Title, [001] Title)
+                    val startsWithIndex = fileName.startsWith("$formattedIndex3 - ") ||
+                            fileName.startsWith("$formattedIndex3. ") ||
+                            fileName.startsWith("$formattedIndex3_") ||
+                            fileName.startsWith("$formattedIndex3 ") ||
+                            fileName.startsWith("$formattedIndex3-") ||
+                            fileName.startsWith("$formattedIndex2 - ") ||
+                            fileName.startsWith("$formattedIndex2. ") ||
+                            fileName.startsWith("$formattedIndex2_") ||
+                            fileName.startsWith("$formattedIndex2 ") ||
+                            fileName.startsWith("$formattedIndex2-") ||
+                            fileName.startsWith("[$formattedIndex3]") ||
+                            fileName.startsWith("($formattedIndex3)") ||
+                            fileName.startsWith("#$formattedIndex3") ||
+                            fileName.startsWith("#$formattedIndex2") ||
+                            fileName.startsWith("#$formattedIndex1 ") ||
+                            Regex("^0*$formattedIndex1\\s*[-_.]").containsMatchIn(fileName)
+
+                    if (startsWithIndex) {
+                        if (significantTokens.size >= 2) {
+                            val matchedCount = significantTokens.count { titleWithoutIndexPrefix.contains(it) }
+                            if (matchedCount >= (significantTokens.size * 0.5).toInt().coerceAtLeast(1)) {
                                 matchedFile = file
                                 break
                             }
@@ -249,11 +255,10 @@ object PlaylistVerifier {
                         }
                     }
 
-                    // Strategy 4: High Significant Token Overlap (>= 70% significant words match and file length is comparable)
-                    if (significantTokens.size >= 3) {
-                        val matchedTokenCount = significantTokens.count { token -> normalizedFileName.contains(token) }
-                        val ratio = matchedTokenCount.toDouble() / significantTokens.size.toDouble()
-                        if (ratio >= 0.70 && normalizedFileName.length >= normalizedTitle.length * 0.4) {
+                    // Strategy 4: High Levenshtein Similarity on Full Title (>= 88% similarity)
+                    if (normalizedTitle.length >= 8) {
+                        val similarity = calculateLevenshteinSimilarity(titleWithoutIndexPrefix, normalizedTitle)
+                        if (similarity >= 0.88) {
                             matchedFile = file
                             break
                         }
@@ -342,6 +347,24 @@ object PlaylistVerifier {
         return arabicNormalized.lowercase(Locale.US)
             .replace(Regex("[\\p{Punct}\\s]+"), " ")
             .trim()
+    }
+
+    private fun calculateLevenshteinSimilarity(s1: String, s2: String): Double {
+        if (s1 == s2) return 1.0
+        if (s1.isEmpty() || s2.isEmpty()) return 0.0
+        val len1 = s1.length
+        val len2 = s2.length
+        val dp = Array(len1 + 1) { IntArray(len2 + 1) }
+        for (i in 0..len1) dp[i][0] = i
+        for (j in 0..len2) dp[0][j] = j
+        for (i in 1..len1) {
+            for (j in 1..len2) {
+                val cost = if (s1[i - 1] == s2[j - 1]) 0 else 1
+                dp[i][j] = minOf(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost)
+            }
+        }
+        val maxLen = maxOf(len1, len2)
+        return 1.0 - (dp[len1][len2].toDouble() / maxLen)
     }
 
     suspend fun enqueueMissingItems(

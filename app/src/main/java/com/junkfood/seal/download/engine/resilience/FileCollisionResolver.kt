@@ -229,9 +229,14 @@ object FileCollisionResolver {
                     return file.absolutePath
                 }
 
-                // Match by clean title ONLY if title is not generic and long enough
-                if (!titleIsGeneric && cleanTitleStr.length >= 8 && fileName.contains(cleanTitleStr)) {
-                    Log.d(TAG, "Found existing file by title '$cleanTitleStr': ${file.absolutePath}")
+                // Match by exact clean title ONLY if title is not generic and long enough
+                val cleanFileNameWithoutExt = FileUtil.cleanFileName(fileName.substringBeforeLast('.'))
+                    .replace(Regex("^\\d{1,4}\\s*[-_.]\\s*"), "")
+                    .replace(Regex("""\.(?:[a-zA-Z]{2}(?:-[a-zA-Z]{2,4})*|auto|orig)$""", RegexOption.IGNORE_CASE), "")
+                    .trim()
+
+                if (!titleIsGeneric && cleanTitleStr.length >= 6 && cleanFileNameWithoutExt.equals(cleanTitleStr, ignoreCase = true)) {
+                    Log.d(TAG, "Found existing file by exact title '$cleanTitleStr': ${file.absolutePath}")
                     return file.absolutePath
                 }
             }
