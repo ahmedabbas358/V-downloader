@@ -1,10 +1,12 @@
 package com.junkfood.seal.audio.musicremoval.postprocessor
 
 import com.junkfood.seal.audio.musicremoval.MusicRemovalConfig
+import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
 
@@ -34,7 +36,7 @@ object UvrSpeechProtection {
         val n = minOf(originalLeft.size, originalRight.size, processedLeft.size, processedRight.size)
         if (n == 0) return Pair(FloatArray(0), FloatArray(0))
 
-        val boostLinear = Math.pow(10.0, (presenceBoostDb / 20.0)).toFloat()
+        val boostLinear = 10.0.pow(presenceBoostDb.toDouble() / 20.0).toFloat()
         val speechWeight = when (level) {
             MusicRemovalConfig.SpeechPreservationLevel.STANDARD -> 1.0f
             MusicRemovalConfig.SpeechPreservationLevel.HIGH -> boostLinear
@@ -45,7 +47,7 @@ object UvrSpeechProtection {
         val outR = FloatArray(n)
 
         val window = FloatArray(FFT_SIZE) { i ->
-            (0.5f * (1.0f - cos(2.0 * Math.PI * i / (FFT_SIZE - 1)))).toFloat()
+            (0.5f * (1.0f - cos(2.0 * PI * i / (FFT_SIZE - 1)))).toFloat()
         }
 
         val normWeight = FloatArray(n)
@@ -129,7 +131,7 @@ object UvrSpeechProtection {
         var l = 1
         while (l < n) {
             val step = l shl 1
-            val angle = -Math.PI / l
+            val angle = -PI / l
             val wStepR = cos(angle).toFloat()
             val wStepI = sin(angle).toFloat()
             var wR = 1.0f

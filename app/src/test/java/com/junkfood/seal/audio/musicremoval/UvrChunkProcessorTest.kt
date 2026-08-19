@@ -4,7 +4,9 @@ import com.junkfood.seal.audio.musicremoval.preprocessor.UvrChunkProcessor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.sin
 
 class UvrChunkProcessorTest {
 
@@ -14,8 +16,8 @@ class UvrChunkProcessorTest {
         val durationSeconds = 3
         val numSamples = sampleRate * durationSeconds
 
-        val inL = FloatArray(numSamples) { i -> (Math.sin(2.0 * Math.PI * 440.0 * i / sampleRate)).toFloat() }
-        val inR = FloatArray(numSamples) { i -> (Math.sin(2.0 * Math.PI * 880.0 * i / sampleRate)).toFloat() }
+        val inL = FloatArray(numSamples) { i -> sin(2.0 * PI * 440.0 * i / sampleRate).toFloat() }
+        val inR = FloatArray(numSamples) { i -> sin(2.0 * PI * 880.0 * i / sampleRate).toFloat() }
 
         var chunksProcessed = 0
         val (outL, outR) = UvrChunkProcessor.processStreaming(
