@@ -6,9 +6,8 @@ import androidx.room.RoomDatabase
 import com.junkfood.seal.database.objects.CommandTemplate
 import com.junkfood.seal.database.objects.CookieProfile
 import com.junkfood.seal.database.objects.DownloadedVideoInfo
+import com.junkfood.seal.database.objects.DownloadOperation
 import com.junkfood.seal.database.objects.OptionShortcut
-
-    import com.junkfood.seal.database.objects.DownloadOperation
 
 @Database(
     entities =

@@ -154,7 +154,7 @@ object LanguageMatcher {
             if (regex != null) {
                 val wildMatches = candidateTracks.filter { regex.matches(it.languageCode) }
                 if (wildMatches.isNotEmpty()) {
-                    return filterByPolicy(wildMatches, policy)
+                    return filterBestByPolicy(wildMatches, policy)
                 }
             }
         }
@@ -162,7 +162,7 @@ object LanguageMatcher {
         // 2. Exact Match (e.g. "ar" == "ar" or "ar-sa" == "ar-sa")
         val exactMatches = candidateTracks.filter { normalizeLangCode(it.languageCode) == normQuery }
         if (exactMatches.isNotEmpty()) {
-            return filterByPolicy(exactMatches, policy)
+            return filterBestByPolicy(exactMatches, policy)
         }
 
         // 3. Base Language Match (e.g. "ar" matches "ar-SA", "ar-EG", "ar-orig")
@@ -170,7 +170,7 @@ object LanguageMatcher {
             getBaseLanguageCode(it.languageCode) == baseQuery
         }
         if (baseMatches.isNotEmpty()) {
-            return filterByPolicy(baseMatches, policy)
+            return filterBestByPolicy(baseMatches, policy)
         }
 
         // 4. Regional fallback if user asked for "ar-SA" but only "ar" exists
@@ -179,7 +179,7 @@ object LanguageMatcher {
                 normalizeLangCode(it.languageCode) == baseQuery
             }
             if (fallbackMatches.isNotEmpty()) {
-                return filterByPolicy(fallbackMatches, policy)
+                return filterBestByPolicy(fallbackMatches, policy)
             }
         }
 
@@ -223,4 +223,26 @@ object LanguageMatcher {
             }
         }
     }
+
+    private fun filterBestByPolicy(
+        tracks: List<SubtitleTrack>,
+        policy: SubtitleTypePolicy,
+    ): List<SubtitleTrack> {
+        val policyFiltered = filterByPolicy(tracks, policy)
+        if (policy != SubtitleTypePolicy.ANY || policyFiltered.isEmpty()) {
+            return policyFiltered
+        }
+        val bestPriority = policyFiltered.minOf { sourcePriority(it.source) }
+        return policyFiltered
+            .filter { sourcePriority(it.source) == bestPriority }
+            .sortedWith(compareByDescending<SubtitleTrack> { it.isOriginal }.thenBy { it.languageCode.length })
+    }
+
+    private fun sourcePriority(source: SubtitleSource): Int =
+        when (source) {
+            SubtitleSource.MANUAL -> 0
+            SubtitleSource.AUTO_GENERATED -> 1
+            SubtitleSource.TRANSLATED -> 2
+            SubtitleSource.UNKNOWN -> 3
+        }
 }

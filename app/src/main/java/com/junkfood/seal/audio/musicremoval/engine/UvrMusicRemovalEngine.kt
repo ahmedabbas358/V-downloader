@@ -35,6 +35,14 @@ object UvrMusicRemovalEngine : MusicRemovalEngine {
 
     private const val TAG = "UvrMusicRemovalEngine"
 
+    private data class UvrCandidate(
+        val left: FloatArray,
+        val right: FloatArray,
+        val modelUsed: String,
+        val processingTimeMs: Long,
+        val quality: SeparationQualityEvaluator.QualityReport,
+    )
+
     override val capabilities: MusicRemovalCapabilities
         get() = MusicRemovalCapabilities(
             engineName = "Ultimate Vocal Remover (UVR)",
@@ -139,67 +147,89 @@ object UvrMusicRemovalEngine : MusicRemovalEngine {
             // 4. Preprocess & Normalize
             val preprocessed = UvrAudioPreprocessor.preprocess(rawL, rawR, sampleRate = 44100)
 
-            // 5. Execute UVR Model Strategy
-            val strategy = UvrModelSelector.selectStrategy(config)
-            Log.d(TAG, "Executing UVR strategy: $strategy")
+            // 5. Execute a bounded UVR-only strategy chain. Success is quality based,
+            // not process-exit based and not file-existence based.
+            val strategies = UvrModelSelector.selectStrategyChain(config)
+            val candidates = mutableListOf<UvrCandidate>()
+            var lastFailure: Throwable? = null
 
-            val uvrResult: UvrSeparationResult = when (strategy) {
-                is UvrModelSelector.Strategy.SingleUvrModel -> {
-                    UvrInferenceRunner.runInference(
-                        leftChannel = preprocessed.leftChannel,
-                        rightChannel = preprocessed.rightChannel,
-                        modelSpec = strategy.spec,
-                        config = config,
-                        sampleRate = 44100,
-                        onProgress = onProgress
+            for ((attemptIndex, strategy) in strategies.withIndex()) {
+                if (!currentCoroutineContext().isActive) throw CancellationException("Processing cancelled")
+
+                onProgress?.invoke(
+                    0.12f,
+                    "محاولة UVR ${attemptIndex + 1}/${strategies.size}: ${describeStrategy(strategy)}"
+                )
+
+                val candidate =
+                    runCatching {
+                        executeStrategyCandidate(
+                            strategy = strategy,
+                            originalLeft = preprocessed.leftChannel,
+                            originalRight = preprocessed.rightChannel,
+                            normalizationGain = preprocessed.normalizationGain,
+                            config = config,
+                            sampleRate = 44100,
+                            onProgress = { p, msg ->
+                                val attemptBase = 0.15f + (attemptIndex.toFloat() / strategies.size) * 0.62f
+                                val attemptWeight = 0.62f / strategies.size
+                                onProgress?.invoke(attemptBase + p * attemptWeight, msg)
+                            },
+                        )
+                    }.getOrElse { th ->
+                        lastFailure = th
+                        Log.w(TAG, "UVR attempt ${attemptIndex + 1} failed: ${describeStrategy(strategy)}", th)
+                        null
+                    }
+
+                if (candidate != null) {
+                    candidates += candidate
+                    Log.d(
+                        TAG,
+                        "UVR candidate ${candidate.modelUsed}: " +
+                            "overall=${candidate.quality.overallQualityScore}, " +
+                            "speech=${candidate.quality.speechRetentionScore}, " +
+                            "suppression=${candidate.quality.musicSuppressionScore}, " +
+                            "snr=${candidate.quality.signalToNoiseRatioDb}, " +
+                            "clipping=${candidate.quality.isClippingDetected}"
                     )
-                }
-                is UvrModelSelector.Strategy.EnsembleUvrModels -> {
-                    UvrEnsembleEngine.separateEnsemble(
-                        leftChannel = preprocessed.leftChannel,
-                        rightChannel = preprocessed.rightChannel,
-                        primarySpec = strategy.primarySpec,
-                        secondarySpec = strategy.secondarySpec,
-                        config = config,
-                        sampleRate = 44100,
-                        onProgress = onProgress
-                    )
+
+                    if (isAcceptableCandidate(candidate, config, preprocessed.leftChannel.size)) {
+                        break
+                    }
                 }
             }
 
-            if (!currentCoroutineContext().isActive) throw CancellationException("Processing cancelled")
+            val bestCandidate =
+                candidates.maxWithOrNull(
+                    compareBy<UvrCandidate> { if (isAcceptableCandidate(it, config, preprocessed.leftChannel.size)) 1 else 0 }
+                        .thenBy { it.quality.overallQualityScore }
+                        .thenBy { it.quality.musicSuppressionScore }
+                        .thenBy { it.quality.speechRetentionScore }
+                )
+                    ?: throw IllegalStateException(
+                        "All UVR strategies failed",
+                        lastFailure,
+                    )
 
-            // 6. Speech Protection (Formant retention & sibilant protection)
-            onProgress?.invoke(0.80f, "حماية مخارج الحروف والكلام البشري...")
-            val (protectedL, protectedR) = UvrSpeechProtection.protectSpeech(
-                originalLeft = preprocessed.leftChannel,
-                originalRight = preprocessed.rightChannel,
-                processedLeft = uvrResult.vocalLeft,
-                processedRight = uvrResult.vocalRight,
-                sampleRate = 44100,
-                level = config.speechPreservationLevel,
-                presenceBoostDb = config.speechEnhancementDb
-            )
-
-            // 7. Residual Suppression (Deep sub-bass & high-frequency cutoff)
-            onProgress?.invoke(0.85f, "تصفية البقايا الموسيقية العميقة...")
-            val suppressionStrength = when (config.qualityMode) {
-                MusicRemovalConfig.QualityMode.FAST -> 0.70f
-                MusicRemovalConfig.QualityMode.BALANCED -> 0.85f
-                MusicRemovalConfig.QualityMode.HIGH_QUALITY -> 0.90f
-                MusicRemovalConfig.QualityMode.MAX_REMOVAL -> 0.95f
+            if (!isStructurallyValidCandidate(bestCandidate, preprocessed.leftChannel.size)) {
+                throw IllegalStateException("UVR produced invalid audio duration or clipped output")
             }
-            val (cleanL, cleanR) = UvrResidualSuppression.suppressResiduals(
-                leftChannel = protectedL,
-                rightChannel = protectedR,
-                suppressionStrength = suppressionStrength
-            )
 
-            // 8. Restore Dynamic Gain
-            val (finalL, finalR) = UvrAudioPreprocessor.restoreGain(cleanL, cleanR, preprocessed.normalizationGain)
+            if (!isAcceptableCandidate(bestCandidate, config, preprocessed.leftChannel.size)) {
+                throw IllegalStateException(
+                    "UVR quality below acceptance threshold: " +
+                        "overall=${bestCandidate.quality.overallQualityScore}, " +
+                        "speech=${bestCandidate.quality.speechRetentionScore}, " +
+                        "suppression=${bestCandidate.quality.musicSuppressionScore}"
+                )
+            }
+
+            val finalL = bestCandidate.left
+            val finalR = bestCandidate.right
 
             // 9. Write Clean WAV
-            onProgress?.invoke(0.90f, "تصدير الملف الصوتي الصافي...")
+            onProgress?.invoke(0.90f, "تصدير أفضل نتيجة UVR (${bestCandidate.modelUsed})...")
             writePcmWav(cleanWav, finalL, finalR, sampleRate = 44100)
 
             // 10. Mux or Encode via FFmpeg
@@ -316,5 +346,121 @@ object UvrMusicRemovalEngine : MusicRemovalEngine {
                 fos.write(sampleBuffer.array(), 0, sampleBuffer.position())
             }
         }
+    }
+
+    private suspend fun executeStrategyCandidate(
+        strategy: UvrModelSelector.Strategy,
+        originalLeft: FloatArray,
+        originalRight: FloatArray,
+        normalizationGain: Float,
+        config: MusicRemovalConfig,
+        sampleRate: Int,
+        onProgress: ((Float, String) -> Unit)?,
+    ): UvrCandidate {
+        val uvrResult =
+            when (strategy) {
+                is UvrModelSelector.Strategy.SingleUvrModel -> {
+                    UvrInferenceRunner.runInference(
+                        leftChannel = originalLeft,
+                        rightChannel = originalRight,
+                        modelSpec = strategy.spec,
+                        config = config,
+                        sampleRate = sampleRate,
+                        onProgress = onProgress,
+                    )
+                }
+                is UvrModelSelector.Strategy.EnsembleUvrModels -> {
+                    UvrEnsembleEngine.separateEnsemble(
+                        leftChannel = originalLeft,
+                        rightChannel = originalRight,
+                        primarySpec = strategy.primarySpec,
+                        secondarySpec = strategy.secondarySpec,
+                        config = config,
+                        sampleRate = sampleRate,
+                        onProgress = onProgress,
+                    )
+                }
+            }
+
+        if (!currentCoroutineContext().isActive) throw CancellationException("Processing cancelled")
+
+        onProgress?.invoke(0.82f, "حماية الكلام وتثبيت مخارج الحروف...")
+        val (protectedL, protectedR) =
+            UvrSpeechProtection.protectSpeech(
+                originalLeft = originalLeft,
+                originalRight = originalRight,
+                processedLeft = uvrResult.vocalLeft,
+                processedRight = uvrResult.vocalRight,
+                sampleRate = sampleRate,
+                level = config.speechPreservationLevel,
+                presenceBoostDb = config.speechEnhancementDb,
+            )
+
+        onProgress?.invoke(0.88f, "تقييم البقايا الموسيقية وتخفيفها...")
+        val (cleanL, cleanR) =
+            UvrResidualSuppression.suppressResiduals(
+                leftChannel = protectedL,
+                rightChannel = protectedR,
+                suppressionStrength = suppressionStrength(config),
+            )
+
+        val (finalL, finalR) = UvrAudioPreprocessor.restoreGain(cleanL, cleanR, normalizationGain)
+        val finalQuality =
+            SeparationQualityEvaluator.evaluate(
+                originalLeft = originalLeft,
+                originalRight = originalRight,
+                separatedLeft = finalL,
+                separatedRight = finalR,
+                sampleRate = sampleRate,
+            )
+
+        return UvrCandidate(
+            left = finalL,
+            right = finalR,
+            modelUsed = uvrResult.modelUsed,
+            processingTimeMs = uvrResult.processingTimeMs,
+            quality = finalQuality,
+        )
+    }
+
+    private fun describeStrategy(strategy: UvrModelSelector.Strategy): String =
+        when (strategy) {
+            is UvrModelSelector.Strategy.SingleUvrModel -> strategy.spec.name
+            is UvrModelSelector.Strategy.EnsembleUvrModels ->
+                "${strategy.primarySpec.name} + ${strategy.secondarySpec.name}"
+        }
+
+    private fun suppressionStrength(config: MusicRemovalConfig): Float =
+        when (config.qualityMode) {
+            MusicRemovalConfig.QualityMode.FAST -> 0.70f
+            MusicRemovalConfig.QualityMode.BALANCED -> 0.85f
+            MusicRemovalConfig.QualityMode.HIGH_QUALITY -> 0.90f
+            MusicRemovalConfig.QualityMode.MAX_REMOVAL -> 0.95f
+        }
+
+    private fun minimumQuality(config: MusicRemovalConfig): Float =
+        when (config.qualityMode) {
+            MusicRemovalConfig.QualityMode.FAST -> 0.35f
+            MusicRemovalConfig.QualityMode.BALANCED -> 0.38f
+            MusicRemovalConfig.QualityMode.HIGH_QUALITY -> 0.42f
+            MusicRemovalConfig.QualityMode.MAX_REMOVAL -> 0.45f
+        }
+
+    private fun isAcceptableCandidate(
+        candidate: UvrCandidate,
+        config: MusicRemovalConfig,
+        expectedSamples: Int,
+    ): Boolean =
+        isStructurallyValidCandidate(candidate, expectedSamples) &&
+            candidate.quality.isAcceptable &&
+            candidate.quality.overallQualityScore >= minimumQuality(config) &&
+            candidate.quality.speechRetentionScore >= 0.18f &&
+            !candidate.quality.isClippingDetected
+
+    private fun isStructurallyValidCandidate(candidate: UvrCandidate, expectedSamples: Int): Boolean {
+        val sampleCount = minOf(candidate.left.size, candidate.right.size)
+        if (expectedSamples <= 0 || sampleCount <= 0) return false
+        val durationRatio = sampleCount.toFloat() / expectedSamples.toFloat()
+        return durationRatio in 0.95f..1.05f
     }
 }

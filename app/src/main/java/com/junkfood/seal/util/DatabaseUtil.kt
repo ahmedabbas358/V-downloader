@@ -19,10 +19,37 @@ import kotlinx.coroutines.launch
 
 object DatabaseUtil {
     private const val DATABASE_NAME = "app_database"
+
+    private fun androidx.sqlite.db.SupportSQLiteDatabase.tableExists(tableName: String): Boolean {
+        query("SELECT name FROM sqlite_master WHERE type='table' AND name=?", arrayOf(tableName)).use {
+            return it.moveToFirst()
+        }
+    }
+
+    private fun androidx.sqlite.db.SupportSQLiteDatabase.columnExists(
+        tableName: String,
+        columnName: String,
+    ): Boolean {
+        if (!tableExists(tableName)) return false
+        query("PRAGMA table_info(`$tableName`)").use { cursor ->
+            val nameIndex = cursor.getColumnIndex("name")
+            while (cursor.moveToNext()) {
+                if (cursor.getString(nameIndex) == columnName) return true
+            }
+        }
+        return false
+    }
+
     private val MIGRATION_6_7 = object : androidx.room.migration.Migration(6, 7) {
         override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
-            db.execSQL("CREATE INDEX IF NOT EXISTS `index_DownloadedVideoInfo_videoTitle` ON `DownloadedVideoInfo` (`videoTitle`)")
-            db.execSQL("CREATE INDEX IF NOT EXISTS `index_DownloadOperation_videoUrl` ON `DownloadOperation` (`videoUrl`)")
+            if (db.tableExists("DownloadedVideoInfo")) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_DownloadedVideoInfo_videoTitle` ON `DownloadedVideoInfo` (`videoTitle`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_DownloadedVideoInfo_videoUrl` ON `DownloadedVideoInfo` (`videoUrl`)")
+            }
+            if (db.tableExists("download_operation")) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_download_operation_url` ON `download_operation` (`url`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_download_operation_title` ON `download_operation` (`title`)")
+            }
         }
     }
 
@@ -34,8 +61,9 @@ object DatabaseUtil {
 
     private val MIGRATION_8_9 = object : androidx.room.migration.Migration(8, 9) {
         override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
-            // Add sessionToken to CookieProfile for session management / persistence
-            db.execSQL("ALTER TABLE `CookieProfile` ADD COLUMN `sessionToken` TEXT NOT NULL DEFAULT ''")
+            if (db.tableExists("CookieProfile") && !db.columnExists("CookieProfile", "sessionToken")) {
+                db.execSQL("ALTER TABLE `CookieProfile` ADD COLUMN `sessionToken` TEXT NOT NULL DEFAULT ''")
+            }
         }
     }
 

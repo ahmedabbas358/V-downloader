@@ -233,7 +233,7 @@ val DEFAULT_COMMAND_TEMPLATES =
                 --retries 15
                 --fragment-retries 15
                 --socket-timeout 30
-                -o "%(playlist_title,playlist)s/%(playlist_autonumber&%(playlist_autonumber)03d|%(playlist_index&%(playlist_index)03d|)s)s - %(title).200B.%(ext)s"
+                -o "%(playlist_title,playlist,uploader,id).200B/%(playlist_index,playlist_autonumber)03d - %(title).200B [%(id)s].%(ext)s"
                 """.trimIndent(),
         ),
         CommandTemplate(
@@ -366,7 +366,7 @@ val DEFAULT_COMMAND_TEMPLATES =
                 """
                 -f "bv*[height<=1080][height>=720]+ba/b[height<=1080]/best"
                 --merge-output-format mp4
-                -o "%(playlist_title)s/%(playlist_index)03d - %(title)s.%(ext)s"
+                -o "%(playlist_title,playlist,uploader,id).200B/%(playlist_index,playlist_autonumber)03d - %(title).200B [%(id)s].%(ext)s"
                 """.trimIndent(),
         ),
         CommandTemplate(
@@ -392,11 +392,12 @@ val DEFAULT_COMMAND_TEMPLATES =
                 --no-write-thumbnail
                 --no-write-info-json
                 --no-write-comments
-                --retries infinite
-                --fragment-retries infinite
+                --retries 15
+                --fragment-retries 15
+                --socket-timeout 30
                 --retry-sleep 5
                 --ignore-errors
-                -o "sub %(playlist_title)s/%(playlist_index)03d - %(title)s.%(ext)s"
+                -o "[Subtitles] %(playlist_title,playlist,uploader,id).200B/%(playlist_index,playlist_autonumber)03d - %(title).200B [%(id)s].%(ext)s"
                 """.trimIndent(),
         ),
         CommandTemplate(

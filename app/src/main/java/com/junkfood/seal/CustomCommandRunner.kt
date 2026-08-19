@@ -19,8 +19,10 @@ import com.junkfood.seal.util.DatabaseUtil
 import com.junkfood.seal.util.DownloadUtil
 import com.junkfood.seal.util.FileUtil
 import com.junkfood.seal.util.NotificationUtil
+import com.junkfood.seal.util.NOTIFICATION
 import com.junkfood.seal.util.PlaylistEntry
 import com.junkfood.seal.util.PlaylistResult
+import com.junkfood.seal.util.PreferenceUtil.getBoolean
 import com.junkfood.seal.util.PreferenceUtil.getString
 import com.junkfood.seal.util.ToastUtil
 import com.junkfood.seal.util.VideoInfo
@@ -181,7 +183,13 @@ object CustomCommandRunner {
                 .combine(mutableQuickDownloadCount) { isRunning, cnt ->
                     if (!isRunning) cnt > 0 else true
                 }
-                .collect { if (it) startService() else stopService() }
+                .collect {
+                    if (it && NOTIFICATION.getBoolean() && NotificationUtil.areNotificationsEnabled()) {
+                        startService()
+                    } else {
+                        stopService()
+                    }
+                }
         }
     }
 

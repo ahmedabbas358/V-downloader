@@ -8,7 +8,7 @@
         android:shortcutLongLabel="@string/quick_download_long_label">
         <intent
             android:action="com.junkfood.seal.action.QUICK_DOWNLOAD"
-            android:targetPackage="com.junkfood.seal"
+            android:targetPackage="com.vdownloader.app"
             android:targetClass="com.junkfood.seal.QuickDownloadActivity" />
     </shortcut>
 </shortcuts>

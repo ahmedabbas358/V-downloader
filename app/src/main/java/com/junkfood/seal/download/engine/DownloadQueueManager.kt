@@ -32,8 +32,10 @@ import com.junkfood.seal.download.engine.subtitle.SubtitleManager
 import com.junkfood.seal.util.DatabaseUtil
 import com.junkfood.seal.util.DownloadUtil
 import com.junkfood.seal.util.FileUtil
+import com.junkfood.seal.util.NOTIFICATION
 import com.junkfood.seal.util.NotificationUtil
 import com.junkfood.seal.util.PreferenceUtil
+import com.junkfood.seal.util.PreferenceUtil.getBoolean
 import com.junkfood.seal.util.VideoInfo
 import com.yausername.youtubedl_android.YoutubeDL
 import kotlinx.coroutines.CoroutineScope
@@ -96,7 +98,7 @@ class DownloadQueueManager(
                 .map { it.hasActiveTasks() }
                 .distinctUntilChanged()
                 .collect { hasActive ->
-                    if (hasActive && NotificationUtil.areNotificationsEnabled()) {
+                    if (hasActive && NOTIFICATION.getBoolean() && NotificationUtil.areNotificationsEnabled()) {
                         App.startService()
                     } else {
                         App.stopService()

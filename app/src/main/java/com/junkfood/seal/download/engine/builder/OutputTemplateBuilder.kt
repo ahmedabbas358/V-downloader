@@ -31,7 +31,7 @@ object OutputTemplateBuilder {
         "chapter:$BASENAME/%(section_number)d - %(section_title).200B$EXTENSION"
     const val OUTPUT_TEMPLATE_SPLIT = "$BASENAME/$OUTPUT_TEMPLATE_DEFAULT"
     const val PLAYLIST_TITLE_SUBDIRECTORY_PREFIX = "%(playlist_title,playlist,uploader,id).200B/"
-    const val PLAYLIST_INDEX_PADDED = "%(playlist_index|0)03d"
+    const val PLAYLIST_INDEX_PADDED = "%(playlist_index,playlist_autonumber)03d"
 
     /**
      * Builds the output template string for the -o option.

@@ -80,6 +80,7 @@ class LanguageMatcherTest {
         val matches = LanguageMatcher.matchTracks("ar", sampleTracks, policy = SubtitleTypePolicy.ANY)
         // Manual Arabic must precede Auto Arabic
         assertEquals(SubtitleSource.MANUAL, matches.first().source)
+        assertFalse(matches.any { it.source == SubtitleSource.AUTO_GENERATED })
     }
 
     @Test

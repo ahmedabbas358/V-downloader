@@ -224,7 +224,7 @@ fun DownloadDirectoryPreferences(onNavigateBack: () -> Unit) {
 
     fun openDirectoryChooser(directory: Directory = Directory.VIDEO) {
         editingDirectory = directory
-        if (Build.VERSION.SDK_INT >= 29 || storagePermission.status == PermissionStatus.Granted) {
+        if (Build.VERSION.SDK_INT > 29 || storagePermission.status == PermissionStatus.Granted) {
             try {
                 launcher.launch(null)
             } catch (e: Exception) {
