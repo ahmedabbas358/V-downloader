@@ -30,7 +30,7 @@ data class MusicRemovalConfig(
     }
 
     enum class SecondaryModelPolicy {
-        AUTO,         // Engaged only when ResidualAnalyzer detects music leakage
+        AUTO,         // Engaged only when SeparationQualityEvaluator detects music leakage
         ALWAYS,       // Always run secondary model and blend
         NEVER         // Single-pass processing only
     }
