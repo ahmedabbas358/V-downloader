@@ -13,9 +13,9 @@ class YoutubeClientStrategyTest {
     @Test
     fun testDefaultClientChain() {
         val chain = YoutubeClientStrategy.getClientChainForAttempt(1)
-        assertTrue(chain.contains(YoutubeClient.ANDROID))
+        assertTrue(chain.contains(YoutubeClient.IOS))
         val args = YoutubeClientStrategy.buildExtractorArgs(clientChain = chain)
-        assertEquals("youtube:player_client=android,default", args)
+        assertEquals("youtube:player_client=ios,mweb,web", args)
     }
 
     @Test

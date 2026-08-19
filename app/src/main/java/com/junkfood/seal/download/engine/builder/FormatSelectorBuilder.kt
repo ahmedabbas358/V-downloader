@@ -52,22 +52,33 @@ object FormatSelectorBuilder {
         }
     }
 
+    private val KNOWN_AUDIO_FORMATS = setOf(
+        "139", "140", "141", "249", "250", "251", "256", "258", "325", "327", "328", "599", "600",
+        "ba", "wa", "bestaudio", "worstaudio", "audio", "m4a", "opus", "aac", "mp3", "flac", "ogg"
+    )
+
     /**
      * Ensures that a format ID string always includes audio merging.
      *
      * Rules:
-     * - If format already contains audio indicators (+ba, bestaudio, /best), leave as-is.
+     * - If format already contains audio indicators (+ba, bestaudio, /best, known audio itags), leave as-is.
      * - If format is a bare video format ID, append +bestaudio/best.
      * - If format contains multiple video IDs joined by +, treat as multi-stream.
      */
     fun ensureAudioMerged(formatId: String, hasMultipleAudioStreams: Boolean = false): String {
         if (formatId.isBlank()) return ""
 
-        // Already contains audio merge specification
-        val hasAudio = formatId.contains("+ba", ignoreCase = true) ||
-                       formatId.contains("bestaudio", ignoreCase = true) ||
-                       formatId.contains("/best", ignoreCase = true) ||
-                       (formatId.contains("best", ignoreCase = true) && formatId.contains("/"))
+        val parts = formatId.split("+", "/")
+        val hasAudio = parts.any { part ->
+            val clean = part.trim().lowercase()
+            clean in KNOWN_AUDIO_FORMATS ||
+            clean.contains("ba") ||
+            clean.contains("bestaudio") ||
+            clean.contains("wa") ||
+            clean.contains("worstaudio") ||
+            clean.contains("audio") ||
+            clean == "b" || clean.startsWith("b[")
+        } || formatId.contains("/best", ignoreCase = true)
 
         if (hasAudio) return formatId
 
