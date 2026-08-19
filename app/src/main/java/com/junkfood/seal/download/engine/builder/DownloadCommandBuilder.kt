@@ -88,7 +88,11 @@ object DownloadCommandBuilder {
         with(request) {
             addOption("--no-mtime")
             addOption("--no-part")
-            addOption("--force-overwrites")
+            // CRITICAL: --newline forces yt-dlp to output one line per callback call,
+            // enabling reliable "Destination:" path discovery in the progress callback.
+            addOption("--newline")
+            // NOTE: --force-overwrites intentionally removed — it silently bypasses existing
+            // files and confuses path discovery. Playlist numbering handles conflicts instead.
 
             if (preferences.skipDownload) {
                 addOption("--skip-download")

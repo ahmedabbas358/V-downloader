@@ -16,8 +16,11 @@ import java.io.File
  * Design Principles:
  * - Sort matches by lastModified descending to always prefer the newest file.
  * - For generic titles (social media), rely exclusively on Video ID matching.
- * - Fallback to recently modified files (last 5 minutes) if no name match is found.
+ * - Fallback to recently modified files (configurable window) if no name match found.
  * - Properly filter subtitle files from video/audio files.
+ *
+ * FIX: Added configurable [windowMinutes] for the "recent file" fallback (default 10 min
+ *      instead of 5 min) to correctly pick up files from slow/large downloads.
  */
 object MediaStorageScanner {
 
@@ -31,10 +34,11 @@ object MediaStorageScanner {
     /**
      * Scans the download directory for files matching the completed download.
      *
-     * @param title The video/subtitle title
-     * @param downloadDir The directory where files were downloaded
+     * @param title          The video/subtitle title
+     * @param downloadDir    The directory where files were downloaded
      * @param isSubtitleOnly Whether this was a subtitle-only download
-     * @param videoId Optional video ID for precise matching
+     * @param videoId        Optional video ID for precise matching
+     * @param windowMinutes  How many minutes back to look for recently modified files (fallback)
      * @return List of matched file paths, sorted newest-first
      */
     fun scanAndRegister(
@@ -42,6 +46,7 @@ object MediaStorageScanner {
         downloadDir: String,
         isSubtitleOnly: Boolean = false,
         videoId: String? = null,
+        windowMinutes: Int = 10,
     ): List<String> {
         val cleanTitleStr = title
             .removePrefix("[Subtitle] ")
@@ -53,7 +58,7 @@ object MediaStorageScanner {
         val normalizedTitle = cleanTitleStr.lowercase(java.util.Locale.US)
             .replace(Regex("[^a-z0-9\\u0600-\\u06FF\\s]"), "").trim()
         val titleWords = normalizedTitle.split("\\s+".toRegex()).filter { it.length >= 2 }
-        val fiveMinutesAgo = System.currentTimeMillis() - (5 * 60 * 1000L)
+        val cutoffTime = System.currentTimeMillis() - (windowMinutes * 60 * 1000L)
 
         val isGeneric = FileCollisionResolver.isGenericTitle(title)
 
@@ -97,7 +102,7 @@ object MediaStorageScanner {
                     (shortTitle.isNotEmpty() && name.contains(shortTitle))) {
                     isMatch = true
                 }
-            } else if (!isMatch && isGeneric && file.lastModified() >= fiveMinutesAgo) {
+            } else if (!isMatch && isGeneric && file.lastModified() >= cutoffTime) {
                 // For generic titles, only match very recent files by title
                 if (name.contains(cleanedTitle) || path.contains(cleanTitleStr) || name.contains(rawCleaned)) {
                     isMatch = true
@@ -118,19 +123,23 @@ object MediaStorageScanner {
         .map { it.absolutePath }
         .toMutableList()
 
-        // 2. Fallback: recently modified files
+        // 2. Fallback: recently modified files within the window
         if (matchedFiles.isEmpty()) {
+            Log.w(TAG, "No title/ID match for '$title'. Falling back to files modified in last $windowMinutes min.")
             val recentlyModified = allFiles.filter { file ->
                 val name = file.name
                 val isSubFile = SUBTITLE_REGEX.containsMatchIn(name)
                 val typeMatches = if (isSubtitleOnly) isSubFile
                     else !isSubFile && !THUMBNAIL_REGEX.containsMatchIn(name)
-                typeMatches && file.lastModified() >= fiveMinutesAgo
+                typeMatches && file.lastModified() >= cutoffTime
             }
             .sortedByDescending { it.lastModified() }
             .map { it.absolutePath }
 
             matchedFiles.addAll(recentlyModified)
+            if (recentlyModified.isNotEmpty()) {
+                Log.d(TAG, "Fallback found ${recentlyModified.size} recent file(s)")
+            }
         }
 
         // 3. Register with MediaStore

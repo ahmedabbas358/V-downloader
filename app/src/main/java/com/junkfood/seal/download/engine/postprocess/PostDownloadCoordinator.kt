@@ -3,9 +3,7 @@ package com.junkfood.seal.download.engine.postprocess
 import android.content.Context
 import android.util.Log
 import com.junkfood.seal.App.Companion.context
-import com.junkfood.seal.database.objects.DownloadOperation
 import com.junkfood.seal.database.objects.DownloadedVideoInfo
-import com.junkfood.seal.download.Task
 import com.junkfood.seal.download.engine.builder.OutputTemplateBuilder
 import com.junkfood.seal.util.DatabaseUtil
 import com.junkfood.seal.util.DownloadUtil
@@ -22,15 +20,27 @@ import java.io.File
  * PostDownloadCoordinator
  *
  * Orchestrates the complete post-download pipeline:
- * 1. Output file validation (detects 0-byte or skipped downloads)
+ * 1. Output file discovery and validation  ← Now prioritizes yt-dlp reported paths
  * 2. Vocal isolation / music removal (if requested)
  * 3. SD card / SAF transfer
  * 4. MediaStore library scanning & indexing
  * 5. Download history database insertion
+ *
+ * CRITICAL FIX:
+ * - discoveredPaths (from yt-dlp --newline output) are now the PRIMARY source of truth.
+ * - MediaStorageScanner directory scan is ONLY used as a fallback when yt-dlp reported nothing.
+ * - Merging post-processors (FFmpeg, Merger, ExtractAudio) produce a NEW file; we keep
+ *   the LAST reported path from yt-dlp as the final output, not the first.
+ * - .part, .ytdl, .tmp files are automatically excluded.
  */
 object PostDownloadCoordinator {
 
     private const val TAG = "PostDownloadCoordinator"
+
+    private val SUBTITLE_REGEX = Regex("(?i)\\.(lrc|vtt|srt|ass|json3|srv\\d?|ttml|sub|ssa)$")
+    private val THUMBNAIL_REGEX = Regex("(?i)\\.(jpe?g|png|webp|bmp)$")
+    private val TEMP_FILE_REGEX = Regex("(?i)\\.(part|ytdl|tmp)$")
+    private val MEDIA_REGEX = Regex("(?i)\\.(mp4|mkv|webm|m4a|mp3|opus|flac|wav|ogg|m4b|mka|avi|mov|ts|3gp|m4v)$")
 
     /**
      * Executes the post-download pipeline and returns the list of final media file paths.
@@ -46,110 +56,203 @@ object PostDownloadCoordinator {
         appContext: Context = context,
         onProgress: ((Float, String) -> Unit)? = null,
     ): Result<List<String>> = runCatching {
+
+        val isSubtitleOnly = preferences.skipDownload && preferences.downloadSubtitle
+
         val fileName = preferences.newTitle.ifEmpty {
             val fn = videoInfo.filename ?: videoInfo.requestedDownloads?.firstOrNull()?.filename
-            if (preferences.skipDownload && fn != null) {
-                fn.substringBeforeLast(".")
-            } else {
-                fn ?: videoInfo.title
-            }
+            if (isSubtitleOnly && fn != null) fn.substringBeforeLast(".") else fn ?: videoInfo.title
         }
 
-        val targetScanDir = if (preferences.skipDownload && preferences.downloadSubtitle && playlistItem != 0 && preferences.commandDirectory.isBlank()) {
-            val playlistName = fallbackPlaylistTitle.ifEmpty { videoInfo.playlist.orEmpty() }.ifEmpty { "Playlist" }
-            "$downloadPath/[Subtitles] ${FileUtil.cleanFileName(playlistName)}"
-        } else {
-            downloadPath
+        Log.d(TAG, "handleDownloadCompletion: '$fileName' | discovered=${discoveredPaths.size} | subOnly=$isSubtitleOnly")
+        if (discoveredPaths.isNotEmpty()) {
+            Log.d(TAG, "Raw discoveredPaths: $discoveredPaths")
         }
 
-        Log.d(TAG, "handleDownloadCompletion for '$fileName' in '$targetScanDir' (discovered: ${discoveredPaths.size})")
-
-        // 1. SD Card Handling
+        // 1. SD Card path — handled separately
         if (preferences.sdcard) {
             val movedPaths = moveFilesToSdcard(
                 tempPath = appContext.getSdcardTempDir(videoInfo.id),
                 sdcardUri = sdcardUri,
             ).getOrThrow()
-
-            if (preferences.privateMode) {
-                return@runCatching emptyList()
-            }
-            if (preferences.splitByChapter) {
-                insertSplitChapterIntoHistory(videoInfo, movedPaths)
-            } else {
-                insertInfoIntoDownloadHistory(videoInfo, movedPaths)
-            }
+            if (preferences.privateMode) return@runCatching emptyList()
+            if (preferences.splitByChapter) insertSplitChapterIntoHistory(videoInfo, movedPaths)
+            else insertInfoIntoDownloadHistory(videoInfo, movedPaths)
             return@runCatching movedPaths
         }
 
-        // 2. Resolve final paths (First check discovered paths from yt-dlp execution stream)
-        val validDiscovered = discoveredPaths.filter { path ->
-            val f = File(path)
-            f.exists() && f.isFile && f.length() > (if (preferences.skipDownload) 5L else 512L)
-        }
+        // 2. Validate discoveredPaths — exclude temp/thumbnail/wrong-type files
+        //    Keep the LATEST path of each final output file type (merger output replaces source)
+        val validDiscovered = discoveredPaths
+            .filter { path ->
+                val f = File(path)
+                val name = f.name
+                !TEMP_FILE_REGEX.containsMatchIn(name) &&
+                !THUMBNAIL_REGEX.containsMatchIn(name) &&
+                f.exists() &&
+                f.isFile &&
+                f.length() > (if (isSubtitleOnly) 5L else 512L)
+            }
+            .distinctBy { File(it).name } // deduplicate by filename
+            .sortedByDescending { File(it).lastModified() } // newest first (final merged file)
 
-        val subtitleRegex = Regex("(?i)\\.(lrc|vtt|srt|ass|json3|srv\\d?|ttml|sub|ssa)$")
-        val (subPaths, mediaPaths) = if (!preferences.skipDownload) {
-            validDiscovered.partition { subtitleRegex.containsMatchIn(it) }
+        Log.d(TAG, "Valid discovered after filtering: ${validDiscovered.size} → $validDiscovered")
+
+        // 3. Separate subtitles from media
+        val (subPaths, mediaPaths) = if (!isSubtitleOnly) {
+            validDiscovered.partition { SUBTITLE_REGEX.containsMatchIn(it) }
         } else {
             Pair(validDiscovered, emptyList<String>())
         }
+
+        // Register subtitles with MediaStore (fire-and-forget)
         subPaths.forEach { MediaStorageScanner.scanSingleFile(File(it)) }
 
-        var finalPaths = if (mediaPaths.isNotEmpty() || (preferences.skipDownload && subPaths.isNotEmpty())) {
-            val primary = if (preferences.skipDownload) subPaths else mediaPaths
-            primary.forEach { MediaStorageScanner.scanSingleFile(File(it)) }
-            primary
+        // 4. Determine final paths — discoveredPaths are authoritative
+        var finalPaths: List<String>
+
+        if (isSubtitleOnly) {
+            finalPaths = if (subPaths.isNotEmpty()) subPaths else {
+                Log.w(TAG, "No subtitle paths discovered, falling back to directory scan")
+                fallbackDirectoryScan(fileName, downloadPath, isSubtitleOnly = true, videoId = videoInfo.id)
+            }
         } else {
-            MediaStorageScanner.scanAndRegister(
-                title = fileName,
-                downloadDir = targetScanDir,
-                isSubtitleOnly = preferences.skipDownload,
-                videoId = videoInfo.id,
+            // Media download: use yt-dlp-reported media paths (not subtitles)
+            val reportedMedia = mediaPaths.filter { MEDIA_REGEX.containsMatchIn(it) }
+
+            finalPaths = if (reportedMedia.isNotEmpty()) {
+                Log.d(TAG, "Using yt-dlp reported media paths: $reportedMedia")
+                reportedMedia.onEach { MediaStorageScanner.scanSingleFile(File(it)) }
+            } else {
+                Log.w(TAG, "No media paths from yt-dlp output. Falling back to directory scan.")
+                fallbackDirectoryScan(fileName, downloadPath, isSubtitleOnly = false, videoId = videoInfo.id)
+            }
+        }
+
+        // 5. Hard validation — throw if absolutely nothing was found for media downloads
+        if (!isSubtitleOnly && finalPaths.isEmpty()) {
+            // Last-resort: look for any recently modified media file in the download dir
+            val lastResort = findMostRecentMediaFile(downloadPath, windowMinutes = 10)
+            if (lastResort != null) {
+                Log.w(TAG, "Last-resort file found: $lastResort")
+                finalPaths = listOf(lastResort)
+            } else {
+                throw IllegalStateException(
+                    "لم يتم العثور على الملف المحمّل في: $downloadPath\n" +
+                    "تأكد من صلاحيات الوصول للتخزين وأن المساحة كافية."
+                )
+            }
+        }
+
+        // 6. Validate each found file actually exists and is non-empty
+        val existingFinalPaths = finalPaths.filter { path ->
+            val f = File(path)
+            val ok = f.exists() && f.isFile && f.length() > (if (isSubtitleOnly) 5L else 512L)
+            if (!ok) Log.w(TAG, "Path reported but file missing or empty: $path")
+            ok
+        }
+
+        if (!isSubtitleOnly && existingFinalPaths.isEmpty() && finalPaths.isNotEmpty()) {
+            throw IllegalStateException(
+                "الملف أُبلغ عن تنزيله لكنه غير موجود على القرص: ${finalPaths.first()}"
             )
         }
 
-        // 3. Validation for media downloads
-        if (!preferences.skipDownload) {
-            if (finalPaths.isEmpty()) {
-                throw IllegalStateException("لم يتم العثور على الملفات المحملة. قد يكون التنزيل قد تخطى الملف أو فشل.")
-            }
-            val firstFile = File(finalPaths.first())
-            if (!firstFile.exists() || firstFile.length() == 0L) {
-                throw IllegalStateException("الملف المحمل تالف أو فارغ (0 بايت).")
-            }
-        }
+        val confirmedPaths = existingFinalPaths.ifEmpty { finalPaths }
 
-        // 4. Vocal Isolation / Music Removal
-        if (preferences.removeMusic && !preferences.skipDownload && finalPaths.isNotEmpty()) {
+        // 7. Vocal Isolation / Music Removal
+        var processedPaths = confirmedPaths
+        if (preferences.removeMusic && !isSubtitleOnly && processedPaths.isNotEmpty()) {
             val isAudioOnly = DownloadUtil.isAudioOnlyDownload(preferences, videoInfo)
-            finalPaths = VocalIsolationProcessor.removeMusicFromFiles(
-                filePaths = finalPaths,
+            onProgress?.invoke(0.0f, "جاري إزالة الموسيقى...")
+            processedPaths = VocalIsolationProcessor.removeMusicFromFiles(
+                filePaths = processedPaths,
                 isAudioOnly = isAudioOnly,
                 onProgress = onProgress,
             )
+            // Non-fatal: if removal failed, revert to confirmed paths
+            val validAfterRemoval = processedPaths.filter { File(it).exists() && File(it).length() > 0 }
+            if (validAfterRemoval.isNotEmpty()) {
+                processedPaths = validAfterRemoval
+            } else {
+                Log.w(TAG, "Music removal produced no valid output; using original paths")
+                processedPaths = confirmedPaths
+            }
         }
 
-        // 5. Database History Insertion
+        // 8. Database History Insertion
         if (preferences.privateMode) {
             emptyList()
         } else {
             if (preferences.splitByChapter) {
-                insertSplitChapterIntoHistory(videoInfo, finalPaths)
+                insertSplitChapterIntoHistory(videoInfo, processedPaths)
             } else {
-                insertInfoIntoDownloadHistory(videoInfo, finalPaths)
+                insertInfoIntoDownloadHistory(videoInfo, processedPaths)
             }
-            finalPaths
+            processedPaths
         }
+    }
+
+    /**
+     * Fallback: scans the download directory for recently modified matching files.
+     */
+    private fun fallbackDirectoryScan(
+        title: String,
+        downloadPath: String,
+        isSubtitleOnly: Boolean,
+        videoId: String?,
+        windowMinutes: Int = 10,
+    ): List<String> {
+        val result = MediaStorageScanner.scanAndRegister(
+            title = title,
+            downloadDir = downloadPath,
+            isSubtitleOnly = isSubtitleOnly,
+            videoId = videoId,
+            windowMinutes = windowMinutes,
+        )
+        if (result.isEmpty()) {
+            // Try parent directory as additional fallback
+            val parentDir = File(downloadPath).parentFile?.absolutePath
+            if (parentDir != null && parentDir != downloadPath) {
+                Log.w(TAG, "Trying parent directory: $parentDir")
+                return MediaStorageScanner.scanAndRegister(
+                    title = title,
+                    downloadDir = parentDir,
+                    isSubtitleOnly = isSubtitleOnly,
+                    videoId = videoId,
+                    windowMinutes = windowMinutes,
+                )
+            }
+        }
+        return result
+    }
+
+    /**
+     * Last-resort file finder: returns the most recently modified media file
+     * in the given directory within the specified time window.
+     */
+    private fun findMostRecentMediaFile(downloadPath: String, windowMinutes: Int): String? {
+        val dir = File(downloadPath)
+        if (!dir.exists()) return null
+        val cutoff = System.currentTimeMillis() - (windowMinutes * 60_000L)
+        return dir.walkTopDown()
+            .filter { f ->
+                f.isFile &&
+                MEDIA_REGEX.containsMatchIn(f.name) &&
+                !TEMP_FILE_REGEX.containsMatchIn(f.name) &&
+                f.length() > 512L &&
+                f.lastModified() >= cutoff
+            }
+            .maxByOrNull { it.lastModified() }
+            ?.absolutePath
     }
 
     private fun insertInfoIntoDownloadHistory(
         videoInfo: VideoInfo,
         filePaths: List<String>,
-    ): List<String> =
-        filePaths.onEach {
-            DatabaseUtil.insertInfo(videoInfo.toDownloadedVideoInfo(videoPath = it))
-        }
+    ): List<String> = filePaths.onEach {
+        DatabaseUtil.insertInfo(videoInfo.toDownloadedVideoInfo(videoPath = it))
+    }
 
     private fun insertSplitChapterIntoHistory(videoInfo: VideoInfo, filePaths: List<String>) =
         filePaths.onEach {

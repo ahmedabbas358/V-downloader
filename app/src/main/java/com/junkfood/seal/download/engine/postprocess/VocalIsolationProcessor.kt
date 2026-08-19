@@ -1,60 +1,74 @@
 package com.junkfood.seal.download.engine.postprocess
 
 import android.util.Log
-import com.junkfood.seal.ai.audio.pipeline.AudioSeparationPipeline
-import com.junkfood.seal.ai.audio.pipeline.SeparationOptions
-import com.junkfood.seal.util.MediaProcessingEngine
+import com.junkfood.seal.audio.musicremoval.MusicRemovalConfig
+import com.junkfood.seal.audio.musicremoval.MusicRemovalEngine
 import java.io.File
 
 /**
  * VocalIsolationProcessor
  *
- * Coordinates audio transformation pipelines:
- * 1. Neural & Spectral vocal isolation via [AudioSeparationPipeline]
- * 2. Speech clarity and noise suppression filters via [MediaProcessingEngine]
+ * Delegates audio transformation to [MusicRemovalEngine] — the new local, offline-first,
+ * modular neural + spectral separation system. No legacy engines or external calls.
+ *
+ * All music removal logic lives exclusively in the `com.junkfood.seal.audio.musicremoval` package.
  */
 object VocalIsolationProcessor {
 
     private const val TAG = "VocalIsolationProcessor"
 
     /**
-     * Processes downloaded media files to remove music / isolate vocals via AI.
+     * Removes music from downloaded media files using the new MusicRemovalEngine.
      *
-     * @param filePaths The list of target file paths
-     * @param isAudioOnly Whether the files are audio-only
-     * @param options Separation options and quality mode
-     * @param onProgress Callback receiving progress (0..100) and status message
-     * @return Updated list of processed file paths
+     * @param filePaths  The list of target file paths
+     * @param isAudioOnly Whether the files are audio-only (vs video)
+     * @param config     Separation configuration and quality mode
+     * @param onProgress Callback receiving progress (0..1) and status message
+     * @return Updated list of processed file paths (original path returned on per-file failure)
      */
     suspend fun removeMusicFromFiles(
         filePaths: List<String>,
         isAudioOnly: Boolean,
-        options: SeparationOptions = SeparationOptions(),
+        config: MusicRemovalConfig = MusicRemovalConfig(),
         onProgress: ((Float, String) -> Unit)? = null,
     ): List<String> {
         if (filePaths.isEmpty()) return emptyList()
 
-        Log.d(TAG, "Starting AI vocal isolation for ${filePaths.size} file(s)...")
+        Log.d(TAG, "Starting MusicRemovalEngine for ${filePaths.size} file(s)...")
         return try {
-            AudioSeparationPipeline.processFiles(
+            MusicRemovalEngine.processFiles(
                 filePaths = filePaths,
                 isAudioOnly = isAudioOnly,
-                options = options,
+                config = config,
                 onProgress = onProgress,
             )
         } catch (e: Exception) {
-            Log.e(TAG, "AI Vocal isolation failed", e)
-            throw e
+            Log.e(TAG, "MusicRemovalEngine failed, returning original paths", e)
+            // Non-fatal: return original paths so the download is not lost
+            filePaths
         }
     }
 
     /**
-     * Applies speech clarity and dynamic denoising filter to a media file.
+     * Processes a single file through the music removal engine.
+     * Useful for standalone callers (e.g., post-trim processing).
      */
-    suspend fun applySpeechClarity(
+    suspend fun processSingleFile(
         inputFile: File,
-        outputFile: File,
-    ): Result<File> {
-        return MediaProcessingEngine.applySpeechClarityFilter(inputFile, outputFile)
+        isAudioOnly: Boolean,
+        config: MusicRemovalConfig = MusicRemovalConfig(),
+        onProgress: ((Float, String) -> Unit)? = null,
+    ): File {
+        return try {
+            MusicRemovalEngine.processSingleFile(
+                inputFile = inputFile,
+                isAudioOnly = isAudioOnly,
+                config = config,
+                onProgress = onProgress,
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "processSingleFile failed for ${inputFile.name}, preserving original", e)
+            inputFile
+        }
     }
 }

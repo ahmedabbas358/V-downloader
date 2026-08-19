@@ -18,7 +18,13 @@ This application incorporates components from the following open-source projects
 * **Repository:** https://github.com/facebookresearch/demucs
 * **Description:** Deep audio source separation model for music and vocal decomposition.
 
-## 4. youtubedl-android & FFmpeg
+## 4. Mel-Band RoFormer / BS-RoFormer
+* **License:** MIT License
+* **Repository:** https://github.com/lucidrains/BS-RoFormer
+* **Description:** Rotary position embedding sub-band transformer for audio source separation.
+
+## 5. youtubedl-android & FFmpeg
 * **License:** LGPL v2.1+ / Apache 2.0
 * **Repository:** https://github.com/yausername/youtubedl-android
 * **Description:** Android port of yt-dlp and FFmpeg media processing toolchain.
+
