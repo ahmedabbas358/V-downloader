@@ -1,6 +1,7 @@
 package com.junkfood.seal.audio.musicremoval.postprocessor
 
 import kotlin.math.abs
+import kotlin.math.pow
 import kotlin.math.sqrt
 
 /**
@@ -23,7 +24,7 @@ object ResidualSuppression {
         val outL = FloatArray(numSamples)
         val outR = FloatArray(numSamples)
 
-        val threshold = kotlin.math.pow(10.0, (noiseFloorDb / 20.0).toDouble()).toFloat()
+        val threshold = 10.0f.pow(noiseFloorDb / 20.0f)
 
         val windowSize = 512
         val halfWin = windowSize / 2
