@@ -32,11 +32,6 @@ object AdaptiveSelector {
         detection: MusicDetector.DetectionResult,
         config: MusicRemovalConfig
     ): Strategy {
-        // 1. Gate: If detection shows pure speech or zero music, skip heavy separation
-        if (config.enableMusicDetectionGate && !detection.hasMusic && detection.isSpeechOnly) {
-            return Strategy.SkipSeparation
-        }
-
         val deviceProfile = DeviceProfileManager.getDeviceProfile(context)
         val isDemucsReady = ModelManager.isModelAvailable(ModelRegistry.DEMUCS_V4_HYBRID, context)
         val isMdxReady = ModelManager.isModelAvailable(ModelRegistry.MDX23C_VOCALS, context)

@@ -64,12 +64,14 @@ class SubtitleOrchestrator(
         }
 
         // 3. Stage: Coordinated Download & Conversion
+        val resolvedTitle = videoInfo?.title ?: preferences.newTitle
         val downloadRes = youtubeProvider.downloadTracks(
             url = url,
             videoId = videoId,
             tracks = matchedTracks,
             destinationDir = destinationDir,
             preferences = preferences,
+            videoTitle = resolvedTitle,
             onProgress = onProgress
         )
 

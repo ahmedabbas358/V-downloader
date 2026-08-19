@@ -97,6 +97,7 @@ class YouTubeSubtitleProvider : SubtitleProvider {
         tracks: List<SubtitleTrack>,
         destinationDir: File,
         preferences: DownloadPreferences,
+        videoTitle: String,
         onProgress: (SubtitleProgress) -> Unit
     ): SubtitleDownloadResult {
         if (tracks.isEmpty()) {
@@ -105,6 +106,7 @@ class YouTubeSubtitleProvider : SubtitleProvider {
 
         val startTime = System.currentTimeMillis()
         val jobId = "download_sub_$videoId"
+        val resolvedTitle = videoTitle.ifBlank { preferences.newTitle.ifBlank { "Video_$videoId" } }
 
         val recoveryResult = SubtitleRecoveryManager.executeWithRecovery(
             jobId = jobId,
@@ -115,7 +117,7 @@ class YouTubeSubtitleProvider : SubtitleProvider {
                 SubtitleDownloader.downloadSelectedTracks(
                     url = url,
                     videoId = videoId,
-                    title = tracks.firstOrNull()?.languageName ?: "Video_$videoId",
+                    title = resolvedTitle,
                     tracks = tracks,
                     destinationDir = destinationDir,
                     preferences = preferences,

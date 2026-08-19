@@ -16,7 +16,7 @@ import kotlin.math.sqrt
  *
  * High-performance, zero-download DSP audio separation engine.
  * Utilizes multi-band STFT, harmonic formant peak tracking, Mid-Side spatial cancellation,
- * and adaptive spectral subtraction to isolate human voice without neural model files.
+ * and adaptive spectral subtraction to isolate human voice and eliminate background instruments.
  */
 object NativeDspEngine : SourceSeparationEngine {
 
@@ -95,7 +95,6 @@ object NativeDspEngine : SourceSeparationEngine {
         }
 
         val outMid = FloatArray(n)
-        val outSide = FloatArray(n)
         val normWeight = FloatArray(n)
 
         val realMid = FloatArray(FFT_SIZE)
@@ -106,10 +105,10 @@ object NativeDspEngine : SourceSeparationEngine {
         val magSide = FloatArray(FFT_SIZE / 2 + 1)
 
         val hzPerBin = sampleRate.toFloat() / FFT_SIZE
-        val bin150Hz = (150.0f / hzPerBin).toInt().coerceIn(0, FFT_SIZE / 2)
-        val bin300Hz = (300.0f / hzPerBin).toInt().coerceIn(0, FFT_SIZE / 2)
-        val bin3400Hz = (3400.0f / hzPerBin).toInt().coerceIn(0, FFT_SIZE / 2)
-        val bin4500Hz = (4500.0f / hzPerBin).toInt().coerceIn(0, FFT_SIZE / 2)
+        val bin120Hz = (120.0f / hzPerBin).toInt().coerceIn(0, FFT_SIZE / 2)
+        val bin250Hz = (250.0f / hzPerBin).toInt().coerceIn(0, FFT_SIZE / 2)
+        val bin3800Hz = (3800.0f / hzPerBin).toInt().coerceIn(0, FFT_SIZE / 2)
+        val bin4800Hz = (4800.0f / hzPerBin).toInt().coerceIn(0, FFT_SIZE / 2)
 
         for (frame in 0 until numFrames) {
             val offset = frame * HOP_SIZE
@@ -129,7 +128,7 @@ object NativeDspEngine : SourceSeparationEngine {
                 magSide[k] = sqrt(realSide[k] * realSide[k] + imagSide[k] * imagSide[k])
             }
 
-            // Local median smoothing for formant peak prominence
+            // Local median smoothing for formant peak prominence estimation
             val smoothMag = FloatArray(FFT_SIZE / 2 + 1)
             for (k in 1 until FFT_SIZE / 2) {
                 smoothMag[k] = (magMid[k - 1] + magMid[k] + magMid[k + 1]) / 3.0f
@@ -142,36 +141,40 @@ object NativeDspEngine : SourceSeparationEngine {
 
                 var gain = 1.0f
 
-                // 1. Sub-bass kill: eliminate kicks, bass, 808s
-                if (k < bin150Hz) {
-                    gain *= (k.toFloat() / bin150Hz).coerceIn(0.01f, 1.0f) * 0.02f
+                // 1. Sub-bass kill: eliminate kicks, bass, 808s (<120Hz)
+                if (k < bin120Hz) {
+                    gain = 0.005f
                 }
-
-                // 2. High-freq cutoff: eliminate cymbals, hi-hats, high synths
-                if (k > bin4500Hz) {
-                    val excess = (k - bin4500Hz).toFloat() / (FFT_SIZE / 2 - bin4500Hz)
-                    gain *= (1.0f - excess).coerceIn(0.01f, 1.0f) * 0.03f
+                // 2. High-freq cutoff: eliminate cymbals, hi-hats, high synths (>4800Hz)
+                else if (k > bin4800Hz) {
+                    gain = 0.01f
                 }
-
-                // 3. Side-channel cancellation
-                if (sideVal > 1e-6f) {
-                    val sideRatio = (sideVal / (midVal + 1e-6f)).coerceIn(0.0f, 2.0f)
-                    val sideSuppression = (1.0f - sideRatio * 1.25f).coerceIn(0.05f, 1.0f)
-                    gain *= sideSuppression
-                }
-
-                // 4. Formant Peak Isolation
-                if (k in bin300Hz..bin3400Hz) {
-                    val peakProminence = (midVal / (smoothVal + 1e-6f)).coerceIn(0.5f, 3.0f)
-                    if (peakProminence > 1.15f) {
-                        gain *= 1.20f // Harmonic voice formant boost
-                    } else {
-                        gain *= 0.15f // Background instrument attenuation
+                else {
+                    // 3. Side-channel cancellation (stereo instruments / reverbs)
+                    if (sideVal > 1e-6f) {
+                        val sideRatio = sideVal / (midVal + 1e-6f)
+                        val sideSuppression = (1.0f - sideRatio * 2.0f).coerceIn(0.0f, 1.0f)
+                        gain *= sideSuppression
                     }
-                } else if (k >= bin150Hz && k < bin300Hz) {
-                    gain *= 0.25f
-                } else if (k > bin3400Hz && k <= bin4500Hz) {
-                    gain *= 0.10f
+
+                    // 4. Formant Peak Isolation (120Hz - 3800Hz vocal core)
+                    if (k in bin250Hz..bin3800Hz) {
+                        val peakProminence = (midVal / (smoothVal + 1e-6f)).coerceIn(0.2f, 4.0f)
+                        if (peakProminence > 1.10f) {
+                            gain *= 1.15f // Harmonic vocal formant resonance
+                        } else {
+                            gain *= 0.03f // Deep suppression of flat instrumental background
+                        }
+                    } else if (k in bin120Hz until bin250Hz) {
+                        val peakProminence = (midVal / (smoothVal + 1e-6f)).coerceIn(0.2f, 4.0f)
+                        if (peakProminence > 1.15f) {
+                            gain *= 1.0f
+                        } else {
+                            gain *= 0.02f
+                        }
+                    } else if (k in (bin3800Hz + 1)..bin4800Hz) {
+                        gain *= 0.05f
+                    }
                 }
 
                 gain = gain.coerceIn(0.0f, 1.3f)

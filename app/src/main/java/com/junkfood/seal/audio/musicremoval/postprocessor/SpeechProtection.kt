@@ -8,12 +8,13 @@ import kotlin.math.pow
 /**
  * SpeechProtection
  *
- * Protects human vocal clarity, naturalness, consonants, and sibilants from being overly muted.
+ * Protects human vocal clarity, naturalness, and intelligibility while
+ * ensuring background music is NEVER re-introduced into the output stream.
  */
 object SpeechProtection {
 
     /**
-     * Applies vocal formant preservation and speech clarity boosting.
+     * Applies vocal formant enhancement and inter-speech noise gating.
      */
     fun protectSpeech(
         originalLeft: FloatArray,
@@ -29,13 +30,8 @@ object SpeechProtection {
         val outR = FloatArray(numSamples)
 
         val boostLinear = 10.0f.pow(presenceBoostDb / 20.0f)
-        val blendOrigWeight = when (level) {
-            MusicRemovalConfig.SpeechPreservationLevel.STANDARD -> 0.05f
-            MusicRemovalConfig.SpeechPreservationLevel.HIGH -> 0.12f
-            MusicRemovalConfig.SpeechPreservationLevel.MAXIMUM -> 0.22f
-        }
 
-        // Detect active speech frames
+        // Detect active speech frames across the track
         val midSignal = FloatArray(numSamples) { i -> (originalLeft[i] + originalRight[i]) * 0.5f }
         val vad = SpeechDetector.computeVadMask(midSignal, sampleRate)
 
@@ -49,21 +45,16 @@ object SpeechProtection {
 
             val pL = processedLeft[i]
             val pR = processedRight[i]
-            val oL = originalLeft[i]
-            val oR = originalRight[i]
 
             if (isSpeech) {
-                // In active speech frames: apply clarity boost + subtle original formant bleed to keep naturalness
-                val boostedL = pL * (1.0f + (boostLinear - 1.0f) * speechProb)
-                val boostedR = pR * (1.0f + (boostLinear - 1.0f) * speechProb)
-
-                val effectiveBlend = blendOrigWeight * speechProb
-                outL[i] = (boostedL * (1.0f - effectiveBlend) + oL * effectiveBlend).coerceIn(-1.0f, 1.0f)
-                outR[i] = (boostedR * (1.0f - effectiveBlend) + oR * effectiveBlend).coerceIn(-1.0f, 1.0f)
+                // In active speech frames: boost vocal presence and consonants on the clean separated track
+                val presenceFactor = 1.0f + (boostLinear - 1.0f) * speechProb
+                outL[i] = (pL * presenceFactor).coerceIn(-1.0f, 1.0f)
+                outR[i] = (pR * presenceFactor).coerceIn(-1.0f, 1.0f)
             } else {
-                // In non-speech (music-only) segments: output pure separated audio
-                outL[i] = pL.coerceIn(-1.0f, 1.0f)
-                outR[i] = pR.coerceIn(-1.0f, 1.0f)
+                // In non-speech (music-only) segments: deeply suppress any musical leakage / instrument tails
+                outL[i] = (pL * 0.05f).coerceIn(-1.0f, 1.0f)
+                outR[i] = (pR * 0.05f).coerceIn(-1.0f, 1.0f)
             }
         }
 

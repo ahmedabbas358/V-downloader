@@ -83,9 +83,8 @@ object NetworkOptionBuilder {
         addOption("--fragment-retries", "10")
         addOption("--file-access-retries", "5")
         addOption("--socket-timeout", "20")
-        // NOTE: --ignore-errors removed intentionally — it silently swallows failures
-        // causing tasks to vanish from the queue without any error shown to the user.
-        addOption("--extractor-args", com.junkfood.seal.download.engine.subtitle.youtube.YoutubeClientStrategy.buildExtractorArgs())
+        // NOTE: --extractor-args is NOT set globally here because forcing ios/mweb clients
+        // strips 1080p/4K DASH video streams and separate audio-only formats from YouTube.
         addOption("--no-check-certificates")
 
         if (forceIpv4) {

@@ -370,9 +370,13 @@ object PlaylistVerifier {
                 subdirectoryPlaylistTitle = false,
             )
 
+            val formattedIndex = String.format(Locale.US, "%03d", item.index)
+            val numberedTitle = "$formattedIndex - $baseTitle"
+            val effectiveTitle = if (isSubOnly) numberedTitle else baseTitle
+
             val viewState = Task.ViewState(
                 url = itemUrl,
-                title = if (isSubOnly) "[Subtitle] $baseTitle" else baseTitle,
+                title = if (isSubOnly) "[Subtitle] $numberedTitle" else numberedTitle,
                 duration = 0,
                 uploader = item.playlistTitle,
                 thumbnailUrl = null,
@@ -380,7 +384,7 @@ object PlaylistVerifier {
             )
             val videoInfo = VideoInfo(
                 id = FileCollisionResolver.extractVideoId(itemUrl, fallbackId = "item_${item.index}"),
-                title = baseTitle,
+                title = numberedTitle,
                 webpageUrl = itemUrl,
                 originalUrl = itemUrl,
                 uploader = item.playlistTitle,

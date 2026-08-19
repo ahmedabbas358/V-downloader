@@ -189,12 +189,13 @@ class DownloadQueueManager(
     fun processQueue() {
         val maxConcurrent = PreferenceUtil.getMaxConcurrentDownloads().coerceAtLeast(1)
 
-        val runningSubtitleCount = taskStateMap.count { (task, state) ->
-            (state.downloadState is Running || state.downloadState is FetchingInfo) &&
-            task.preferences.skipDownload && task.preferences.downloadSubtitle
-        }
-
         while (taskStateMap.countRunning() < maxConcurrent) {
+            // Subtitles MUST execute strictly one-by-one (concurrency = 1) to avoid YouTube 429 rate limits
+            val runningSubtitleCount = taskStateMap.count { (task, state) ->
+                (state.downloadState is Running || state.downloadState is FetchingInfo) &&
+                task.preferences.skipDownload && task.preferences.downloadSubtitle
+            }
+
             val pendingEntry = taskStateMap.entries
                 .sortedWith(
                     compareBy<Map.Entry<Task, Task.State>> {
