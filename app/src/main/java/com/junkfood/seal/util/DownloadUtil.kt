@@ -220,7 +220,7 @@ object DownloadUtil {
                     mergeAudioStream = false,
                     mergeToMkv = false,
                     useCustomAudioPreset = false,
-                    removeMusic = false,
+                    removeMusic = REMOVE_MUSIC.getBoolean(),
                 )
 
             fun createFromPreferences(): DownloadPreferences {

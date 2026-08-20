@@ -256,19 +256,20 @@ object UvrInferenceRunner {
                 val diffMag = abs(magL - magR)
                 val sumMag = magL + magR + 1e-6f
 
-                // Center coherence ratio: Human speech is usually centered (high coherence)
+                // Center coherence ratio: Human speech is strictly centered (high coherence)
                 val centerCoherence = (1.0f - (diffMag / sumMag)).coerceIn(0.0f, 1.0f)
+                val speechPower = centerCoherence * centerCoherence
 
                 var mask = if (k in speechMinBin..speechMaxBin) {
-                    0.4f + 0.6f * centerCoherence
+                    (0.12f + 0.88f * speechPower).coerceIn(0.02f, 1.0f)
                 } else if (k < musicFloorBin) {
-                    0.05f // Bass/kick drum suppression
+                    0.01f // Strong bass / sub-kick drum suppression
                 } else {
-                    0.20f * centerCoherence // High frequency cymbal/hi-hat suppression
+                    0.03f * speechPower // High frequency cymbal/hi-hat suppression
                 }
 
                 when (config.qualityMode) {
-                    MusicRemovalConfig.QualityMode.MAX_REMOVAL -> mask *= 0.85f
+                    MusicRemovalConfig.QualityMode.MAX_REMOVAL -> mask *= 0.80f
                     MusicRemovalConfig.QualityMode.HIGH_QUALITY -> mask *= 0.90f
                     else -> {}
                 }
@@ -292,8 +293,9 @@ object UvrInferenceRunner {
             for (i in 0 until fftSize) {
                 val idx = offset + i
                 val w = window[i]
-                outL[idx] += realL[i] * w
-                outR[idx] += realR[i] * w
+                val midSample = (realL[i] + realR[i]) * 0.5f
+                outL[idx] += midSample * w
+                outR[idx] += midSample * w
                 normWeight[idx] += w
             }
 
@@ -306,11 +308,13 @@ object UvrInferenceRunner {
         for (i in 0 until totalSamples) {
             val w = normWeight[i]
             if (w > 1e-4f) {
-                outL[i] = (outL[i] / w).coerceIn(-1.0f, 1.0f)
-                outR[i] = (outR[i] / w).coerceIn(-1.0f, 1.0f)
+                val v = ((outL[i] + outR[i]) * 0.5f / w).coerceIn(-1.0f, 1.0f)
+                outL[i] = v
+                outR[i] = v
             } else {
-                outL[i] = (leftChannel[i] * 0.7f).coerceIn(-1.0f, 1.0f)
-                outR[i] = (rightChannel[i] * 0.7f).coerceIn(-1.0f, 1.0f)
+                val v = ((leftChannel[i] + rightChannel[i]) * 0.35f).coerceIn(-1.0f, 1.0f)
+                outL[i] = v
+                outR[i] = v
             }
         }
 

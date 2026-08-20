@@ -41,11 +41,15 @@ object DownloadCommandBuilder {
         val request = YoutubeDLRequest(url)
         with(request) {
             addOption("-o", OutputTemplateBuilder.BASENAME)
+            val isPlaylistUrl = url.contains("list=", ignoreCase = true) || preferences.downloadPlaylist
             if (isFlatPlaylist) {
                 addOption("--flat-playlist")
                 addOption("--dump-single-json")
             } else if (playlistIndex != null) {
                 addOption("--playlist-items", playlistIndex)
+                addOption("--dump-json")
+            } else if (isPlaylistUrl) {
+                addOption("--playlist-items", 1)
                 addOption("--dump-json")
             } else {
                 addOption("--dump-single-json")

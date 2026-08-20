@@ -234,21 +234,46 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
         val taskKey = "fetch_playlist_subtitles_$url"
         if (activeJobs.containsKey(taskKey)) return
 
+        val isPlaylistUrl = url.contains("list=", ignoreCase = true) || preferences.downloadPlaylist
+
         val job = viewModelScope.launch(Dispatchers.IO, start = CoroutineStart.LAZY) {
             try {
-                DownloadUtil.fetchVideoInfoFromUrl(url = url, preferences = preferences)
+                val effectiveTasks = if (playlistTasks.size <= 1 && isPlaylistUrl) {
+                    val playlistInfoRes = DownloadUtil.getPlaylistOrVideoInfo(url, preferences)
+                    val playlistResult = playlistInfoRes.getOrNull()
+                    if (playlistResult is PlaylistResult && !playlistResult.entries.isNullOrEmpty()) {
+                        val indices = playlistResult.entries.indices.map { it + 1 }
+                        TaskFactory.createWithPlaylistResult(
+                            playlistUrl = url,
+                            indexList = indices,
+                            playlistResult = playlistResult,
+                            preferences = preferences
+                        )
+                    } else {
+                        playlistTasks
+                    }
+                } else {
+                    playlistTasks
+                }
+
+                val fetchUrl = effectiveTasks.firstOrNull()?.task?.url?.takeIf { it.isNotBlank() } ?: url
+                val fetchIndex = if (fetchUrl.contains("list=", ignoreCase = true) || preferences.downloadPlaylist) 1 else null
+
+                DownloadUtil.fetchVideoInfoFromUrl(url = fetchUrl, playlistIndex = fetchIndex, preferences = preferences)
                     .onSuccess { info ->
                         mSelectionStateFlow.update {
-                            SelectionState.FormatSelection(info = info, playlistTasks = playlistTasks)
+                            SelectionState.FormatSelection(info = info, playlistTasks = effectiveTasks)
                         }
                         withContext(Dispatchers.Main) { dismissSheet() }
                     }
                     .onFailure { th ->
+                        Log.e(TAG, "fetchPlaylistSubtitleFormats failed", th)
                         mSheetStateFlow.update {
                             SheetState.Error(action = action, throwable = th)
                         }
                     }
             } catch (th: Throwable) {
+                Log.e(TAG, "fetchPlaylistSubtitleFormats exception", th)
                 mSheetStateFlow.update {
                     SheetState.Error(action = action, throwable = th)
                 }

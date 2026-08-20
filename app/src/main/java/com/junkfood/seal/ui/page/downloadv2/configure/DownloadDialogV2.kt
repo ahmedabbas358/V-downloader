@@ -421,7 +421,7 @@ private fun DownloadDialogContent(
                         onPresetEdit = onPresetEdit,
                         onDismissRequest = { onActionPost(Action.HideSheet) },
                     ) { selectedDownloadType, useFormatSelection ->
-                        if (useFormatSelection || selectedDownloadType == DownloadType.Subtitle) {
+                        if (useFormatSelection) {
                             val firstUrl = state.urlList.firstOrNull()
                             if (firstUrl != null) {
                                 val updatedPrefs = preferences.copy(

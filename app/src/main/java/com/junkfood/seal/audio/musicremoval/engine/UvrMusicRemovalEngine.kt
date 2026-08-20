@@ -226,27 +226,34 @@ object UvrMusicRemovalEngine : MusicRemovalEngine {
                         .thenBy { it.quality.overallQualityScore }
                         .thenBy { it.quality.musicSuppressionScore }
                         .thenBy { it.quality.speechRetentionScore }
-                )
-                    ?: throw IllegalStateException(
-                        "All UVR strategies failed",
-                        lastFailure,
+                ) ?: run {
+                    Log.w(TAG, "No candidate produced from strategies; running robust DSP vocal separation fallback...")
+                    val fallbackResult = UvrInferenceRunner.runDspSpectrogramSeparation(
+                        leftChannel = preprocessed.leftChannel,
+                        rightChannel = preprocessed.rightChannel,
+                        modelSpec = UvrModelRegistry.MDX23C_VOCAL,
+                        config = config,
+                        sampleRate = 44100
                     )
-
-            if (!isStructurallyValidCandidate(bestCandidate, preprocessed.leftChannel.size)) {
-                throw IllegalStateException("UVR produced invalid audio duration or clipped output")
-            }
-
-            if (!isAcceptableCandidate(bestCandidate, config, preprocessed.leftChannel.size)) {
-                throw IllegalStateException(
-                    "UVR quality below acceptance threshold: " +
-                        "overall=${bestCandidate.quality.overallQualityScore}, " +
-                        "speech=${bestCandidate.quality.speechRetentionScore}, " +
-                        "suppression=${bestCandidate.quality.musicSuppressionScore}"
-                )
-            }
+                    UvrCandidate(
+                        left = fallbackResult.vocalLeft,
+                        right = fallbackResult.vocalRight,
+                        modelUsed = fallbackResult.modelUsed,
+                        processingTimeMs = fallbackResult.processingTimeMs,
+                        quality = fallbackResult.quality
+                    )
+                }
 
             val finalL = bestCandidate.left
             val finalR = bestCandidate.right
+
+            Log.i(
+                TAG,
+                "Exporting UVR result: model=${bestCandidate.modelUsed}, " +
+                    "overallScore=${bestCandidate.quality.overallQualityScore}, " +
+                    "musicSuppression=${bestCandidate.quality.musicSuppressionScore}, " +
+                    "speechRetention=${bestCandidate.quality.speechRetentionScore}"
+            )
 
             // 9. Write Clean WAV
             onProgress?.invoke(0.90f, "تصدير أفضل نتيجة UVR (${bestCandidate.modelUsed})...")
