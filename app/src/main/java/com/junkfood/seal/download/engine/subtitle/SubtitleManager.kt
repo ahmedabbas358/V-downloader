@@ -109,8 +109,9 @@ object SubtitleManager {
         videoInfo: VideoInfo? = null,
         preferences: DownloadPreferences,
         destinationDir: File,
+        playlistIndex: Int = 0,
         onProgress: (SubtitleProgress) -> Unit = {}
     ): SubtitleDownloadResult {
-        return useCase.downloadSubtitles(url, videoInfo, preferences, destinationDir, onProgress)
+        return useCase.downloadSubtitles(url, videoInfo, preferences, destinationDir, playlistIndex, onProgress)
     }
 }

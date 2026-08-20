@@ -51,6 +51,18 @@ interface MusicRemovalEngine {
         onProgress: ((Float, String) -> Unit)? = null
     ): File
 
+    /**
+     * Processes a single media file and returns detailed [SeparationResult].
+     */
+    suspend fun separateAudio(
+        inputFile: File,
+        isAudioOnly: Boolean,
+        config: MusicRemovalConfig = MusicRemovalConfig(),
+        appContext: Context = context,
+        onProgress: ((Float, String) -> Unit)? = null
+    ): com.junkfood.seal.audio.musicremoval.engine.SeparationResult =
+        UvrMusicRemovalEngine.separateAudio(inputFile, isAudioOnly, config, appContext, onProgress)
+
     companion object {
         val capabilities: MusicRemovalCapabilities
             get() = UvrMusicRemovalEngine.capabilities
@@ -73,6 +85,16 @@ interface MusicRemovalEngine {
             onProgress: ((Float, String) -> Unit)? = null
         ): File {
             return UvrMusicRemovalEngine.processSingleFile(inputFile, isAudioOnly, config, appContext, onProgress)
+        }
+
+        suspend fun separateAudio(
+            inputFile: File,
+            isAudioOnly: Boolean,
+            config: MusicRemovalConfig = MusicRemovalConfig(),
+            appContext: Context = context,
+            onProgress: ((Float, String) -> Unit)? = null
+        ): com.junkfood.seal.audio.musicremoval.engine.SeparationResult {
+            return UvrMusicRemovalEngine.separateAudio(inputFile, isAudioOnly, config, appContext, onProgress)
         }
     }
 }

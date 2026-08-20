@@ -200,18 +200,27 @@ object DownloadTaskExecutor {
         val isSubtitleTask = task.preferences.skipDownload && task.preferences.downloadSubtitle
         if (isSubtitleTask) {
             val basePath = OutputTemplateBuilder.resolveBaseDirectory(task.preferences, isAudioDownload = false)
+            val rawPlaylistTitle = fallbackPlaylistTitle
+                .ifEmpty { (task.type as? TypeInfo.Playlist)?.playlistTitle.orEmpty() }
+                .ifEmpty { videoInfo.playlist.orEmpty() }
+                .ifEmpty { videoInfo.playlistTitle.orEmpty() }
+                .ifEmpty { task.preferences.newTitle }
+                .ifEmpty { "Playlist" }
+            val cleanPlaylistTitle = com.junkfood.seal.util.FileUtil.cleanFileName(rawPlaylistTitle).trim().ifBlank { "Playlist" }
+
             val targetDir = if (playlistItem != 0 && task.preferences.commandDirectory.isBlank()) {
-                val playlistName = fallbackPlaylistTitle.ifEmpty { videoInfo.playlist.orEmpty() }.ifEmpty { "Playlist" }
-                File(basePath, "[Subtitles] ${com.junkfood.seal.util.FileUtil.cleanFileName(playlistName)}")
+                File(basePath, "[Subtitles] $cleanPlaylistTitle")
             } else {
                 File(basePath)
             }
+            targetDir.mkdirs()
 
             val subtitleRes = SubtitleManager.downloadSubtitles(
                 url = videoInfo.originalUrl ?: videoInfo.webpageUrl ?: task.url,
                 videoInfo = videoInfo,
                 preferences = task.preferences,
                 destinationDir = targetDir,
+                playlistIndex = playlistItem,
                 onProgress = { progress ->
                     onProgressUpdate(progress.progress, progress.statusMessage)
                 }

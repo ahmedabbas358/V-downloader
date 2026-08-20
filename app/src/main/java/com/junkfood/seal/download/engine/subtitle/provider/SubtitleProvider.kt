@@ -35,6 +35,7 @@ interface SubtitleProvider {
         destinationDir: File,
         preferences: DownloadPreferences,
         videoTitle: String = "",
+        playlistIndex: Int = 0,
         onProgress: (SubtitleProgress) -> Unit = {}
     ): SubtitleDownloadResult
 }

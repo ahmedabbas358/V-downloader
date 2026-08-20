@@ -41,6 +41,7 @@ object SubtitleDownloader {
         destinationDir: File,
         preferences: DownloadPreferences,
         clientChain: List<YoutubeClient> = listOf(YoutubeClient.ANDROID, YoutubeClient.DEFAULT),
+        playlistIndex: Int = 0,
         appContext: Context = context,
         onProgress: (SubtitleProgress) -> Unit = {}
     ): Result<List<File>> = withContext(Dispatchers.IO) {
@@ -67,6 +68,8 @@ object SubtitleDownloader {
                             targetFormat = targetFormat,
                             videoId = videoId,
                             source = track.source,
+                            playlistIndex = playlistIndex,
+                            includePlaylistNumbering = preferences.playlistNumbering || playlistIndex > 0,
                         )
                     val existingFile = File(destinationDir, expectedName)
                     if (existingFile.exists() &&
@@ -250,6 +253,8 @@ object SubtitleDownloader {
         targetFormat: SubtitleOutputFormat,
         videoId: String = "",
         source: SubtitleSource = SubtitleSource.UNKNOWN,
+        playlistIndex: Int = 0,
+        includePlaylistNumbering: Boolean = false,
     ): String {
         // Extract language suffix from generated temp file name (e.g., "title.ar.srt" -> ".ar")
         val langSuffix = Regex("""\.([a-zA-Z]{2,3}(?:-[a-zA-Z0-9_-]+)?)\.[a-zA-Z0-9]+$""")
@@ -268,13 +273,19 @@ object SubtitleDownloader {
             .trim()
             .ifBlank { "subtitle" }
 
+        val indexPrefix = if (includePlaylistNumbering && playlistIndex > 0 && !Regex("""^\d{2,4}\s*-\s*""").containsMatchIn(cleanTitle)) {
+            "%03d - ".format(Locale.US, playlistIndex)
+        } else {
+            ""
+        }
+
         val identitySuffix =
             videoId
                 .takeIf { it.isNotBlank() && !cleanTitle.contains(it, ignoreCase = true) }
                 ?.let { " [$it]" }
                 ?: ""
 
-        return "$cleanTitle$identitySuffix$sourceSuffix$langSuffix.${targetFormat.extension}"
+        return "$indexPrefix$cleanTitle$identitySuffix$sourceSuffix$langSuffix.${targetFormat.extension}"
     }
 
     private fun findSourceForGeneratedFile(

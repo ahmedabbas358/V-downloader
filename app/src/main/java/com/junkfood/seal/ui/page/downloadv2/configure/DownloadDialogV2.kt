@@ -670,6 +670,7 @@ private fun ConfigurePage(
                         Custom(
                             selected = useFormatSelection,
                             enabled = true,
+                            downloadType = selectedType,
                             onClick = { useFormatSelection = true },
                         )
                     } else {
@@ -857,6 +858,7 @@ fun ConfigurePagePlaylistVariant(
                 Custom(
                     selected = useFormatSelection,
                     enabled = true,
+                    downloadType = selectedType,
                     onClick = { useFormatSelection = true },
                 )
             }
@@ -1209,15 +1211,28 @@ private fun Custom(
     modifier: Modifier = Modifier,
     selected: Boolean,
     enabled: Boolean = true,
+    downloadType: DownloadType? = null,
     onClick: () -> Unit,
 ) {
+    val icon = when (downloadType) {
+        Audio -> if (selected) Icons.Filled.AudioFile else Icons.Outlined.AudioFile
+        DownloadType.Subtitle -> if (selected) Icons.Filled.Subtitles else Icons.Outlined.Subtitles
+        else -> if (selected) Icons.Filled.VideoFile else Icons.Outlined.VideoFile
+    }
+
+    val desc = when (downloadType) {
+        Audio -> "تخصيص تنسيقات وجودة الصوت المتاحة (MP3, M4A, Opus, FLAC, WAV)"
+        DownloadType.Subtitle -> "اختيار لغات وتنسيقات الترجمة المتاحة (SRT, VTT, ASS)"
+        else -> stringResource(R.string.custom_format_selection_desc)
+    }
+
     SingleChoiceItem(
         modifier = modifier,
         title = stringResource(R.string.custom),
-        desc = stringResource(R.string.custom_format_selection_desc),
+        desc = desc,
         icon = {
             Icon(
-                imageVector = if (selected) Icons.Filled.VideoFile else Icons.Outlined.VideoFile,
+                imageVector = icon,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
                 tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant

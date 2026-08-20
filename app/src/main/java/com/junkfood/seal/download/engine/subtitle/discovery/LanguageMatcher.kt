@@ -159,21 +159,62 @@ object LanguageMatcher {
             }
         }
 
-        // 2. Exact Match (e.g. "ar" == "ar" or "ar-sa" == "ar-sa")
-        val exactMatches = candidateTracks.filter { normalizeLangCode(it.languageCode) == normQuery }
-        if (exactMatches.isNotEmpty()) {
-            return filterBestByPolicy(exactMatches, policy)
+        if (policy != SubtitleTypePolicy.ANY) {
+            // Specific policy filtering
+            val exactMatches = candidateTracks.filter { normalizeLangCode(it.languageCode) == normQuery }
+            if (exactMatches.isNotEmpty()) {
+                val filtered = filterByPolicy(exactMatches, policy)
+                if (filtered.isNotEmpty()) return filtered
+            }
+
+            val baseMatches = candidateTracks.filter { getBaseLanguageCode(it.languageCode) == baseQuery }
+            if (baseMatches.isNotEmpty()) {
+                val filtered = filterByPolicy(baseMatches, policy)
+                if (filtered.isNotEmpty()) return filtered
+            }
+
+            return emptyList()
         }
 
-        // 3. Base Language Match (e.g. "ar" matches "ar-SA", "ar-EG", "ar-orig")
-        val baseMatches = candidateTracks.filter {
-            getBaseLanguageCode(it.languageCode) == baseQuery
+        // 5-Tier Canonical Subtitle Resolution Policy:
+        // Tier 1: Exact Manual
+        val exactManual = candidateTracks.filter {
+            normalizeLangCode(it.languageCode) == normQuery && it.source == SubtitleSource.MANUAL
         }
-        if (baseMatches.isNotEmpty()) {
-            return filterBestByPolicy(baseMatches, policy)
+        if (exactManual.isNotEmpty()) return exactManual
+
+        // Tier 2: Manual Variant (e.g. ar-SA, ar-EG for ar query)
+        val manualVariant = candidateTracks.filter {
+            getBaseLanguageCode(it.languageCode) == baseQuery && it.source == SubtitleSource.MANUAL
+        }
+        if (manualVariant.isNotEmpty()) {
+            return manualVariant.sortedBy { it.languageCode.length }
         }
 
-        // 4. Regional fallback if user asked for "ar-SA" but only "ar" exists
+        // Tier 3: Exact Automatic
+        val exactAuto = candidateTracks.filter {
+            normalizeLangCode(it.languageCode) == normQuery && it.source == SubtitleSource.AUTO_GENERATED
+        }
+        if (exactAuto.isNotEmpty()) return exactAuto
+
+        // Tier 4: Automatic Variant
+        val autoVariant = candidateTracks.filter {
+            getBaseLanguageCode(it.languageCode) == baseQuery && it.source == SubtitleSource.AUTO_GENERATED
+        }
+        if (autoVariant.isNotEmpty()) {
+            return autoVariant.sortedBy { it.languageCode.length }
+        }
+
+        // Tier 5: Translated subtitle (if allowed in candidateTracks)
+        val translated = candidateTracks.filter {
+            (normalizeLangCode(it.languageCode) == normQuery || getBaseLanguageCode(it.languageCode) == baseQuery) &&
+                it.source == SubtitleSource.TRANSLATED
+        }
+        if (translated.isNotEmpty()) {
+            return translated.sortedBy { it.languageCode.length }
+        }
+
+        // Tier 6: Regional fallback if user requested "ar-SA" but only "ar" exists
         if (normQuery.contains("-")) {
             val fallbackMatches = candidateTracks.filter {
                 normalizeLangCode(it.languageCode) == baseQuery

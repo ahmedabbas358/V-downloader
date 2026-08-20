@@ -35,6 +35,7 @@ class SubtitleUseCase(
         videoInfo: VideoInfo? = null,
         preferences: DownloadPreferences,
         destinationDir: File,
+        playlistIndex: Int = 0,
         onProgress: (SubtitleProgress) -> Unit = {}
     ): SubtitleDownloadResult {
         return orchestrator.executeSubtitlePipeline(
@@ -42,6 +43,7 @@ class SubtitleUseCase(
             videoInfo = videoInfo,
             preferences = preferences,
             destinationDir = destinationDir,
+            playlistIndex = playlistIndex,
             onProgress = onProgress
         )
     }

@@ -30,6 +30,7 @@ class SubtitleOrchestrator(
         videoInfo: VideoInfo? = null,
         preferences: DownloadPreferences,
         destinationDir: File,
+        playlistIndex: Int = 0,
         onProgress: (SubtitleProgress) -> Unit = {}
     ): SubtitleDownloadResult {
         val videoId = videoInfo?.id ?: YoutubeCompatibility.extractVideoId(url) ?: "video"
@@ -72,6 +73,7 @@ class SubtitleOrchestrator(
             destinationDir = destinationDir,
             preferences = preferences,
             videoTitle = resolvedTitle,
+            playlistIndex = playlistIndex,
             onProgress = onProgress
         )
 

@@ -98,6 +98,7 @@ class YouTubeSubtitleProvider : SubtitleProvider {
         destinationDir: File,
         preferences: DownloadPreferences,
         videoTitle: String,
+        playlistIndex: Int,
         onProgress: (SubtitleProgress) -> Unit
     ): SubtitleDownloadResult {
         if (tracks.isEmpty()) {
@@ -114,16 +115,19 @@ class YouTubeSubtitleProvider : SubtitleProvider {
             operationName = "DownloadSubtitles"
         ) { _, clientChain ->
             RequestCoordinator.withCoordinatedRequest {
-                SubtitleDownloader.downloadSelectedTracks(
-                    url = url,
-                    videoId = videoId,
-                    title = resolvedTitle,
-                    tracks = tracks,
-                    destinationDir = destinationDir,
-                    preferences = preferences,
-                    clientChain = clientChain,
-                    onProgress = onProgress
-                ).getOrThrow()
+                kotlinx.coroutines.withTimeout(60_000L) {
+                    SubtitleDownloader.downloadSelectedTracks(
+                        url = url,
+                        videoId = videoId,
+                        title = resolvedTitle,
+                        tracks = tracks,
+                        destinationDir = destinationDir,
+                        preferences = preferences,
+                        clientChain = clientChain,
+                        playlistIndex = playlistIndex,
+                        onProgress = onProgress
+                    ).getOrThrow()
+                }
             }
         }
 
