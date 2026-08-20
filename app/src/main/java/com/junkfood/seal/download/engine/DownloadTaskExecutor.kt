@@ -203,7 +203,6 @@ object DownloadTaskExecutor {
             val rawPlaylistTitle = fallbackPlaylistTitle
                 .ifEmpty { (task.type as? TypeInfo.Playlist)?.playlistTitle.orEmpty() }
                 .ifEmpty { videoInfo.playlist.orEmpty() }
-                .ifEmpty { videoInfo.playlistTitle.orEmpty() }
                 .ifEmpty { task.preferences.newTitle }
                 .ifEmpty { "Playlist" }
             val cleanPlaylistTitle = com.junkfood.seal.util.FileUtil.cleanFileName(rawPlaylistTitle).trim().ifBlank { "Playlist" }

@@ -42,7 +42,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DownloadDone
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.SettingsSuggest
+import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material.icons.filled.VideoFile
 import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material.icons.outlined.Code
@@ -53,10 +55,11 @@ import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.NewLabel
 import androidx.compose.material.icons.outlined.SettingsSuggest
-import androidx.compose.material.icons.outlined.VideoFile
 import androidx.compose.material.icons.outlined.Subtitles
+import androidx.compose.material.icons.outlined.VideoFile
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -1215,7 +1218,7 @@ private fun Custom(
     onClick: () -> Unit,
 ) {
     val icon = when (downloadType) {
-        Audio -> if (selected) Icons.Filled.AudioFile else Icons.Outlined.AudioFile
+        Audio -> if (selected) Icons.Filled.MusicNote else Icons.Outlined.MusicNote
         DownloadType.Subtitle -> if (selected) Icons.Filled.Subtitles else Icons.Outlined.Subtitles
         else -> if (selected) Icons.Filled.VideoFile else Icons.Outlined.VideoFile
     }
