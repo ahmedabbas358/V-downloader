@@ -740,7 +740,7 @@ private fun ConfigurePage(
                         downloadType = selectedType,
                     )
                 )
-                val isPlaylist = selectedType == Playlist || url.contains("list=", ignoreCase = true)
+                val isPlaylist = selectedType == Playlist || (selectedType != Video && selectedType != Audio && selectedType != DownloadType.Subtitle && url.contains("list=", ignoreCase = true))
                 onActionPost(
                     Action.DownloadWithPreset(
                         urlList = listOf(url),

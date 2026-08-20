@@ -212,6 +212,8 @@ object SubtitleDownloader {
                             targetFormat = targetFormat,
                             videoId = videoId,
                             source = findSourceForGeneratedFile(convertedFile, tracks),
+                            playlistIndex = playlistIndex,
+                            includePlaylistNumbering = preferences.playlistNumbering || playlistIndex > 0,
                         )
                     val finalFile = File(destinationDir, finalFileName)
                     val finalPartFile = File(destinationDir, "$finalFileName.part")
@@ -261,10 +263,9 @@ object SubtitleDownloader {
             .find(tempGeneratedName)?.groupValues?.get(1)?.let { ".$it" } ?: ""
         val sourceSuffix =
             when (source) {
-                SubtitleSource.MANUAL -> ".manual"
                 SubtitleSource.AUTO_GENERATED -> ".auto"
                 SubtitleSource.TRANSLATED -> ".translated"
-                SubtitleSource.UNKNOWN -> ""
+                else -> ""
             }
 
         val cleanTitle = FileUtil.cleanFileName(baseTitle)

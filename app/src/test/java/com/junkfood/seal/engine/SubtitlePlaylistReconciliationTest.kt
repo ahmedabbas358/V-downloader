@@ -7,10 +7,10 @@ import com.junkfood.seal.download.engine.identity.SubtitleIdentity
 import com.junkfood.seal.download.engine.identity.VideoIdentity
 import com.junkfood.seal.download.engine.integrity.ContentIntegrityScanner
 import com.junkfood.seal.download.engine.subtitle.discovery.LanguageMatcher
-import com.junkfood.seal.download.engine.subtitle.discovery.SubtitleTypePolicy
 import com.junkfood.seal.download.engine.subtitle.model.SubtitleInventory
 import com.junkfood.seal.download.engine.subtitle.model.SubtitleSource
 import com.junkfood.seal.download.engine.subtitle.model.SubtitleTrack
+import com.junkfood.seal.download.engine.subtitle.model.SubtitleTypePolicy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -309,11 +309,11 @@ class SubtitlePlaylistReconciliationTest {
     @Test
     fun test5TierLanguageResolutionPolicy() {
         val tracks = listOf(
-            SubtitleTrack("ar-SA", "Arabic (Saudi Arabia)", "http://cdn/ar-sa", "vtt", SubtitleSource.MANUAL),
-            SubtitleTrack("ar", "Arabic (Standard)", "http://cdn/ar", "vtt", SubtitleSource.MANUAL),
-            SubtitleTrack("ar", "Arabic (Auto-generated)", "http://cdn/ar-auto", "vtt", SubtitleSource.AUTO_GENERATED),
-            SubtitleTrack("ar-EG", "Arabic (Egypt Auto)", "http://cdn/ar-eg-auto", "vtt", SubtitleSource.AUTO_GENERATED),
-            SubtitleTrack("ar", "Arabic (Translated)", "http://cdn/ar-trans", "vtt", SubtitleSource.TRANSLATED)
+            SubtitleTrack(languageCode = "ar-SA", languageName = "Arabic (Saudi Arabia)", directUrl = "http://cdn/ar-sa", source = SubtitleSource.MANUAL),
+            SubtitleTrack(languageCode = "ar", languageName = "Arabic (Standard)", directUrl = "http://cdn/ar", source = SubtitleSource.MANUAL),
+            SubtitleTrack(languageCode = "ar", languageName = "Arabic (Auto-generated)", directUrl = "http://cdn/ar-auto", isAutomatic = true, source = SubtitleSource.AUTO_GENERATED),
+            SubtitleTrack(languageCode = "ar-EG", languageName = "Arabic (Egypt Auto)", directUrl = "http://cdn/ar-eg-auto", isAutomatic = true, source = SubtitleSource.AUTO_GENERATED),
+            SubtitleTrack(languageCode = "ar", languageName = "Arabic (Translated)", directUrl = "http://cdn/ar-trans", isTranslated = true, source = SubtitleSource.TRANSLATED)
         )
 
         // 1. Query "ar" with Exact Manual available -> Must pick Exact Manual ("ar")

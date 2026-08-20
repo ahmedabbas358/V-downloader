@@ -231,7 +231,7 @@ object UvrMusicRemovalEngine : MusicRemovalEngine {
                     val fallbackResult = UvrInferenceRunner.runDspSpectrogramSeparation(
                         leftChannel = preprocessed.leftChannel,
                         rightChannel = preprocessed.rightChannel,
-                        modelSpec = UvrModelRegistry.MDX23C_VOCAL,
+                        modelSpec = UvrModelRegistry.UVR_MDX23C_VOCALS,
                         config = config,
                         sampleRate = 44100
                     )

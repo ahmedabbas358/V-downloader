@@ -60,7 +60,7 @@ object ContentIntegrityScanner {
     private val AUDIO_EXTS = setOf("mp3", "m4a", "opus", "flac", "wav", "aac", "ogg", "mka", "m4b")
     private val SUBTITLE_EXTS = setOf("srt", "vtt", "ass", "lrc", "sub", "sbv", "ttml")
     private val YOUTUBE_ID = Regex("""(?<![A-Za-z0-9_-])([A-Za-z0-9_-]{11})(?![A-Za-z0-9_-])""")
-    private val BRACKETED_YOUTUBE_ID = Regex("""\[([A-Za-z0-9_-]{11})\]""")
+    private val BRACKETED_YOUTUBE_ID = Regex("""\[([A-Za-z0-9_-]{4,20})\]""")
     private val LANGUAGE_SUFFIX =
         Regex("""\.([a-zA-Z]{2,3}(?:-[a-zA-Z0-9_]+){0,3})$""", RegexOption.IGNORE_CASE)
     private val INDEX_PREFIX = Regex("""^\s*(?:#|\[|\()?0*(\d{1,5})(?:\]|\))?\s*[-_. ]""")
@@ -125,6 +125,11 @@ object ContentIntegrityScanner {
                 if (existing.contentType != requirement.contentType) continue
                 if (!matchesSubtitleRequirement(requirement, existing.identity)) continue
 
+                val fileVideoId = existing.identity.videoId ?: extractVideoId(fileName)
+                if (videoId.isNotEmpty() && fileVideoId != null && fileVideoId != videoId) {
+                    continue
+                }
+
                 // Strategy 1: Video ID match
                 if (videoId.isNotEmpty() && (fileName.contains(videoId) || fileName.contains("[$videoId]") || fileName.contains("_$videoId"))) {
                     matchedFile = file
@@ -134,12 +139,15 @@ object ContentIntegrityScanner {
                     break
                 }
 
+                // If requirement has a specific non-empty videoId, title/index matches alone are lower confidence (AMBIGUOUS)
+                val isTitleOnlyMatchAllowed = videoId.isEmpty() || mode == ScanMode.FAST
+
                 // Strategy 2: Exact Normalized Title Match or Levenshtein Similarity >= 0.75
                 if (normalizedTitle.isNotBlank() && (normalizedFileName == normalizedTitle ||
                         normalizedFileName.contains(normalizedTitle) ||
                         calculateLevenshteinSimilarity(normalizedFileName, normalizedTitle) >= 0.75)) {
                     matchedFile = file
-                    matchedConfidence = MatchConfidence.HIGH
+                    matchedConfidence = if (isTitleOnlyMatchAllowed) MatchConfidence.HIGH else MatchConfidence.MEDIUM
                     matchReason = "Matched by title similarity"
                     iterator.remove()
                     break
@@ -162,14 +170,14 @@ object ContentIntegrityScanner {
                             val requiredCount = (titleTokens.size * 0.3).toInt().coerceAtLeast(1)
                             if (matchedCount >= requiredCount || normalizedFileName.contains(normalizedTitle.take(15))) {
                                 matchedFile = file
-                                matchedConfidence = MatchConfidence.HIGH
+                                matchedConfidence = if (isTitleOnlyMatchAllowed) MatchConfidence.HIGH else MatchConfidence.MEDIUM
                                 matchReason = "Matched by index ($index) + title overlap"
                                 iterator.remove()
                                 break
                             }
                         } else {
                             matchedFile = file
-                            matchedConfidence = MatchConfidence.MEDIUM
+                            matchedConfidence = if (isTitleOnlyMatchAllowed) MatchConfidence.HIGH else MatchConfidence.MEDIUM
                             matchReason = "Matched by index ($index)"
                             iterator.remove()
                             break
@@ -183,7 +191,7 @@ object ContentIntegrityScanner {
                     val ratio = matchedTokenCount.toDouble() / titleTokens.size.toDouble()
                     if (ratio >= 0.60 && normalizedFileName.length >= normalizedTitle.length * 0.35) {
                         matchedFile = file
-                        matchedConfidence = MatchConfidence.MEDIUM
+                        matchedConfidence = MatchConfidence.LOW
                         matchReason = "Matched by high token overlap (${(ratio * 100).toInt()}%)"
                         iterator.remove()
                         break
@@ -202,6 +210,16 @@ object ContentIntegrityScanner {
                             matchedFile = matchedFile,
                             confidence = matchedConfidence,
                             reason = existing.reason,
+                        )
+                } else if (matchedConfidence != MatchConfidence.HIGH && videoId.isNotEmpty()) {
+                    ambiguousFiles += existing.copy(reason = "Matched by title/index only without videoId [$videoId]")
+                    resultByKey[requirement.stableKey] =
+                        RequirementResult(
+                            requirement = requirement,
+                            state = ContentState.AMBIGUOUS,
+                            matchedFile = matchedFile,
+                            confidence = matchedConfidence,
+                            reason = "Matched by title/index only without videoId [$videoId]",
                         )
                 } else {
                     resultByKey[requirement.stableKey] =
@@ -223,13 +241,29 @@ object ContentIntegrityScanner {
             }
         }
 
+        // Classify remaining unconsumed files
+        val foundVideoIds = resultByKey.values.filter { it.state == ContentState.VALID }.map { it.requirement.video.videoId }.filter { it.isNotBlank() }.toSet()
+        val allPlaylistVideoIds = uniqueRequirements.map { it.video.videoId }.filter { it.isNotBlank() }.toSet()
+
+        files.forEach { remainingFile ->
+            val existing = inspectFile(remainingFile, uniqueRequirements.firstOrNull()?.video?.playlistId, mode)
+            val extractedId = existing.identity.videoId ?: extractVideoId(remainingFile.name)
+            if (extractedId != null && extractedId in foundVideoIds) {
+                duplicateFiles += existing.copy(reason = "Duplicate file for videoId $extractedId")
+            } else if (extractedId != null && extractedId !in allPlaylistVideoIds) {
+                staleFiles += existing.copy(reason = "File does not belong to this playlist")
+            } else {
+                staleFiles += existing.copy(reason = "Unmatched leftover file or superseded variant")
+            }
+        }
+
         val results = uniqueRequirements.map { resultByKey[it.stableKey] ?: RequirementResult(it, ContentState.MISSING) }
 
         val summary =
             MissingSummary(
                 expected = uniqueRequirements.size,
                 found = results.count { it.state == ContentState.VALID },
-                missing = results.count { it.state == ContentState.MISSING },
+                missing = results.count { it.state != ContentState.VALID && it.state != ContentState.UNAVAILABLE },
                 ambiguous = results.count { it.state == ContentState.AMBIGUOUS },
                 invalid = results.count { it.state == ContentState.INVALID },
                 duplicate = duplicateFiles.size,
@@ -327,7 +361,6 @@ object ContentIntegrityScanner {
     }
 
     private fun isCandidate(file: File, contentTypes: Set<ContentType>): Boolean {
-        if (file.length() <= 0L) return false
         val name = file.name.lowercase(Locale.US)
         if (name.endsWith(".part") || name.endsWith(".tmp") || name.endsWith(".ytdl")) return false
         val ext = file.extension.lowercase(Locale.US)
@@ -346,16 +379,20 @@ object ContentIntegrityScanner {
         val language = if (type == ContentType.SUBTITLE) extractSubtitleLanguage(file) else null
         val source = if (type == ContentType.SUBTITLE) extractSubtitleSource(file) else SubtitleSource.UNKNOWN
         val valid =
-            when (type) {
-                ContentType.SUBTITLE -> SubtitleValidator.validateFile(file).isSuccess
-                ContentType.AUDIO, ContentType.VIDEO -> {
-                    val minSize = if (mode == ScanMode.FAST) 256L else 1024L
-                    file.canRead() && file.length() >= minSize
+            if (file.length() <= 0L) {
+                false
+            } else {
+                when (type) {
+                    ContentType.SUBTITLE -> SubtitleValidator.validateFile(file).isSuccess
+                    ContentType.AUDIO, ContentType.VIDEO -> {
+                        val minSize = if (mode == ScanMode.FAST) 256L else 1024L
+                        file.canRead() && file.length() >= minSize
+                    }
                 }
             }
         val reason =
             when {
-                !valid -> "File failed validation"
+                !valid -> if (file.length() <= 0L) "Corrupted 0-byte file" else "File failed validation"
                 videoId.isNullOrBlank() -> "No videoId in file name"
                 else -> "Valid local artifact"
             }
@@ -411,10 +448,17 @@ object ContentIntegrityScanner {
         val subtitle = requirement.subtitle ?: return true
         val existingLanguage = existing.normalizedLanguage ?: return true
         val requested = subtitle.normalizedLanguage
-        return existingLanguage.isEmpty() ||
+        val langMatches = existingLanguage.isEmpty() ||
             requested.isEmpty() ||
             existingLanguage.equals(requested, ignoreCase = true) ||
             LanguageMatcher.getBaseLanguageCode(existingLanguage).equals(LanguageMatcher.getBaseLanguageCode(requested), ignoreCase = true)
+        if (!langMatches) return false
+
+        // Match source (MANUAL, AUTO_GENERATED, etc.) if explicitly specified
+        if (subtitle.source != SubtitleSource.UNKNOWN && existing.source != SubtitleSource.UNKNOWN) {
+            if (subtitle.source != existing.source) return false
+        }
+        return true
     }
 
     private fun matchWithoutIdentity(

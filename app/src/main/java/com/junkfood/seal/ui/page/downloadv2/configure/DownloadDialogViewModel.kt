@@ -1,5 +1,6 @@
 package com.junkfood.seal.ui.page.downloadv2.configure
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.junkfood.seal.database.objects.CommandTemplate

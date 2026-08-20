@@ -27,6 +27,7 @@ import com.junkfood.seal.download.Task.DownloadState.Running
 import com.junkfood.seal.download.Task.RestartableAction.Download
 import com.junkfood.seal.download.Task.RestartableAction.FetchInfo
 import com.junkfood.seal.download.Task.TypeInfo
+import com.junkfood.seal.download.engine.builder.OutputTemplateBuilder
 import com.junkfood.seal.download.engine.resilience.FileCollisionResolver
 import com.junkfood.seal.download.engine.subtitle.SubtitleManager
 import com.junkfood.seal.util.DatabaseUtil
@@ -38,6 +39,7 @@ import com.junkfood.seal.util.PreferenceUtil
 import com.junkfood.seal.util.PreferenceUtil.getBoolean
 import com.junkfood.seal.util.VideoInfo
 import com.yausername.youtubedl_android.YoutubeDL
+import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -233,6 +235,14 @@ class DownloadQueueManager(
         val state = taskStateMap[task] ?: return
         if (state.downloadState != Idle) return
 
+        val existingPath = checkExistingFile(task)
+        if (existingPath != null) {
+            Log.d(TAG, "File already exists on disk, completing task ${task.id}: $existingPath")
+            taskStateMap[task] = state.copy(downloadState = Completed(existingPath))
+            processQueue()
+            return
+        }
+
         if (task.type is TypeInfo.CustomCommand) {
             executeCustomCommandTask(task)
         } else {
@@ -325,6 +335,14 @@ class DownloadQueueManager(
     private fun startDownloadTask(task: Task) {
         val state = taskStateMap[task] ?: return
         if (state.downloadState != ReadyWithInfo || state.videoInfo == null) return
+
+        val existingPath = checkExistingFile(task)
+        if (existingPath != null) {
+            Log.d(TAG, "File already exists on disk, completing task ${task.id}: $existingPath")
+            taskStateMap[task] = state.copy(downloadState = Completed(existingPath))
+            processQueue()
+            return
+        }
 
         val job = scope.launch(Dispatchers.Default) {
             val result = DownloadTaskExecutor.executeDownload(
@@ -646,4 +664,65 @@ class DownloadQueueManager(
         videoInfo = info,
         viewState = viewState,
     )
+
+    fun checkExistingFile(task: Task): String? {
+        val preferences = task.preferences
+        val isSubtitleOnly = preferences.skipDownload && preferences.downloadSubtitle
+        val playlistType = task.type as? TypeInfo.Playlist
+        val rawPlaylistTitle = playlistType?.playlistTitle.orEmpty().ifEmpty { preferences.newTitle }
+        val cleanPlaylistName = FileUtil.cleanFileName(rawPlaylistTitle).trim()
+
+        val baseDir = OutputTemplateBuilder.resolveBaseDirectory(preferences, preferences.extractAudio)
+
+        val candidateDirs = mutableListOf<File>()
+        if (isSubtitleOnly && cleanPlaylistName.isNotEmpty()) {
+            candidateDirs.add(File(baseDir, "[Subtitles] $cleanPlaylistName"))
+        } else if (preferences.subdirectoryPlaylistTitle && cleanPlaylistName.isNotEmpty()) {
+            candidateDirs.add(File(baseDir, cleanPlaylistName))
+        }
+        candidateDirs.add(File(baseDir))
+
+        val state = taskStateMap[task]
+        val rawUrl = task.url.ifEmpty { state?.viewState?.url.orEmpty() }
+        val extractedId = FileCollisionResolver.extractVideoId(rawUrl, fallbackId = state?.videoInfo?.id.orEmpty())
+
+        val rawTitle = state?.viewState?.title.orEmpty().removePrefix("[Subtitle] ").replace(Regex("^#\\d+\\s*"), "").trim()
+        val isUrlTitle = rawTitle.startsWith("http://", ignoreCase = true) || rawTitle.startsWith("https://", ignoreCase = true)
+        val cleanTitleStr = if (!isUrlTitle && rawTitle.isNotEmpty()) FileUtil.cleanFileName(rawTitle) else ""
+
+        for (dir in candidateDirs) {
+            if (!dir.exists() || !dir.isDirectory) continue
+
+            val files = dir.walkTopDown().maxDepth(2).filter { file ->
+                file.isFile &&
+                !file.name.endsWith(".part", ignoreCase = true) &&
+                !file.name.endsWith(".ytdl", ignoreCase = true) &&
+                !file.name.endsWith(".tmp", ignoreCase = true) &&
+                file.length() > (if (isSubtitleOnly) 10L else 1024L)
+            }.toList()
+
+            for (file in files) {
+                val fileName = file.name
+                val isSubFile = fileName.endsWith(".srt", ignoreCase = true) ||
+                        fileName.endsWith(".vtt", ignoreCase = true) ||
+                        fileName.endsWith(".ass", ignoreCase = true) ||
+                        fileName.endsWith(".lrc", ignoreCase = true)
+
+                if (isSubtitleOnly && !isSubFile) continue
+                if (!isSubtitleOnly && isSubFile) continue
+
+                // 1. Exact Video ID match (minimum 4 chars)
+                if (extractedId.length >= 4 && fileName.contains(extractedId)) {
+                    return file.absolutePath
+                }
+
+                // 2. Strict cleaned title match (only if not a raw URL)
+                if (cleanTitleStr.length >= 6 && fileName.contains(cleanTitleStr)) {
+                    return file.absolutePath
+                }
+            }
+        }
+
+        return null
+    }
 }

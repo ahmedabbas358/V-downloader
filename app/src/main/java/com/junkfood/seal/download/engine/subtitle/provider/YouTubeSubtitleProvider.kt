@@ -17,6 +17,9 @@ import com.junkfood.seal.download.engine.subtitle.youtube.YoutubeCompatibility
 import com.junkfood.seal.util.DownloadUtil.DownloadPreferences
 import com.junkfood.seal.util.VideoInfo
 import com.yausername.youtubedl_android.YoutubeDL
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import java.io.File
 
@@ -114,19 +117,25 @@ class YouTubeSubtitleProvider : SubtitleProvider {
             videoId = videoId,
             operationName = "DownloadSubtitles"
         ) { _, clientChain ->
-            RequestCoordinator.withCoordinatedRequest {
-                kotlinx.coroutines.withTimeout(60_000L) {
-                    SubtitleDownloader.downloadSelectedTracks(
-                        url = url,
-                        videoId = videoId,
-                        title = resolvedTitle,
-                        tracks = tracks,
-                        destinationDir = destinationDir,
-                        preferences = preferences,
-                        clientChain = clientChain,
-                        playlistIndex = playlistIndex,
-                        onProgress = onProgress
-                    ).getOrThrow()
+            RequestCoordinator.globalSubtitleMutex.withLock {
+                RequestCoordinator.withCoordinatedRequest {
+                    withTimeout(60_000L) {
+                        val res = SubtitleDownloader.downloadSelectedTracks(
+                            url = url,
+                            videoId = videoId,
+                            title = resolvedTitle,
+                            tracks = tracks,
+                            destinationDir = destinationDir,
+                            preferences = preferences,
+                            clientChain = clientChain,
+                            playlistIndex = playlistIndex,
+                            onProgress = onProgress
+                        ).getOrThrow()
+                        if (playlistIndex > 0) {
+                            delay(RequestCoordinator.getPacingDelayMs())
+                        }
+                        res
+                    }
                 }
             }
         }

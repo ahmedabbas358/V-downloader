@@ -99,6 +99,7 @@ import com.junkfood.seal.util.EXTRACT_AUDIO
 import com.junkfood.seal.util.Format
 import com.junkfood.seal.util.MERGE_MULTI_AUDIO_STREAM
 import com.junkfood.seal.util.PreferenceUtil.getBoolean
+import com.junkfood.seal.util.PreferenceUtil.getInt
 import com.junkfood.seal.util.PreferenceUtil.getString
 import com.junkfood.seal.util.PreferenceUtil.updateString
 import com.junkfood.seal.util.SUBTITLE
@@ -112,8 +113,6 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import org.koin.compose.koinInject
-import com.junkfood.seal.util.PreferenceUtil.getInt
-import androidx.compose.material3.TextButton
 
 private const val TAG = "FormatPage"
 
@@ -133,11 +132,12 @@ fun FormatPage(
     modifier: Modifier = Modifier,
     videoInfo: VideoInfo,
     playlistTasks: List<com.junkfood.seal.download.TaskFactory.TaskWithState>? = null,
+    audioOnly: Boolean = com.junkfood.seal.util.PreferenceUtil.getDownloadType() == com.junkfood.seal.util.DownloadType.Audio || com.junkfood.seal.util.EXTRACT_AUDIO.getBoolean(),
+    isSubtitleOnly: Boolean = com.junkfood.seal.util.PreferenceUtil.getDownloadType() == com.junkfood.seal.util.DownloadType.Subtitle,
     downloader: DownloaderV2 = koinInject(),
     onNavigateBack: () -> Unit = {},
 ) {
     if (videoInfo.formats.isNullOrEmpty()) return
-    val audioOnly = EXTRACT_AUDIO.getBoolean()
     val mergeAudioStream = MERGE_MULTI_AUDIO_STREAM.getBoolean()
     val subtitleLanguageRegex = SUBTITLE_LANGUAGE.getString()
     val downloadSubtitle = SUBTITLE.getBoolean()
@@ -154,18 +154,18 @@ fun FormatPage(
 
     var diffSubtitleLanguages by remember { mutableStateOf(emptySet<String>()) }
 
-    val isAudioSelected = com.junkfood.seal.util.PreferenceUtil.getDownloadType() == com.junkfood.seal.util.DownloadType.Audio
-    val isSubtitleOnly = com.junkfood.seal.util.PreferenceUtil.getDownloadType() == com.junkfood.seal.util.DownloadType.Subtitle
+    val isAudioSelected = audioOnly
+    val isSubOnly = isSubtitleOnly
 
     FormatPageImpl(
         modifier = modifier,
         videoInfo = videoInfo,
         onNavigateBack = onNavigateBack,
         audioOnly = isAudioSelected,
-        isSubtitleOnly = isSubtitleOnly,
+        isSubtitleOnly = isSubOnly,
         mergeAudioStream = !isAudioSelected && mergeAudioStream,
         selectedSubtitleCodes = initialSelectedSubtitles,
-        isClippingAvailable = VIDEO_CLIP.getBoolean() && (videoInfo.duration ?: .0) >= 0,
+        isClippingAvailable = !isAudioSelected && !isSubOnly && VIDEO_CLIP.getBoolean() && (videoInfo.duration ?: .0) >= 0,
     ) { config ->
         with(config) {
             diffSubtitleLanguages =
@@ -390,10 +390,18 @@ private fun FormatPageImpl(
     val isSuggestedFormatAvailable =
         !videoInfo.requestedFormats.isNullOrEmpty() || !videoInfo.requestedDownloads.isNullOrEmpty()
 
-    var isSuggestedFormatSelected by remember { mutableStateOf(isSuggestedFormatAvailable) }
+    var isSuggestedFormatSelected by remember {
+        mutableStateOf(isSuggestedFormatAvailable && !audioOnly && !isSubtitleOnly)
+    }
 
     var selectedVideoFormat by remember { mutableIntStateOf(NOT_SELECTED) }
-    val selectedAudioOnlyFormats = remember { mutableStateListOf<Int>() }
+    val selectedAudioOnlyFormats = remember {
+        mutableStateListOf<Int>().apply {
+            if (audioOnly && audioOnlyFormats.isNotEmpty()) {
+                add(0)
+            }
+        }
+    }
     val context = LocalContext.current
 
     val uriHandler = LocalUriHandler.current
@@ -729,7 +737,7 @@ private fun FormatPageImpl(
                 }
             }
 
-            if (isSuggestedFormatAvailable && !isSubtitleOnly) {
+            if (isSuggestedFormatAvailable && !isSubtitleOnly && !audioOnly) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -808,7 +816,7 @@ private fun FormatPageImpl(
                 }
             }
 
-            if (videoFormats.isNotEmpty() && !isSubtitleOnly) {
+            if (videoFormats.isNotEmpty() && !isSubtitleOnly && !audioOnly) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -846,7 +854,7 @@ private fun FormatPageImpl(
                 }
             }
 
-            if (audioOnlyFormats.isNotEmpty() && videoFormats.isNotEmpty() && !isSubtitleOnly)
+            if (audioOnlyFormats.isNotEmpty() && videoFormats.isNotEmpty() && !isSubtitleOnly && !audioOnly)
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     PreferenceInfo(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
