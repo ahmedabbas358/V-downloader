@@ -65,6 +65,14 @@ object ContentIntegrityScanner {
         Regex("""\.([a-zA-Z]{2,3}(?:-[a-zA-Z0-9_]+){0,3})$""", RegexOption.IGNORE_CASE)
     private val INDEX_PREFIX = Regex("""^\s*(?:#|\[|\()?0*(\d{1,5})(?:\]|\))?\s*[-_. ]""")
 
+    private val STOP_WORDS = setOf(
+        "the", "and", "or", "for", "in", "on", "at", "to", "a", "an", "is", "of", "with",
+        "this", "that", "from", "by", "video", "audio", "hd", "mp4", "m4a", "ep", "part",
+        "vol", "ch", "chapter", "episode", "full", "official", "arabic", "english", "course",
+        "tutorial", "lesson", "free", "hq", "1080p", "720p", "4k", "2024", "2025", "2026",
+        "فيديو", "صوت", "شرح", "درس", "حلقة", "كامل", "الجزء", "دورة", "كورس", "مترجم", "ترجمة"
+    )
+
     fun scan(
         requirements: List<ContentRequirement>,
         directories: Collection<File>,
@@ -82,103 +90,144 @@ object ContentIntegrityScanner {
         }
 
         val uniqueRequirements = requirements.distinctBy { it.stableKey }
-        val requirementByKey = uniqueRequirements.associateBy { it.stableKey }
         val resultByKey = linkedMapOf<String, RequirementResult>()
         val duplicateFiles = mutableListOf<ExistingContent>()
         val invalidFiles = mutableListOf<ExistingContent>()
         val ambiguousFiles = mutableListOf<ExistingContent>()
         val staleFiles = mutableListOf<ExistingContent>()
 
-        val files = collectCandidateFiles(directories, uniqueRequirements.map { it.contentType }.toSet(), mode)
-        val indexedRequirements = uniqueRequirements.groupBy { it.video.playlistIndex }
-        val idRequirements = uniqueRequirements.groupBy { it.video.videoId }
+        val files = collectCandidateFiles(directories, uniqueRequirements.map { it.contentType }.toSet(), mode).toMutableList()
 
-        files.forEach { file ->
-            val existing = inspectFile(file, requirements.first().video.playlistId, mode)
-            val videoId = existing.identity.videoId
+        // Match each requirement in sequence using robust 4-tier matching
+        uniqueRequirements.forEach { requirement ->
+            val video = requirement.video
+            val videoId = video.videoId.trim()
+            val index = video.playlistIndex
+            val rawTitle = video.title.trim()
+            val normalizedTitle = normalizeTitle(rawTitle)
+            val titleTokens = normalizedTitle.split(" ").filter { it.length >= 2 && it !in STOP_WORDS }
 
-            if (videoId.isNullOrBlank()) {
-                val candidate = matchWithoutIdentity(existing, indexedRequirements)
-                if (candidate != null) {
-                    val key = candidate.stableKey
-                    if (!resultByKey.containsKey(key)) {
-                        resultByKey[key] =
-                            RequirementResult(
-                                requirement = candidate,
-                                state = ContentState.AMBIGUOUS,
-                                matchedFile = file,
-                                confidence = MatchConfidence.MEDIUM,
-                                reason = "File has no embedded videoId; matched only by title/index",
-                            )
+            val formattedIndex1 = index?.toString() ?: ""
+            val formattedIndex2 = if (index != null) String.format(Locale.US, "%02d", index) else ""
+            val formattedIndex3 = if (index != null) String.format(Locale.US, "%03d", index) else ""
+
+            var matchedFile: File? = null
+            var matchedConfidence = MatchConfidence.HIGH
+            var matchReason = ""
+
+            val iterator = files.iterator()
+            while (iterator.hasNext()) {
+                val file = iterator.next()
+                val fileName = file.name
+                val normalizedFileName = normalizeTitle(cleanFileNameForMatching(fileName))
+                val existing = inspectFile(file, video.playlistId, mode)
+
+                if (existing.contentType != requirement.contentType) continue
+                if (!matchesSubtitleRequirement(requirement, existing.identity)) continue
+
+                // Strategy 1: Video ID match
+                if (videoId.isNotEmpty() && (fileName.contains(videoId) || fileName.contains("[$videoId]") || fileName.contains("_$videoId"))) {
+                    matchedFile = file
+                    matchedConfidence = MatchConfidence.HIGH
+                    matchReason = "Matched by embedded videoId ($videoId)"
+                    iterator.remove()
+                    break
+                }
+
+                // Strategy 2: Exact Normalized Title Match or Levenshtein Similarity >= 0.75
+                if (normalizedTitle.isNotBlank() && (normalizedFileName == normalizedTitle ||
+                        normalizedFileName.contains(normalizedTitle) ||
+                        calculateLevenshteinSimilarity(normalizedFileName, normalizedTitle) >= 0.75)) {
+                    matchedFile = file
+                    matchedConfidence = MatchConfidence.HIGH
+                    matchReason = "Matched by title similarity"
+                    iterator.remove()
+                    break
+                }
+
+                // Strategy 3: Index Prefix Match + Title Token Overlap
+                if (index != null) {
+                    val indexMatches = fileName.startsWith(formattedIndex3) ||
+                            fileName.startsWith(formattedIndex2) ||
+                            fileName.startsWith("#$formattedIndex1") ||
+                            fileName.startsWith("#$formattedIndex2") ||
+                            fileName.startsWith("#$formattedIndex3") ||
+                            Regex("""(?:^|[\[\(\_\-\s#])$formattedIndex3(?:[\s\-\_\.\]\)]|$)""").containsMatchIn(fileName) ||
+                            Regex("""(?:^|[\[\(\_\-\s#])$formattedIndex2(?:[\s\-\_\.\]\)]|$)""").containsMatchIn(fileName) ||
+                            (index < 10 && Regex("""(?:^|[\[\(\_\-\s#])$formattedIndex1(?:[\s\-\_\.\]\)]|$)""").containsMatchIn(fileName))
+
+                    if (indexMatches) {
+                        if (titleTokens.isNotEmpty()) {
+                            val matchedCount = titleTokens.count { normalizedFileName.contains(it) }
+                            val requiredCount = (titleTokens.size * 0.3).toInt().coerceAtLeast(1)
+                            if (matchedCount >= requiredCount || normalizedFileName.contains(normalizedTitle.take(15))) {
+                                matchedFile = file
+                                matchedConfidence = MatchConfidence.HIGH
+                                matchReason = "Matched by index ($index) + title overlap"
+                                iterator.remove()
+                                break
+                            }
+                        } else {
+                            matchedFile = file
+                            matchedConfidence = MatchConfidence.MEDIUM
+                            matchReason = "Matched by index ($index)"
+                            iterator.remove()
+                            break
+                        }
                     }
                 }
-                ambiguousFiles += existing
-                return@forEach
+
+                // Strategy 4: High Significant Token Overlap (>= 60%)
+                if (titleTokens.size >= 2) {
+                    val matchedTokenCount = titleTokens.count { token -> normalizedFileName.contains(token) }
+                    val ratio = matchedTokenCount.toDouble() / titleTokens.size.toDouble()
+                    if (ratio >= 0.60 && normalizedFileName.length >= normalizedTitle.length * 0.35) {
+                        matchedFile = file
+                        matchedConfidence = MatchConfidence.MEDIUM
+                        matchReason = "Matched by high token overlap (${(ratio * 100).toInt()}%)"
+                        iterator.remove()
+                        break
+                    }
+                }
             }
 
-            val candidateRequirements =
-                idRequirements[videoId]
-                    ?.filter { it.contentType == existing.contentType }
-                    ?.filter { matchesSubtitleRequirement(it, existing.identity) }
-                    .orEmpty()
-
-            if (candidateRequirements.isEmpty()) {
-                staleFiles += existing.copy(reason = "Video id is not part of this playlist snapshot")
-                return@forEach
-            }
-
-            if (candidateRequirements.size > 1) {
-                ambiguousFiles += existing.copy(reason = "Video id maps to multiple requested subtitle identities")
-                return@forEach
-            }
-
-            val requirement = candidateRequirements.single()
-            val key = requirement.stableKey
-            val previous = resultByKey[key]
-
-            if (!existing.isValid) {
-                invalidFiles += existing
-                if (previous == null || previous.state != ContentState.VALID) {
-                    resultByKey[key] =
+            if (matchedFile != null) {
+                val existing = inspectFile(matchedFile, video.playlistId, mode)
+                if (!existing.isValid) {
+                    invalidFiles += existing
+                    resultByKey[requirement.stableKey] =
                         RequirementResult(
                             requirement = requirement,
                             state = ContentState.INVALID,
-                            matchedFile = file,
-                            confidence = MatchConfidence.HIGH,
+                            matchedFile = matchedFile,
+                            confidence = matchedConfidence,
                             reason = existing.reason,
                         )
+                } else {
+                    resultByKey[requirement.stableKey] =
+                        RequirementResult(
+                            requirement = requirement,
+                            state = ContentState.VALID,
+                            matchedFile = matchedFile,
+                            confidence = matchedConfidence,
+                            reason = matchReason,
+                        )
                 }
-                return@forEach
-            }
-
-            if (previous?.state == ContentState.VALID) {
-                duplicateFiles += existing.copy(reason = "Duplicate for ${requirement.video.videoId}")
-                return@forEach
-            }
-
-            resultByKey[key] =
-                RequirementResult(
-                    requirement = requirement,
-                    state = ContentState.VALID,
-                    matchedFile = file,
-                    confidence = MatchConfidence.HIGH,
-                    reason = "Matched by embedded videoId",
-                )
-        }
-
-        val results =
-            uniqueRequirements.map { requirement ->
-                resultByKey[requirement.stableKey]
-                    ?: RequirementResult(
+            } else {
+                resultByKey[requirement.stableKey] =
+                    RequirementResult(
                         requirement = requirement,
                         state = ContentState.MISSING,
-                        reason = "No valid local artifact matched ${requirement.video.videoId}",
+                        reason = "No local file matched index ${index ?: 0} (${video.title})",
                     )
             }
+        }
+
+        val results = uniqueRequirements.map { resultByKey[it.stableKey] ?: RequirementResult(it, ContentState.MISSING) }
 
         val summary =
             MissingSummary(
-                expected = requirementByKey.size,
+                expected = uniqueRequirements.size,
                 found = results.count { it.state == ContentState.VALID },
                 missing = results.count { it.state == ContentState.MISSING },
                 ambiguous = results.count { it.state == ContentState.AMBIGUOUS },
@@ -196,6 +245,31 @@ object ContentIntegrityScanner {
             ambiguousFiles = ambiguousFiles,
             staleFiles = staleFiles,
         )
+    }
+
+    private fun cleanFileNameForMatching(fileName: String): String {
+        var name = fileName.substringBeforeLast('.')
+        name = name.replace(Regex("""\.(?:[a-zA-Z]{2}(?:-[a-zA-Z]{2,4})*|auto|orig)$""", RegexOption.IGNORE_CASE), "")
+        name = name.replace(Regex("""[\.\[\(]\d{3,4}p[\.\]\)]""", RegexOption.IGNORE_CASE), "")
+        return name
+    }
+
+    private fun calculateLevenshteinSimilarity(s1: String, s2: String): Double {
+        if (s1 == s2) return 1.0
+        if (s1.isEmpty() || s2.isEmpty()) return 0.0
+        val len1 = s1.length
+        val len2 = s2.length
+        val dp = Array(len1 + 1) { IntArray(len2 + 1) }
+        for (i in 0..len1) dp[i][0] = i
+        for (j in 0..len2) dp[0][j] = j
+        for (i in 1..len1) {
+            for (j in 1..len2) {
+                val cost = if (s1[i - 1] == s2[j - 1]) 0 else 1
+                dp[i][j] = minOf(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost)
+            }
+        }
+        val maxLen = maxOf(len1, len2)
+        return 1.0 - (dp[len1][len2].toDouble() / maxLen)
     }
 
     fun extractPlaylistId(url: String): String =
@@ -335,16 +409,12 @@ object ContentIntegrityScanner {
         existing: ExistingContentIdentity,
     ): Boolean {
         val subtitle = requirement.subtitle ?: return true
-        if (subtitle.source != SubtitleSource.UNKNOWN &&
-            existing.source != SubtitleSource.UNKNOWN &&
-            subtitle.source != existing.source
-        ) {
-            return false
-        }
         val existingLanguage = existing.normalizedLanguage ?: return true
         val requested = subtitle.normalizedLanguage
-        return existingLanguage == requested ||
-            LanguageMatcher.getBaseLanguageCode(existingLanguage) == LanguageMatcher.getBaseLanguageCode(requested)
+        return existingLanguage.isEmpty() ||
+            requested.isEmpty() ||
+            existingLanguage.equals(requested, ignoreCase = true) ||
+            LanguageMatcher.getBaseLanguageCode(existingLanguage).equals(LanguageMatcher.getBaseLanguageCode(requested), ignoreCase = true)
     }
 
     private fun matchWithoutIdentity(

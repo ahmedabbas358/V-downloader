@@ -115,48 +115,55 @@ object PlaylistVerifier {
                 val customDir = File(customDirectoryPath.trim())
                 if (customDir.exists() && customDir.isDirectory) {
                     candidateDirs.add(customDir)
-                    // Also include immediate subfolders
                     customDir.listFiles()?.filter { it.isDirectory }?.forEach { candidateDirs.add(it) }
                 }
             }
 
-            // Standard folders if no custom or custom empty
-            if (candidateDirs.isEmpty()) {
-                val baseRoots = listOfNotNull(
-                    File(App.videoDownloadDir),
-                    File(App.audioDownloadDir),
-                    File(App.videoDownloadDir, "Audio"),
-                    File(App.audioDownloadDir, "Audio"),
-                    android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
-                    File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "V-Downloader"),
-                    File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "Seal"),
-                    File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "V-Downloader/Audio"),
-                    File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "Seal/Audio"),
-                    android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_MOVIES),
-                    android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_MUSIC),
-                ).filter { it.exists() && it.isDirectory }.distinctBy { it.absolutePath }
+            if (preferences.commandDirectory.isNotBlank()) {
+                val prefDir = File(preferences.commandDirectory.trim())
+                if (prefDir.exists() && prefDir.isDirectory) {
+                    candidateDirs.add(prefDir)
+                    prefDir.listFiles()?.filter { it.isDirectory }?.forEach { candidateDirs.add(it) }
+                }
+            }
 
-                // Check for dedicated playlist subfolder in roots first
-                if (cleanPlaylistName.isNotBlank()) {
-                    baseRoots.forEach { root ->
-                        val subPlaylistFolder = File(root, cleanPlaylistName)
-                        if (subPlaylistFolder.exists() && subPlaylistFolder.isDirectory) {
-                            candidateDirs.add(subPlaylistFolder)
-                        }
-                        val subTitleFolder = File(root, "[Subtitles] $cleanPlaylistName")
-                        if (subTitleFolder.exists() && subTitleFolder.isDirectory) {
-                            candidateDirs.add(subTitleFolder)
-                        }
-                        val subAudioFolder = File(root, "[Audio] $cleanPlaylistName")
-                        if (subAudioFolder.exists() && subAudioFolder.isDirectory) {
-                            candidateDirs.add(subAudioFolder)
+            val baseRoots = listOfNotNull(
+                File(App.videoDownloadDir),
+                File(App.audioDownloadDir),
+                File(App.videoDownloadDir, "Audio"),
+                File(App.audioDownloadDir, "Audio"),
+                File(App.videoDownloadDir, "Subtitles"),
+                File(App.audioDownloadDir, "Subtitles"),
+                android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
+                File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "V-Downloader"),
+                File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "Seal"),
+                File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "V-Downloader/Audio"),
+                File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "Seal/Audio"),
+                File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "V-Downloader/Subtitles"),
+                File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "Seal/Subtitles"),
+                android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_MOVIES),
+                android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_MUSIC),
+            ).filter { it.exists() && it.isDirectory }.distinctBy { it.absolutePath }
+
+            candidateDirs.addAll(baseRoots)
+
+            // Check for dedicated playlist subfolders across all base roots
+            if (cleanPlaylistName.isNotBlank()) {
+                baseRoots.forEach { root ->
+                    val folderNames = listOf(
+                        cleanPlaylistName,
+                        "[Subtitles] $cleanPlaylistName",
+                        "subtitles_$cleanPlaylistName",
+                        "[Audio] $cleanPlaylistName",
+                        "Subtitles/$cleanPlaylistName",
+                        "Audio/$cleanPlaylistName"
+                    )
+                    folderNames.forEach { name ->
+                        val subFolder = File(root, name)
+                        if (subFolder.exists() && subFolder.isDirectory) {
+                            candidateDirs.add(subFolder)
                         }
                     }
-                }
-
-                // If no specific playlist folder exists, add baseRoots
-                if (candidateDirs.isEmpty()) {
-                    candidateDirs.addAll(baseRoots)
                 }
             }
 
@@ -166,7 +173,7 @@ object PlaylistVerifier {
                 if (!dir.exists() || !dir.isDirectory) return@flatMap emptyList<File>()
                 try {
                     dir.walkTopDown()
-                        .maxDepth(3)
+                        .maxDepth(4)
                         .filter { file ->
                             if (!file.isFile || file.length() < minFileSize) return@filter false
                             val ext = file.extension.lowercase(Locale.US)
@@ -267,7 +274,7 @@ object PlaylistVerifier {
                     .map { it.toVerificationItem(playlistUrl, playlistTitle, preferences) }
             val missingItems =
                 integrityReport.results
-                    .filter { it.state == ContentState.MISSING || it.state == ContentState.INVALID || it.state == ContentState.AMBIGUOUS }
+                    .filter { it.state == ContentState.MISSING || it.state == ContentState.INVALID }
                     .map { it.toVerificationItem(playlistUrl, playlistTitle, preferences) }
 
             // Determine optimal destination directory
