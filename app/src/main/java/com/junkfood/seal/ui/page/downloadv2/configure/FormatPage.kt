@@ -137,7 +137,7 @@ fun FormatPage(
     downloader: DownloaderV2 = koinInject(),
     onNavigateBack: () -> Unit = {},
 ) {
-    if (videoInfo.formats.isNullOrEmpty()) return
+    if (videoInfo.formats.isNullOrEmpty() && !isSubtitleOnly) return
     val mergeAudioStream = MERGE_MULTI_AUDIO_STREAM.getBoolean()
     val subtitleLanguageRegex = SUBTITLE_LANGUAGE.getString()
     val downloadSubtitle = SUBTITLE.getBoolean()
@@ -214,7 +214,7 @@ fun FormatPage(
                             subtitleLanguage = if (subLangString.isNotEmpty()) subLangString else taskWithState.task.preferences.subtitleLanguage,
                             splitByChapter = if (isSubOnly) false else splitByChapter,
                             newTitle = newTitle,
-                            playlistNumbering = taskWithState.task.preferences.playlistNumbering || isSubOnly,
+                            playlistNumbering = taskWithState.task.preferences.playlistNumbering || isSubOnly || com.junkfood.seal.util.PLAYLIST_NUMBERING.getBoolean(),
                         )
                     )
                     downloader.enqueue(taskWithState.copy(task = updatedTask))
@@ -623,7 +623,7 @@ private fun FormatPageImpl(
                 }
             }
 
-            if (suggestedSubtitleMap.isNotEmpty()) {
+            if (suggestedSubtitleMap.isNotEmpty() || isSubtitleOnly) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Row(

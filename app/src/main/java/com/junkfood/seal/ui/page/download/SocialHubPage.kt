@@ -440,7 +440,15 @@ private fun EmbeddedPlaylistSyncView(
                             Icon(Icons.Outlined.Folder, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (customFolderPath.isNotBlank()) "المجلد: $customFolderPath" else "المجلد: التلقائي بحسب نوع المحتوى",
+                                text = if (customFolderPath.isNotBlank()) {
+                                    "المجلد: $customFolderPath"
+                                } else {
+                                    when (selectedType) {
+                                        2 -> "المجلد: [Subtitles] اسم القائمة تلقائياً"
+                                        1 -> "المجلد: [Audio] اسم القائمة تلقائياً"
+                                        else -> "المجلد: اسم القائمة تلقائياً"
+                                    }
+                                },
                                 style = MaterialTheme.typography.labelMedium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,

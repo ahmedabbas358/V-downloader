@@ -205,9 +205,13 @@ object DownloadTaskExecutor {
                 .ifEmpty { videoInfo.playlist.orEmpty() }
                 .ifEmpty { task.preferences.newTitle }
                 .ifEmpty { "Playlist" }
+                .removePrefix("[Subtitles] ")
+                .removePrefix("[Subtitle] ")
+                .trim()
             val cleanPlaylistTitle = com.junkfood.seal.util.FileUtil.cleanFileName(rawPlaylistTitle).trim().ifBlank { "Playlist" }
 
-            val targetDir = if (playlistItem != 0 && task.preferences.commandDirectory.isBlank()) {
+            val isPlaylistSubtitle = (playlistItem != 0) || (task.type is TypeInfo.Playlist) || (task.preferences.downloadPlaylist && cleanPlaylistTitle.isNotEmpty() && cleanPlaylistTitle != "Playlist")
+            val targetDir = if (isPlaylistSubtitle && task.preferences.commandDirectory.isBlank()) {
                 File(basePath, "[Subtitles] $cleanPlaylistTitle")
             } else {
                 File(basePath)

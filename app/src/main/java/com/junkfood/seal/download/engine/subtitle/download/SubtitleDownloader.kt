@@ -247,6 +247,122 @@ object SubtitleDownloader {
     }
 
     /**
+     * Builds the expanded subtitle language option string for yt-dlp.
+     */
+    fun buildSubLangsOption(rawLang: String): String {
+        val trimmed = rawLang.trim()
+        if (trimmed.isEmpty() || trimmed.equals("all", ignoreCase = true)) return "all"
+        val langs = trimmed.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        if (langs.isEmpty()) return "all"
+        return langs.flatMap { l ->
+            if (l == "all" || l.contains("-") || l.contains(".*")) {
+                listOf(l)
+            } else {
+                listOf(l, "$l-.*", "$l-orig")
+            }
+        }.distinct().joinToString(",")
+    }
+
+    /**
+     * Fallback direct download executing yt-dlp with --write-subs and --write-auto-subs
+     * (the proven approach from commit 5849a919) to ensure 100% download reliability.
+     */
+    suspend fun downloadSubtitlesDirectly(
+        url: String,
+        videoId: String,
+        title: String,
+        destinationDir: File,
+        preferences: DownloadPreferences,
+        playlistIndex: Int = 0,
+        appContext: Context = context,
+        onProgress: (SubtitleProgress) -> Unit = {}
+    ): Result<List<File>> = withContext(Dispatchers.IO) {
+        runCatching {
+            destinationDir.mkdirs()
+            val tempWorkDir = File(destinationDir, ".sub_direct_${videoId}_${UUID.randomUUID().toString().take(8)}")
+            tempWorkDir.mkdirs()
+
+            val rawLang = preferences.subtitleLanguage.ifBlank { "ar,en" }
+            val subLangs = buildSubLangsOption(rawLang)
+            val targetFormatStr = SubtitleOptionBuilder.getConvertSubsValue(preferences.convertSubtitle).ifBlank { "srt" }
+            val targetFormat = SubtitleOutputFormat.fromExtension(targetFormatStr)
+
+            onProgress(SubtitleProgress.Downloading(subLangs, 0.3f))
+
+            val request = YoutubeDLRequest(url).apply {
+                addOption("--skip-download")
+                addOption("--no-playlist")
+                addOption("--no-mtime")
+                addOption("--force-overwrites")
+                addOption("--no-check-certificates")
+                addOption("--write-subs")
+                addOption("--write-auto-subs")
+                addOption("--sub-langs", subLangs)
+                addOption("--sub-format", "srt/best/ass/vtt/lrc")
+                if (targetFormatStr.isNotBlank()) {
+                    addOption("--convert-subs", targetFormatStr)
+                }
+                val extractorArgs = YoutubeClientStrategy.buildExtractorArgs(listOf(YoutubeClient.ANDROID, YoutubeClient.DEFAULT, YoutubeClient.WEB))
+                addOption("--extractor-args", extractorArgs)
+
+                if (preferences.cookies) {
+                    NetworkOptionBuilder.applyCookies(this, preferences.userAgentString, appContext)
+                }
+                if (preferences.proxy) {
+                    NetworkOptionBuilder.applyProxy(this, preferences.proxyUrl)
+                }
+                NetworkOptionBuilder.applyNetworkResilience(this, preferences.forceIpv4, preferences.debug)
+
+                addOption("-P", tempWorkDir.absolutePath)
+                addOption("-o", OutputTemplateBuilder.BASENAME)
+            }
+
+            val processId = "sub_direct_${videoId}_${System.currentTimeMillis()}"
+            YoutubeDL.getInstance().execute(request, processId) { progress, _, _ ->
+                onProgress(SubtitleProgress.Downloading(subLangs, 0.3f + (progress / 100f) * 0.5f))
+            }
+
+            val tempFiles = tempWorkDir.listFiles()?.filter { file ->
+                file.isFile && !file.name.endsWith(".part") && !file.name.endsWith(".ytdl") && !file.name.endsWith(".tmp") && file.length() > 10L
+            } ?: emptyList()
+
+            if (tempFiles.isEmpty()) {
+                throw SubtitleFailure.NoSubtitles
+            }
+
+            val downloadedFiles = mutableListOf<File>()
+            val cleanBaseTitle = FileUtil.cleanFileName(title).ifBlank { "Video_$videoId" }
+
+            for (tempFile in tempFiles) {
+                val convertedFile = if (SubtitleOutputFormat.fromExtension(tempFile.extension) != targetFormat) {
+                    onProgress(SubtitleProgress.Converting(targetFormat.extension))
+                    SubtitleConverter.convert(tempFile, targetFormat).getOrElse { tempFile }
+                } else {
+                    tempFile
+                }
+
+                val finalFileName = buildSafeSubtitleFileName(
+                    baseTitle = cleanBaseTitle,
+                    tempGeneratedName = convertedFile.name,
+                    targetFormat = targetFormat,
+                    videoId = videoId,
+                    source = SubtitleSource.AUTO_GENERATED,
+                    playlistIndex = playlistIndex,
+                    includePlaylistNumbering = preferences.playlistNumbering || playlistIndex > 0,
+                )
+                val finalFile = File(destinationDir, finalFileName)
+                convertedFile.copyTo(finalFile, overwrite = true)
+                convertedFile.delete()
+                downloadedFiles.add(finalFile)
+            }
+
+            tempWorkDir.deleteRecursively()
+            onProgress(SubtitleProgress.Completed(downloadedFiles.size))
+            downloadedFiles
+        }
+    }
+
+    /**
      * Generates a safe, non-traversing, sanitized filename for the subtitle file.
      */
     fun buildSafeSubtitleFileName(
@@ -274,7 +390,8 @@ object SubtitleDownloader {
             .trim()
             .ifBlank { "subtitle" }
 
-        val indexPrefix = if (includePlaylistNumbering && playlistIndex > 0 && !Regex("""^\d{2,4}\s*-\s*""").containsMatchIn(cleanTitle)) {
+        val shouldNumber = includePlaylistNumbering || playlistIndex > 0 || com.junkfood.seal.util.PLAYLIST_NUMBERING.getBoolean()
+        val indexPrefix = if (shouldNumber && playlistIndex > 0 && !Regex("""^\d{2,4}\s*-\s*""").containsMatchIn(cleanTitle)) {
             "%03d - ".format(Locale.US, playlistIndex)
         } else {
             ""

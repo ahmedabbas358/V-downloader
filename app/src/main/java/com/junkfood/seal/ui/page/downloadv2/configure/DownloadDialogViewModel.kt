@@ -29,7 +29,9 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
         data class PlaylistSelection(val result: PlaylistResult) : SelectionState
         data class FormatSelection(
             val info: VideoInfo,
-            val playlistTasks: List<TaskFactory.TaskWithState>? = null
+            val playlistTasks: List<TaskFactory.TaskWithState>? = null,
+            val audioOnly: Boolean = false,
+            val isSubtitleOnly: Boolean = false,
         ) : SelectionState
     }
 
@@ -198,12 +200,19 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
         val taskKey = "fetch_format_$url"
         if (activeJobs.containsKey(taskKey)) return
 
+        val isAudioOnly = action.audioOnly || preferences.extractAudio
+        val isSubOnly = preferences.skipDownload && preferences.downloadSubtitle
+
         val job = viewModelScope.launch(Dispatchers.IO, start = CoroutineStart.LAZY) {
             try {
                 DownloadUtil.fetchVideoInfoFromUrl(url = url, preferences = preferences)
                     .onSuccess { info ->
                         mSelectionStateFlow.update {
-                            SelectionState.FormatSelection(info = info)
+                            SelectionState.FormatSelection(
+                                info = info,
+                                audioOnly = isAudioOnly,
+                                isSubtitleOnly = isSubOnly,
+                            )
                         }
                         withContext(Dispatchers.Main) { dismissSheet() }
                     }
@@ -263,7 +272,12 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
                 DownloadUtil.fetchVideoInfoFromUrl(url = fetchUrl, playlistIndex = fetchIndex, preferences = preferences)
                     .onSuccess { info ->
                         mSelectionStateFlow.update {
-                            SelectionState.FormatSelection(info = info, playlistTasks = effectiveTasks)
+                            SelectionState.FormatSelection(
+                                info = info,
+                                playlistTasks = effectiveTasks,
+                                audioOnly = preferences.extractAudio,
+                                isSubtitleOnly = true,
+                            )
                         }
                         withContext(Dispatchers.Main) { dismissSheet() }
                     }

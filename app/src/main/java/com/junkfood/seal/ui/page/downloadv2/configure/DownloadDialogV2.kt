@@ -389,20 +389,6 @@ private fun DownloadDialogContent(
                         onConfigSave = {
                             Config.updatePreferences(newValue = it, oldValue = config)
                         },
-                        settingChips = {
-                            AdditionalSettings(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                isQuickDownload = false,
-                                preference = preferences,
-                                selectedType = config.downloadType,
-                                useFormatSelection = config.useFormatSelection,
-                                onPreferenceUpdate = {
-                                    onPreferencesUpdate(
-                                        DownloadUtil.DownloadPreferences.createFromPreferences()
-                                    )
-                                },
-                            )
-                        },
                         onActionPost = { onActionPost(it) },
                     )
                 } else {
@@ -555,6 +541,8 @@ fun FormatPage(
             modifier = modifier,
             videoInfo = state.info,
             playlistTasks = state.playlistTasks,
+            audioOnly = state.audioOnly,
+            isSubtitleOnly = state.isSubtitleOnly,
             onNavigateBack = {
                 scope.launch { sheetState.hide() }.invokeOnCompletion { onDismissRequest() }
             },
@@ -602,7 +590,6 @@ private fun ConfigurePage(
     config: Config,
     preferences: DownloadUtil.DownloadPreferences,
     onPreferencesUpdate: (DownloadUtil.DownloadPreferences) -> Unit,
-    settingChips: @Composable () -> Unit,
     onPresetEdit: (DownloadType?) -> Unit = {},
     onConfigSave: (Config) -> Unit,
     onActionPost: (Action) -> Unit,
@@ -723,7 +710,21 @@ private fun ConfigurePage(
                 }
             }
             var expanded by remember { mutableStateOf(false) }
-            ExpandableTitle(expanded = expanded, onClick = { expanded = true }) { settingChips() }
+            ExpandableTitle(expanded = expanded, onClick = { expanded = !expanded }) {
+                AdditionalSettings(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    isQuickDownload = false,
+                    isPlaylist = false,
+                    preference = preferences,
+                    selectedType = selectedType,
+                    useFormatSelection = useFormatSelection,
+                    onPreferenceUpdate = {
+                        onPreferencesUpdate(
+                            DownloadUtil.DownloadPreferences.createFromPreferences()
+                        )
+                    },
+                )
+            }
         }
 
         Spacer(Modifier.height(8.dp))
@@ -740,7 +741,7 @@ private fun ConfigurePage(
                         downloadType = selectedType,
                     )
                 )
-                val isPlaylist = selectedType == Playlist || (selectedType != Video && selectedType != Audio && selectedType != DownloadType.Subtitle && url.contains("list=", ignoreCase = true))
+                val isPlaylist = selectedType == Playlist || url.contains("list=", ignoreCase = true) || preferences.downloadPlaylist
                 onActionPost(
                     Action.DownloadWithPreset(
                         urlList = listOf(url),
@@ -762,33 +763,41 @@ private fun ConfigurePage(
                         downloadType = selectedType,
                     )
                 )
-                val isPlaylistUrl = selectedType == Playlist || (selectedType != Video && selectedType != Audio && selectedType != DownloadType.Subtitle && url.contains("list=", ignoreCase = true))
-                if (isPlaylistUrl) {
-                    onActionPost(
-                        Action.FetchPlaylist(
-                            url = url,
-                            preferences = preferences.copy(
-                                downloadPlaylist = true,
-                                extractAudio = selectedType == Audio,
-                                skipDownload = selectedType == DownloadType.Subtitle,
-                                downloadSubtitle = if (selectedType == DownloadType.Subtitle) true else preferences.downloadSubtitle,
-                                autoSubtitle = if (selectedType == DownloadType.Subtitle) true else preferences.autoSubtitle,
-                                autoTranslatedSubtitles = if (selectedType == DownloadType.Subtitle) true else preferences.autoTranslatedSubtitles,
+                val isPlaylistUrl = selectedType == Playlist || url.contains("list=", ignoreCase = true) || preferences.downloadPlaylist
+                val updatedPrefs = preferences.copy(
+                    downloadPlaylist = isPlaylistUrl,
+                    extractAudio = selectedType == Audio,
+                    skipDownload = selectedType == DownloadType.Subtitle,
+                    downloadSubtitle = if (selectedType == DownloadType.Subtitle) true else preferences.downloadSubtitle,
+                    autoSubtitle = if (selectedType == DownloadType.Subtitle) true else preferences.autoSubtitle,
+                    autoTranslatedSubtitles = if (selectedType == DownloadType.Subtitle) true else preferences.autoTranslatedSubtitles,
+                )
+                if (selectedType == DownloadType.Subtitle) {
+                    if (isPlaylistUrl) {
+                        onActionPost(
+                            Action.FetchPlaylistSubtitleFormats(
+                                firstVideoUrl = url,
+                                playlistTasks = emptyList(),
+                                preferences = updatedPrefs,
                             )
                         )
-                    )
+                    } else {
+                        onActionPost(
+                            Action.FetchFormats(
+                                url = url,
+                                audioOnly = false,
+                                preferences = updatedPrefs,
+                            )
+                        )
+                    }
+                } else if (isPlaylistUrl) {
+                    onActionPost(Action.FetchPlaylist(url = url, preferences = updatedPrefs))
                 } else {
                     onActionPost(
                         Action.FetchFormats(
                             url = url,
                             audioOnly = selectedType == Audio,
-                            preferences = preferences.copy(
-                                extractAudio = selectedType == Audio,
-                                skipDownload = selectedType == DownloadType.Subtitle,
-                                downloadSubtitle = if (selectedType == DownloadType.Subtitle) true else preferences.downloadSubtitle,
-                                autoSubtitle = if (selectedType == DownloadType.Subtitle) true else preferences.autoSubtitle,
-                                autoTranslatedSubtitles = if (selectedType == DownloadType.Subtitle) true else preferences.autoTranslatedSubtitles,
-                            ),
+                            preferences = updatedPrefs,
                         )
                     )
                 }
@@ -936,10 +945,11 @@ private fun AdditionalSettings(
                     )
                 }
 
-                if (selectedType != DownloadType.Subtitle) {
+                // Show "Download Subtitles" chip ONLY for Video / Playlist (never for Subtitle or Audio)
+                if (selectedType == Video || selectedType == Playlist) {
                     VideoFilterChip(
                         selected = downloadSubtitle,
-                        enabled = selectedType != Command,
+                        enabled = true,
                         onClick = {
                             SUBTITLE.updateBoolean(!downloadSubtitle)
                             onPreferenceUpdate()
@@ -947,15 +957,21 @@ private fun AdditionalSettings(
                         label = stringResource(id = R.string.download_subtitles),
                     )
                 }
-                VideoFilterChip(
-                    selected = createThumbnail,
-                    enabled = selectedType != Command,
-                    onClick = {
-                        THUMBNAIL.updateBoolean(!createThumbnail)
-                        onPreferenceUpdate()
-                    },
-                    label = stringResource(R.string.create_thumbnail),
-                )
+
+                // Show "Create Thumbnail" ONLY for Video, Audio, Playlist (never for Subtitle)
+                if (selectedType != DownloadType.Subtitle && selectedType != Command) {
+                    VideoFilterChip(
+                        selected = createThumbnail,
+                        enabled = true,
+                        onClick = {
+                            THUMBNAIL.updateBoolean(!createThumbnail)
+                            onPreferenceUpdate()
+                        },
+                        label = stringResource(R.string.create_thumbnail),
+                    )
+                }
+
+                // Show "AI Voice / Remove Music" ONLY for Video and Audio (never for Subtitle or Playlist)
                 if (!isPlaylist && (selectedType == Video || selectedType == Audio)) {
                     val removeMusic = preference.removeMusic
                     VideoFilterChip(
@@ -970,7 +986,9 @@ private fun AdditionalSettings(
                 }
             }
 
-            if (downloadSubtitle && selectedType != Command && !useFormatSelection) {
+            // Always show Subtitle Language Selector in Subtitle mode, or in Video/Playlist when downloadSubtitle is enabled
+            val isSubtitleMode = selectedType == DownloadType.Subtitle || (downloadSubtitle && (selectedType == Video || selectedType == Playlist))
+            if (isSubtitleMode && selectedType != Command) {
                 Spacer(modifier = Modifier.height(8.dp))
                 SubtitleLanguageSelector(
                     preference = preference,

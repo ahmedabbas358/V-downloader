@@ -675,12 +675,13 @@ class DownloadQueueManager(
         val baseDir = OutputTemplateBuilder.resolveBaseDirectory(preferences, preferences.extractAudio)
 
         val candidateDirs = mutableListOf<File>()
-        if (isSubtitleOnly && cleanPlaylistName.isNotEmpty()) {
+        if (isSubtitleOnly && cleanPlaylistName.isNotEmpty() && cleanPlaylistName != "Playlist") {
             candidateDirs.add(File(baseDir, "[Subtitles] $cleanPlaylistName"))
-        } else if (preferences.subdirectoryPlaylistTitle && cleanPlaylistName.isNotEmpty()) {
+        } else if (preferences.subdirectoryPlaylistTitle && cleanPlaylistName.isNotEmpty() && cleanPlaylistName != "Playlist") {
             candidateDirs.add(File(baseDir, cleanPlaylistName))
+        } else {
+            candidateDirs.add(File(baseDir))
         }
-        candidateDirs.add(File(baseDir))
 
         val state = taskStateMap[task]
         val rawUrl = task.url.ifEmpty { state?.viewState?.url.orEmpty() }

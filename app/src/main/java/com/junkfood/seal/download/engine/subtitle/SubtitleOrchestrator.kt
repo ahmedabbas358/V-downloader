@@ -34,6 +34,7 @@ class SubtitleOrchestrator(
         onProgress: (SubtitleProgress) -> Unit = {}
     ): SubtitleDownloadResult {
         val videoId = videoInfo?.id ?: YoutubeCompatibility.extractVideoId(url) ?: "video"
+        val resolvedTitle = videoInfo?.title ?: preferences.newTitle
 
         // 1. Stage: Discovery
         onProgress(SubtitleProgress.Discovering("Discovering available subtitles..."))
@@ -41,43 +42,77 @@ class SubtitleOrchestrator(
 
         val inventory = when (discoveryRes) {
             is SubtitleDiscoveryResult.Success -> discoveryRes.inventory
-            is SubtitleDiscoveryResult.Failure -> return SubtitleDownloadResult.Failure(discoveryRes.error)
+            is SubtitleDiscoveryResult.Failure -> null
         }
 
-        if (inventory.isEmpty()) {
-            return SubtitleDownloadResult.Failure(SubtitleFailure.NoSubtitles)
+        if (inventory != null && inventory.isNotEmpty()) {
+            // 2. Stage: Language & Track Selection
+            onProgress(SubtitleProgress.Selecting("Matching requested languages..."))
+            val requestedLangs = preferences.subtitleLanguage.ifBlank { "ar,en" }
+
+            var matchedTracks = LanguageMatcher.matchTracks(
+                requestedLangs = requestedLangs,
+                availableTracks = inventory.allTracks,
+                policy = SubtitleTypePolicy.ANY,
+                allowAutoCaptions = preferences.autoSubtitle,
+                allowTranslatedSubtitles = preferences.autoTranslatedSubtitles
+            )
+
+            if (matchedTracks.isEmpty()) {
+                // Resilient fallback: match any available track in inventory
+                matchedTracks = LanguageMatcher.matchTracks(
+                    requestedLangs = "all",
+                    availableTracks = inventory.allTracks,
+                    policy = SubtitleTypePolicy.ANY,
+                    allowAutoCaptions = true,
+                    allowTranslatedSubtitles = true
+                ).take(2)
+            }
+
+            if (matchedTracks.isNotEmpty()) {
+                // 3. Stage: Coordinated Download & Conversion
+                val downloadRes = youtubeProvider.downloadTracks(
+                    url = url,
+                    videoId = videoId,
+                    tracks = matchedTracks,
+                    destinationDir = destinationDir,
+                    preferences = preferences,
+                    videoTitle = resolvedTitle,
+                    playlistIndex = playlistIndex,
+                    onProgress = onProgress
+                )
+
+                if (downloadRes is SubtitleDownloadResult.Success && downloadRes.files.isNotEmpty()) {
+                    return downloadRes
+                }
+            }
         }
 
-        // 2. Stage: Language & Track Selection
-        onProgress(SubtitleProgress.Selecting("Matching requested languages..."))
-        val requestedLangs = preferences.subtitleLanguage.ifBlank { "ar,en" }
-
-        val matchedTracks = LanguageMatcher.matchTracks(
-            requestedLangs = requestedLangs,
-            availableTracks = inventory.allTracks,
-            policy = SubtitleTypePolicy.ANY,
-            allowAutoCaptions = preferences.autoSubtitle,
-            allowTranslatedSubtitles = preferences.autoTranslatedSubtitles
-        )
-
-        if (matchedTracks.isEmpty()) {
-            return SubtitleDownloadResult.Failure(SubtitleFailure.LanguageUnavailable(requestedLangs))
-        }
-
-        // 3. Stage: Coordinated Download & Conversion
-        val resolvedTitle = videoInfo?.title ?: preferences.newTitle
-        val downloadRes = youtubeProvider.downloadTracks(
+        // 4. Robust Direct Extraction Fallback (proven high-compatibility yt-dlp execution)
+        onProgress(SubtitleProgress.Downloading(preferences.subtitleLanguage.ifBlank { "ar,en" }, 0.4f))
+        val directRes = com.junkfood.seal.download.engine.subtitle.download.SubtitleDownloader.downloadSubtitlesDirectly(
             url = url,
             videoId = videoId,
-            tracks = matchedTracks,
+            title = resolvedTitle,
             destinationDir = destinationDir,
             preferences = preferences,
-            videoTitle = resolvedTitle,
             playlistIndex = playlistIndex,
             onProgress = onProgress
         )
 
-        return downloadRes
+        return directRes.fold(
+            onSuccess = { files ->
+                if (files.isNotEmpty()) {
+                    SubtitleDownloadResult.Success(files)
+                } else {
+                    SubtitleDownloadResult.Failure(SubtitleFailure.NoSubtitles)
+                }
+            },
+            onFailure = { th ->
+                val failure = if (th is SubtitleFailure) th else SubtitleFailure.fromThrowable(th)
+                SubtitleDownloadResult.Failure(failure)
+            }
+        )
     }
 
     /**

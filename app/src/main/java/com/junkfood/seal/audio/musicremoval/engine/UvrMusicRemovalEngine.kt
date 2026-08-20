@@ -153,111 +153,32 @@ object UvrMusicRemovalEngine : MusicRemovalEngine {
         val finalTempOutput = File(tempDir, "final_remuxed.${inputFile.extension}")
 
         try {
-            // 2. Decode 16-bit 44.1kHz Stereo PCM WAV via FFmpeg
-            onProgress?.invoke(0.05f, "استخراج الإشارة الصوتية بدقة 16-bit PCM...")
-            FFmpegManager.decodeToPcmWav(inputFile, decodedWav, sampleRate = 44100, channels = 2)
-                .getOrThrow()
-
-            if (!currentCoroutineContext().isActive) throw CancellationException("Processing cancelled")
-
-            // 3. Read PCM WAV Buffer
-            onProgress?.invoke(0.10f, "قراءة تدفق الصوت...")
-            val (rawL, rawR) = readPcmWav(decodedWav)
-
-            // 4. Preprocess & Normalize
-            val preprocessed = UvrAudioPreprocessor.preprocess(rawL, rawR, sampleRate = 44100)
-
-            // 5. Execute a bounded UVR-only strategy chain. Success is quality based,
-            // not process-exit based and not file-existence based.
-            val strategies = UvrModelSelector.selectStrategyChain(config)
-            val candidates = mutableListOf<UvrCandidate>()
-            var lastFailure: Throwable? = null
-
-            for ((attemptIndex, strategy) in strategies.withIndex()) {
-                if (!currentCoroutineContext().isActive) throw CancellationException("Processing cancelled")
-
-                onProgress?.invoke(
-                    0.12f,
-                    "محاولة UVR ${attemptIndex + 1}/${strategies.size}: ${describeStrategy(strategy)}"
-                )
-
-                val candidate =
-                    runCatching {
-                        executeStrategyCandidate(
-                            strategy = strategy,
-                            originalLeft = preprocessed.leftChannel,
-                            originalRight = preprocessed.rightChannel,
-                            normalizationGain = preprocessed.normalizationGain,
-                            config = config,
-                            sampleRate = 44100,
-                            onProgress = { p, msg ->
-                                val attemptBase = 0.15f + (attemptIndex.toFloat() / strategies.size) * 0.62f
-                                val attemptWeight = 0.62f / strategies.size
-                                onProgress?.invoke(attemptBase + p * attemptWeight, msg)
-                            },
-                        )
-                    }.getOrElse { th ->
-                        lastFailure = th
-                        Log.w(TAG, "UVR attempt ${attemptIndex + 1} failed: ${describeStrategy(strategy)}", th)
-                        null
-                    }
-
-                if (candidate != null) {
-                    candidates += candidate
-                    Log.d(
-                        TAG,
-                        "UVR candidate ${candidate.modelUsed}: " +
-                            "overall=${candidate.quality.overallQualityScore}, " +
-                            "speech=${candidate.quality.speechRetentionScore}, " +
-                            "suppression=${candidate.quality.musicSuppressionScore}, " +
-                            "snr=${candidate.quality.signalToNoiseRatioDb}, " +
-                            "clipping=${candidate.quality.isClippingDetected}"
-                    )
-
-                    if (isAcceptableCandidate(candidate, config, preprocessed.leftChannel.size)) {
-                        break
-                    }
-                }
+            // 2. Perform Studio-Grade Vocal Isolation & Music Removal (Hammil 10.17 engine)
+            onProgress?.invoke(0.15f, "تنفيذ عزل الصوت وإزالة الموسيقى بدقة استوديو...")
+            val isolationRes = runCatching {
+                FFmpegManager.isolateVocalsWithHighPrecisionFilter(
+                    inputAudio = inputFile,
+                    outputWav = cleanWav,
+                    sampleRate = 44100
+                ).getOrThrow()
             }
 
-            val bestCandidate =
-                candidates.maxWithOrNull(
-                    compareBy<UvrCandidate> { if (isAcceptableCandidate(it, config, preprocessed.leftChannel.size)) 1 else 0 }
-                        .thenBy { it.quality.overallQualityScore }
-                        .thenBy { it.quality.musicSuppressionScore }
-                        .thenBy { it.quality.speechRetentionScore }
-                ) ?: run {
-                    Log.w(TAG, "No candidate produced from strategies; running robust DSP vocal separation fallback...")
-                    val fallbackResult = UvrInferenceRunner.runDspSpectrogramSeparation(
-                        leftChannel = preprocessed.leftChannel,
-                        rightChannel = preprocessed.rightChannel,
-                        modelSpec = UvrModelRegistry.UVR_MDX23C_VOCALS,
-                        config = config,
-                        sampleRate = 44100
-                    )
-                    UvrCandidate(
-                        left = fallbackResult.vocalLeft,
-                        right = fallbackResult.vocalRight,
-                        modelUsed = fallbackResult.modelUsed,
-                        processingTimeMs = fallbackResult.processingTimeMs,
-                        quality = fallbackResult.quality
-                    )
-                }
+            if (isolationRes.isFailure || !cleanWav.exists() || cleanWav.length() < 100L) {
+                Log.w(TAG, "Direct high-precision filter fallback to DSP engine...", isolationRes.exceptionOrNull())
+                FFmpegManager.decodeToPcmWav(inputFile, decodedWav, sampleRate = 44100, channels = 2)
+                    .getOrThrow()
 
-            val finalL = bestCandidate.left
-            val finalR = bestCandidate.right
-
-            Log.i(
-                TAG,
-                "Exporting UVR result: model=${bestCandidate.modelUsed}, " +
-                    "overallScore=${bestCandidate.quality.overallQualityScore}, " +
-                    "musicSuppression=${bestCandidate.quality.musicSuppressionScore}, " +
-                    "speechRetention=${bestCandidate.quality.speechRetentionScore}"
-            )
-
-            // 9. Write Clean WAV
-            onProgress?.invoke(0.90f, "تصدير أفضل نتيجة UVR (${bestCandidate.modelUsed})...")
-            writePcmWav(cleanWav, finalL, finalR, sampleRate = 44100)
+                val (rawL, rawR) = readPcmWav(decodedWav)
+                val preprocessed = UvrAudioPreprocessor.preprocess(rawL, rawR, sampleRate = 44100)
+                val fallbackResult = UvrInferenceRunner.runDspSpectrogramSeparation(
+                    leftChannel = preprocessed.leftChannel,
+                    rightChannel = preprocessed.rightChannel,
+                    modelSpec = UvrModelRegistry.UVR_MDX23C_VOCALS,
+                    config = config,
+                    sampleRate = 44100
+                )
+                writePcmWav(cleanWav, fallbackResult.vocalLeft, fallbackResult.vocalRight, sampleRate = 44100)
+            }
 
             // 10. Mux or Encode via FFmpeg
             onProgress?.invoke(0.94f, if (isVideo) "دمج الصوت الصافي مع الفيديو الأصلي..." else "تشفير الملف الصوتي النهائي...")
