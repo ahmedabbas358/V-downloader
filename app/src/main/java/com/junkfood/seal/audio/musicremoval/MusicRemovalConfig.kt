@@ -3,42 +3,33 @@ package com.junkfood.seal.audio.musicremoval
 /**
  * MusicRemovalConfig
  *
- * Configuration parameters for the modular Music Removal & Source Separation Engine.
+ * Configuration parameters for the Band-Split RoFormer (BS-RoFormer) Production-Grade Music Removal Engine.
  */
 data class MusicRemovalConfig(
+    val primaryModelId: String = "bs_roformer_sw",
     val qualityMode: QualityMode = QualityMode.BALANCED,
     val speechPreservationLevel: SpeechPreservationLevel = SpeechPreservationLevel.HIGH,
-    val secondaryModelPolicy: SecondaryModelPolicy = SecondaryModelPolicy.AUTO,
-    val enableMusicDetectionGate: Boolean = true,
-    val musicDetectionThreshold: Float = 0.15f,
-    val speechEnhancementDb: Float = 3.5f,
+    val chunkSeconds: Float = 8.0f,
+    val overlapRatio: Float = 0.25f,
+    val maxPasses: Int = 2,
+    val enableQualityGate: Boolean = true,
+    val enableResidualAnalysis: Boolean = true,
+    val residualThreshold: Float = 0.28f,
+    val speechEnhancementDb: Float = 2.0f,
     val useResultCaching: Boolean = true,
     val maxWorkerThreads: Int = 0 // 0 = Auto-detect based on CPU cores
 ) {
 
     enum class QualityMode {
-        FAST,         // Lightweight native DSP / Fast MDX
-        BALANCED,     // Demucs v4 Hybrid or MDX23C
-        HIGH_QUALITY, // Demucs v4 with residual fallback verification
-        MAX_REMOVAL   // Multi-model ensemble (Demucs + MDX + RoFormer) with aggressive suppression
+        FAST,         // Fast Band-Split separation with light overlap
+        BALANCED,     // Standard 8s chunk BS-RoFormer with balanced residual suppression
+        HIGH_QUALITY, // BS-RoFormer with residual analysis and speech protection
+        MAX_REMOVAL   // Deep multi-pass BS-RoFormer with maximum instrumental suppression
     }
 
     enum class SpeechPreservationLevel {
         STANDARD,     // Balanced suppression
-        HIGH,         // Strong formant & consonant protection
-        MAXIMUM       // Preserves all subtle voice dynamics, breath, and sibilants
-    }
-
-    enum class SecondaryModelPolicy {
-        AUTO,         // Engaged only when SeparationQualityEvaluator detects music leakage
-        ALWAYS,       // Always run secondary model and blend
-        NEVER         // Single-pass processing only
-    }
-
-    enum class DeviceProfile {
-        LOW,          // Low RAM / budget CPU: chunk size 2s, native DSP / INT8
-        BALANCED,     // Mid-range: chunk size 5s, FP16/FP32 Demucs or MDX
-        HIGH,         // High-end: chunk size 8s, Demucs v4 + dynamic fallback
-        MAX_QUALITY   // Flagship device: chunk size 10s, Multi-model ensemble
+        HIGH,         // Strong vocal formant & diction protection (Recommended)
+        MAXIMUM       // Maximum speech retention with subtle voice dynamic protection
     }
 }

@@ -2,27 +2,48 @@ package com.junkfood.seal.audio.musicremoval
 
 import android.content.Context
 import com.junkfood.seal.App.Companion.context
-import com.junkfood.seal.audio.musicremoval.engine.UvrMusicRemovalEngine
-import com.junkfood.seal.audio.musicremoval.model.UvrModelRegistry
-import com.junkfood.seal.audio.musicremoval.model.UvrModelSpec
+import com.junkfood.seal.audio.musicremoval.engine.BsRoFormerMusicRemovalEngine
+import com.junkfood.seal.audio.musicremoval.model.BsRoFormerModelRegistry
+import com.junkfood.seal.audio.musicremoval.model.BsRoFormerModelSpec
 import java.io.File
 
 /**
  * MusicRemovalCapabilities
  *
- * Exposes device capabilities for UVR neural music removal.
+ * Exposes device capabilities for Band-Split RoFormer (BS-RoFormer) neural music removal.
  */
 data class MusicRemovalCapabilities(
-    val engineName: String = "Ultimate Vocal Remover (UVR)",
+    val engineName: String = "Band-Split RoFormer (BS-RoFormer)",
     val isNeuralAccelerated: Boolean = true,
-    val supportedModels: List<UvrModelSpec> = UvrModelRegistry.ALL_UVR_MODELS
+    val supportedModels: List<BsRoFormerModelSpec> = BsRoFormerModelRegistry.ALL_MODELS
+)
+
+/**
+ * MusicRemovalResult
+ *
+ * Comprehensive metrics and status report for a music removal operation.
+ */
+data class MusicRemovalResult(
+    val success: Boolean,
+    val outputPath: String?,
+    val durationMs: Long,
+    val sampleRate: Int,
+    val channels: Int,
+    val model: String,
+    val processingTimeMs: Long,
+    val passes: Int,
+    val qualityScore: Float,
+    val musicResidualScore: Float,
+    val speechPreservationScore: Float,
+    val warnings: List<String> = emptyList(),
+    val error: String? = null
 )
 
 /**
  * MusicRemovalEngine
  *
- * Clean root abstraction interface for the music removal subsystem.
- * Exclusively implemented by [UvrMusicRemovalEngine].
+ * Root abstraction interface for the music removal subsystem.
+ * Exclusively implemented by [BsRoFormerMusicRemovalEngine].
  */
 interface MusicRemovalEngine {
 
@@ -52,7 +73,7 @@ interface MusicRemovalEngine {
     ): File
 
     /**
-     * Processes a single media file and returns detailed [SeparationResult].
+     * Processes a single media file and returns detailed [MusicRemovalResult].
      */
     suspend fun separateAudio(
         inputFile: File,
@@ -60,12 +81,12 @@ interface MusicRemovalEngine {
         config: MusicRemovalConfig = MusicRemovalConfig(),
         appContext: Context = context,
         onProgress: ((Float, String) -> Unit)? = null
-    ): com.junkfood.seal.audio.musicremoval.engine.SeparationResult =
-        UvrMusicRemovalEngine.separateAudio(inputFile, isAudioOnly, config, appContext, onProgress)
+    ): MusicRemovalResult =
+        BsRoFormerMusicRemovalEngine.separateAudio(inputFile, isAudioOnly, config, appContext, onProgress)
 
     companion object {
         val capabilities: MusicRemovalCapabilities
-            get() = UvrMusicRemovalEngine.capabilities
+            get() = BsRoFormerMusicRemovalEngine.capabilities
 
         suspend fun processFiles(
             filePaths: List<String>,
@@ -74,7 +95,7 @@ interface MusicRemovalEngine {
             appContext: Context = context,
             onProgress: ((Float, String) -> Unit)? = null
         ): List<String> {
-            return UvrMusicRemovalEngine.processFiles(filePaths, isAudioOnly, config, appContext, onProgress)
+            return BsRoFormerMusicRemovalEngine.processFiles(filePaths, isAudioOnly, config, appContext, onProgress)
         }
 
         suspend fun processSingleFile(
@@ -84,7 +105,7 @@ interface MusicRemovalEngine {
             appContext: Context = context,
             onProgress: ((Float, String) -> Unit)? = null
         ): File {
-            return UvrMusicRemovalEngine.processSingleFile(inputFile, isAudioOnly, config, appContext, onProgress)
+            return BsRoFormerMusicRemovalEngine.processSingleFile(inputFile, isAudioOnly, config, appContext, onProgress)
         }
 
         suspend fun separateAudio(
@@ -93,8 +114,8 @@ interface MusicRemovalEngine {
             config: MusicRemovalConfig = MusicRemovalConfig(),
             appContext: Context = context,
             onProgress: ((Float, String) -> Unit)? = null
-        ): com.junkfood.seal.audio.musicremoval.engine.SeparationResult {
-            return UvrMusicRemovalEngine.separateAudio(inputFile, isAudioOnly, config, appContext, onProgress)
+        ): MusicRemovalResult {
+            return BsRoFormerMusicRemovalEngine.separateAudio(inputFile, isAudioOnly, config, appContext, onProgress)
         }
     }
 }

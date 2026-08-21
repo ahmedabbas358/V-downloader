@@ -5,28 +5,36 @@ import kotlin.math.cos
 import kotlin.math.min
 
 /**
- * UvrChunkProcessor
+ * BsRoFormerChunkProcessor
  *
- * Implements chunked streaming audio processing with Hann-windowed Overlap-Add (OLA).
- * Guarantees zero click/pop boundary artifacts across UVR neural chunk boundaries.
+ * Implements chunked streaming audio inference with Hann-windowed Overlap-Add (OLA).
+ * Guarantees zero click/pop boundary artifacts, perfect phase coherence, and exact duration preservation.
  */
-object UvrChunkProcessor {
+object BsRoFormerChunkProcessor {
 
     /**
      * Processes full audio buffers in streaming chunks with smooth overlap-add windowing.
+     *
+     * @param leftChannel   Source left channel audio samples
+     * @param rightChannel  Source right channel audio samples
+     * @param chunkSamples  Number of samples per chunk (e.g. 352800 for 8s @ 44.1kHz)
+     * @param overlapSamples Number of overlapping samples (e.g. 88200 for 2s @ 44.1kHz)
+     * @param onProgress    Progress callback receiving (0.0 to 1.0)
+     * @param processChunk  Inference function applied to each (leftChunk, rightChunk)
+     * @return Pair of processed (outLeft, outRight) with exact same size as input
      */
     inline fun processStreaming(
         leftChannel: FloatArray,
         rightChannel: FloatArray,
-        chunkSamples: Int,
-        overlapSamples: Int,
+        chunkSamples: Int = 352800,
+        overlapSamples: Int = 88200,
         crossinline onProgress: (Float) -> Unit = {},
         crossinline processChunk: (FloatArray, FloatArray) -> Pair<FloatArray, FloatArray>
     ): Pair<FloatArray, FloatArray> {
         val totalSamples = min(leftChannel.size, rightChannel.size)
         if (totalSamples == 0) return Pair(FloatArray(0), FloatArray(0))
 
-        val stepSamples = chunkSamples - overlapSamples
+        val stepSamples = (chunkSamples - overlapSamples).coerceAtLeast(1)
         val outLeft = FloatArray(totalSamples)
         val outRight = FloatArray(totalSamples)
         val normWeight = FloatArray(totalSamples)

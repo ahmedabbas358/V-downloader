@@ -3,27 +3,20 @@ package com.junkfood.seal.download
 import android.content.Context
 import android.util.Log
 import com.junkfood.seal.App
-import com.junkfood.seal.util.COMMAND_DIRECTORY
-import com.junkfood.seal.util.DownloadUtil
-import com.junkfood.seal.util.DownloadUtil.DownloadPreferences
-import com.junkfood.seal.util.FileUtil
-import com.junkfood.seal.util.PreferenceUtil.getString
-import com.junkfood.seal.util.VideoInfo
-import com.junkfood.seal.download.engine.identity.ContentRequirement
 import com.junkfood.seal.download.engine.identity.ContentState
 import com.junkfood.seal.download.engine.identity.ContentType
 import com.junkfood.seal.download.engine.identity.MatchConfidence
-import com.junkfood.seal.download.engine.identity.SubtitleIdentity
-import com.junkfood.seal.download.engine.identity.VideoIdentity
-import com.junkfood.seal.download.engine.integrity.ContentIntegrityScanner
 import com.junkfood.seal.download.engine.integrity.MissingSummary
-import com.junkfood.seal.download.engine.integrity.RequirementResult
 import com.junkfood.seal.download.engine.playlist.PlaylistManifest
 import com.junkfood.seal.download.engine.playlist.PlaylistManifestItem
 import com.junkfood.seal.download.engine.playlist.PlaylistManifestStore
 import com.junkfood.seal.download.engine.resilience.FileCollisionResolver
 import com.junkfood.seal.download.engine.subtitle.model.SubtitleOutputFormat
-import com.junkfood.seal.download.engine.subtitle.model.SubtitleSource
+import com.junkfood.seal.download.engine.subtitle.validation.SubtitleValidator
+import com.junkfood.seal.util.DownloadUtil
+import com.junkfood.seal.util.DownloadUtil.DownloadPreferences
+import com.junkfood.seal.util.FileUtil
+import com.junkfood.seal.util.VideoInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -69,7 +62,7 @@ object PlaylistVerifier {
 
     private val VIDEO_EXTS = setOf("mp4", "mkv", "webm", "avi", "mov", "flv", "ts", "m4v", "3gp")
     private val AUDIO_EXTS = setOf("mp3", "m4a", "opus", "flac", "wav", "aac", "ogg", "mka", "m4b")
-    private val SUBTITLE_EXTS = setOf("srt", "vtt", "ass", "lrc", "sub", "sbv")
+    private val SUBTITLE_EXTS = setOf("srt", "vtt", "ass", "lrc", "sub", "sbv", "ttml")
 
     private val STOP_WORDS = setOf(
         "the", "and", "or", "for", "in", "on", "at", "to", "a", "an", "is", "of", "with",
@@ -140,6 +133,7 @@ object PlaylistVerifier {
                             File(root, "[Subtitles] $cleanPlaylistName"),
                             File(root, "Subtitles/$cleanPlaylistName"),
                             File(root, "subtitles_$cleanPlaylistName"),
+                            File(root, cleanPlaylistName),
                         )
                         subDirs.filter { it.exists() && it.isDirectory }.forEach { candidateDirs.add(it) }
                     } else if (isAudioOnly) {
@@ -165,7 +159,7 @@ object PlaylistVerifier {
 
             // Gather candidate files strictly matching the requested content type
             val minFileSize = if (isSubtitleOnly) 10L else 1024L
-            val maxScanDepth = if (!customDirectoryPath.isNullOrBlank()) 2 else 2
+            val maxScanDepth = 2
             val allCandidateFiles = candidateDirs.flatMap { dir ->
                 if (!dir.exists() || !dir.isDirectory) return@flatMap emptyList<File>()
                 try {
@@ -176,7 +170,8 @@ object PlaylistVerifier {
                             val ext = file.extension.lowercase(Locale.US)
                             if (file.name.endsWith(".part", ignoreCase = true) ||
                                 file.name.endsWith(".ytdl", ignoreCase = true) ||
-                                file.name.endsWith(".tmp", ignoreCase = true)) {
+                                file.name.endsWith(".tmp", ignoreCase = true) ||
+                                file.name.endsWith(".temp", ignoreCase = true)) {
                                 return@filter false
                             }
 
@@ -197,82 +192,156 @@ object PlaylistVerifier {
 
             Log.d(TAG, "scanPlaylist: found ${allCandidateFiles.size} candidate files for mode (subOnly=$isSubtitleOnly, audioOnly=$isAudioOnly, video=$isVideo)")
 
-            val playlistId =
-                ContentIntegrityScanner.extractPlaylistId(playlistInfo.webpageUrl ?: cleanUrl)
-                    .ifBlank { ContentIntegrityScanner.extractPlaylistId(cleanUrl) }
-                    .ifBlank { cleanUrl.hashCode().toString() }
-            val contentType =
-                when {
-                    isSubtitleOnly -> ContentType.SUBTITLE
-                    isAudioOnly -> ContentType.AUDIO
-                    else -> ContentType.VIDEO
+            val availableFiles = allCandidateFiles.toMutableList()
+            val foundItems = mutableListOf<VerificationItem>()
+            val missingItems = mutableListOf<VerificationItem>()
+
+            // High-precision 1-to-1 matching engine
+            for ((indexZero, entry) in entries.withIndex()) {
+                val index = indexZero + 1
+                val entryTitle = entry.title ?: "Track $index"
+                val rawUrl = entry.url.orEmpty()
+                val itemUrl = when {
+                    rawUrl.startsWith("http", ignoreCase = true) -> rawUrl
+                    !entry.id.isNullOrEmpty() -> "https://www.youtube.com/watch?v=${entry.id}"
+                    else -> ""
                 }
-            val subtitleLanguage = primarySubtitleLanguage(preferences.subtitleLanguage)
-            val subtitleFormat = subtitleOutputFormat(preferences.convertSubtitle)
-            val requirements =
-                entries.mapIndexed { indexZero, entry ->
-                    val index = indexZero + 1
-                    val entryTitle = entry.title ?: "Track $index"
-                    val rawUrl = entry.url.orEmpty()
-                    val itemUrl = when {
-                        rawUrl.startsWith("http", ignoreCase = true) -> rawUrl
-                        !entry.id.isNullOrEmpty() -> "https://www.youtube.com/watch?v=${entry.id}"
-                        else -> ""
+                val videoId = entry.id.orEmpty().ifBlank {
+                    FileCollisionResolver.extractVideoId(itemUrl, fallbackId = "")
+                }
+
+                val normalizedTitle = normalizeText(entryTitle)
+                val titleTokens = normalizedTitle.split(" ").filter { it.length >= 2 && it !in STOP_WORDS }
+
+                val formattedIndex1 = index.toString()
+                val formattedIndex2 = String.format(Locale.US, "%02d", index)
+                val formattedIndex3 = String.format(Locale.US, "%03d", index)
+
+                var matchedFile: File? = null
+
+                // Search through available local files
+                for (file in availableFiles) {
+                    val fileName = file.name
+                    val cleanedFileName = cleanFileNameForMatching(fileName)
+                    val normalizedFileName = normalizeText(cleanedFileName)
+
+                    // Strategy 1: Video ID Match (Highest confidence)
+                    if (videoId.isNotEmpty()) {
+                        val idMatch = fileName.contains(videoId, ignoreCase = true) ||
+                                fileName.contains("[$videoId]", ignoreCase = true) ||
+                                fileName.contains("_$videoId", ignoreCase = true) ||
+                                fileName.contains("-$videoId", ignoreCase = true) ||
+                                normalizedFileName.contains(videoId.lowercase(Locale.US))
+
+                        if (idMatch) {
+                            matchedFile = file
+                            break
+                        }
                     }
-                    val videoId =
-                        entry.id.orEmpty()
-                            .ifBlank { ContentIntegrityScanner.extractVideoId(itemUrl).orEmpty() }
-                            .ifBlank { "unknown_${playlistId}_$index" }
-                    val canonicalUrl = itemUrl.ifBlank { ContentIntegrityScanner.canonicalVideoUrl(videoId) }
-                    ContentRequirement(
-                        video =
-                            VideoIdentity(
-                                videoId = videoId,
-                                canonicalUrl = canonicalUrl,
-                                playlistId = playlistId,
-                                playlistIndex = index,
-                                title = entryTitle,
-                                durationSeconds = entry.duration?.toInt(),
-                            ),
-                        contentType = contentType,
-                        subtitle =
-                            if (contentType == ContentType.SUBTITLE) {
-                                SubtitleIdentity(
-                                    videoId = videoId,
-                                    playlistId = playlistId,
-                                    language = subtitleLanguage,
-                                    source = SubtitleSource.UNKNOWN,
-                                    format = subtitleFormat,
-                                )
-                            } else {
-                                null
-                            },
-                        expectedFormat = if (contentType == ContentType.SUBTITLE) subtitleFormat.extension else null,
+
+                    // Strategy 2: Exact Normalized Title Match or High Levenshtein Similarity (>= 0.75)
+                    if (normalizedTitle.isNotBlank()) {
+                        if (normalizedFileName == normalizedTitle ||
+                            normalizedFileName.contains(normalizedTitle) ||
+                            (normalizedFileName.length >= 8 && normalizedTitle.contains(normalizedFileName)) ||
+                            calculateLevenshteinSimilarity(normalizedFileName, normalizedTitle) >= 0.75
+                        ) {
+                            matchedFile = file
+                            break
+                        }
+                    }
+
+                    // Strategy 3: Prefix & Bracketed Index Match (001 - Title, 01 - Title, #01 Title, [001] Title, etc.)
+                    val startsWithIndex = fileName.startsWith("$formattedIndex3 - ") ||
+                            fileName.startsWith("$formattedIndex3. ") ||
+                            fileName.startsWith("${formattedIndex3}_") ||
+                            fileName.startsWith("$formattedIndex3 ") ||
+                            fileName.startsWith("$formattedIndex3-") ||
+                            fileName.startsWith("$formattedIndex2 - ") ||
+                            fileName.startsWith("$formattedIndex2. ") ||
+                            fileName.startsWith("${formattedIndex2}_") ||
+                            fileName.startsWith("$formattedIndex2 ") ||
+                            fileName.startsWith("$formattedIndex2-") ||
+                            fileName.startsWith("[$formattedIndex3]") ||
+                            fileName.startsWith("($formattedIndex3)") ||
+                            fileName.startsWith("[$formattedIndex2]") ||
+                            fileName.startsWith("($formattedIndex2)") ||
+                            fileName.startsWith("#$formattedIndex1 ") ||
+                            fileName.startsWith("#$formattedIndex2 ") ||
+                            fileName.startsWith("#$formattedIndex3 ") ||
+                            Regex("""(?:^|[\[\(\_\-\s#])$formattedIndex3(?:[\s\-\_\.\]\)]|$)""").containsMatchIn(fileName) ||
+                            Regex("""(?:^|[\[\(\_\-\s#])$formattedIndex2(?:[\s\-\_\.\]\)]|$)""").containsMatchIn(fileName) ||
+                            (index < 10 && Regex("""(?:^|[\[\(\_\-\s#])$formattedIndex1(?:[\s\-\_\.\]\)]|$)""").containsMatchIn(fileName))
+
+                    if (startsWithIndex) {
+                        if (titleTokens.isNotEmpty()) {
+                            val matchedCount = titleTokens.count { token -> normalizedFileName.contains(token) }
+                            val requiredCount = (titleTokens.size * 0.3).toInt().coerceAtLeast(1)
+                            if (matchedCount >= requiredCount || normalizedFileName.contains(normalizedTitle.take(15))) {
+                                matchedFile = file
+                                break
+                            }
+                        } else {
+                            matchedFile = file
+                            break
+                        }
+                    }
+
+                    // Strategy 4: High Significant Token Overlap (>= 70% significant words match and file length is comparable)
+                    if (titleTokens.size >= 3) {
+                        val matchedTokenCount = titleTokens.count { token -> normalizedFileName.contains(token) }
+                        val ratio = matchedTokenCount.toDouble() / titleTokens.size.toDouble()
+                        if (ratio >= 0.70 && normalizedFileName.length >= normalizedTitle.length * 0.35) {
+                            matchedFile = file
+                            break
+                        }
+                    }
+                }
+
+                // Subtitle-specific sanity check
+                if (matchedFile != null && isSubtitleOnly) {
+                    val isValidSub = SubtitleValidator.validateFile(matchedFile).isSuccess
+                    if (!isValidSub && matchedFile.length() < 10L) {
+                        Log.w(TAG, "Rejecting corrupt/empty subtitle file on disk: ${matchedFile.absolutePath}")
+                        matchedFile = null
+                    }
+                }
+
+                if (matchedFile != null) {
+                    // Consume the matched file so it CANNOT be matched by any other item!
+                    availableFiles.remove(matchedFile)
+
+                    foundItems.add(
+                        VerificationItem(
+                            index = index,
+                            title = entryTitle,
+                            url = itemUrl,
+                            playlistUrl = playlistUrl,
+                            playlistTitle = playlistTitle,
+                            preferences = preferences,
+                            matchedFilePath = matchedFile.absolutePath,
+                            matchedFileSize = matchedFile.length(),
+                            videoId = videoId,
+                            state = ContentState.VALID,
+                            confidence = MatchConfidence.HIGH,
+                        )
+                    )
+                } else {
+                    missingItems.add(
+                        VerificationItem(
+                            index = index,
+                            title = entryTitle,
+                            url = itemUrl,
+                            playlistUrl = playlistUrl,
+                            playlistTitle = playlistTitle,
+                            preferences = preferences,
+                            videoId = videoId,
+                            state = ContentState.MISSING,
+                            confidence = MatchConfidence.UNKNOWN,
+                        )
                     )
                 }
-
-            val integrityReport =
-                ContentIntegrityScanner.scan(
-                    requirements = requirements,
-                    directories = candidateDirs,
-                )
-
-            val foundItems =
-                integrityReport.results
-                    .filter { it.state == ContentState.VALID }
-                    .map { it.toVerificationItem(playlistUrl, playlistTitle, preferences) }
-            val invalidItems =
-                integrityReport.results
-                    .filter { it.state == ContentState.INVALID }
-                    .map { it.toVerificationItem(playlistUrl, playlistTitle, preferences) }
-            val ambiguousItems =
-                integrityReport.results
-                    .filter { it.state == ContentState.AMBIGUOUS }
-                    .map { it.toVerificationItem(playlistUrl, playlistTitle, preferences) }
-            val missingItems =
-                integrityReport.results
-                    .filter { it.state == ContentState.MISSING || it.state == ContentState.INVALID }
-                    .map { it.toVerificationItem(playlistUrl, playlistTitle, preferences) }
+            }
 
             // Determine optimal destination directory
             val bestCandidateDir = candidateDirs.filter { it.exists() && it.isDirectory }
@@ -290,6 +359,8 @@ object PlaylistVerifier {
                 }
             }
 
+            // Persist manifest for quick lookup
+            val playlistId = videoIdOrPlaylistId(playlistInfo.webpageUrl ?: cleanUrl)
             PlaylistManifestStore.writeAtomic(
                 targetDir,
                 PlaylistManifest(
@@ -297,22 +368,23 @@ object PlaylistVerifier {
                     title = playlistTitle,
                     canonicalUrl = cleanUrl,
                     totalItems = entries.size,
-                    orderedItems =
-                        integrityReport.results.map { result ->
-                            val req = result.requirement
-                            PlaylistManifestItem(
-                                index = req.video.playlistIndex ?: 0,
-                                videoId = req.video.videoId,
-                                title = req.video.title,
-                                canonicalUrl = req.video.canonicalUrl,
-                                state = result.state,
-                                contentType = req.contentType,
-                                localPath = result.matchedFile?.absolutePath,
-                                language = req.subtitle?.normalizedLanguage,
-                                source = req.subtitle?.source?.name,
-                                format = req.expectedFormat,
-                            )
-                        },
+                    orderedItems = (foundItems + missingItems).sortedBy { it.index }.map { item ->
+                        PlaylistManifestItem(
+                            index = item.index,
+                            videoId = item.videoId,
+                            title = item.title,
+                            canonicalUrl = item.url,
+                            state = item.state,
+                            contentType = when {
+                                isSubtitleOnly -> ContentType.SUBTITLE
+                                isAudioOnly -> ContentType.AUDIO
+                                else -> ContentType.VIDEO
+                            },
+                            localPath = item.matchedFilePath,
+                            language = primarySubtitleLanguage(preferences.subtitleLanguage),
+                            format = subtitleOutputFormat(preferences.convertSubtitle).extension,
+                        )
+                    },
                 ),
             )
 
@@ -322,33 +394,26 @@ object PlaylistVerifier {
                 totalCount = entries.size,
                 foundItems = foundItems,
                 missingItems = missingItems,
-                summary = integrityReport.summary,
-                ambiguousItems = ambiguousItems,
-                invalidItems = invalidItems,
+                summary = MissingSummary(
+                    expected = entries.size,
+                    found = foundItems.size,
+                    missing = missingItems.size,
+                    ambiguous = 0,
+                    invalid = 0,
+                    duplicate = 0,
+                    stale = 0,
+                    unavailable = 0,
+                ),
+                ambiguousItems = emptyList(),
+                invalidItems = emptyList(),
             )
         }
     }
 
-    private fun RequirementResult.toVerificationItem(
-        playlistUrl: String,
-        playlistTitle: String,
-        preferences: DownloadPreferences,
-    ): VerificationItem {
-        val req = requirement
-        val file = matchedFile
-        return VerificationItem(
-            index = req.video.playlistIndex ?: 0,
-            title = req.video.title,
-            url = req.video.canonicalUrl.ifBlank { playlistUrl },
-            playlistUrl = playlistUrl,
-            playlistTitle = playlistTitle,
-            preferences = preferences,
-            matchedFilePath = file?.absolutePath,
-            matchedFileSize = file?.length() ?: 0L,
-            videoId = req.video.videoId,
-            state = state,
-            confidence = confidence,
-        )
+    private fun videoIdOrPlaylistId(url: String): String {
+        val listMatch = Regex("""[?&]list=([a-zA-Z0-9_-]+)""").find(url)
+        if (listMatch != null) return listMatch.groupValues[1]
+        return url.hashCode().toString()
     }
 
     private fun primarySubtitleLanguage(raw: String): String =
@@ -365,35 +430,49 @@ object PlaylistVerifier {
             else -> SubtitleOutputFormat.SRT
         }
 
-    private fun cleanFileNameForMatching(fileName: String): String {
-        var name = fileName.substringBeforeLast('.')
-        // Strip language codes e.g. .ar, .en, .ar-en, .ar-orig, .auto
-        name = name.replace(Regex("""\.(?:[a-zA-Z]{2}(?:-[a-zA-Z]{2,4})*|auto|orig)$""", RegexOption.IGNORE_CASE), "")
-        name = name.replace(Regex("""[\.\[\(]\d{3,4}p[\.\]\)]""", RegexOption.IGNORE_CASE), "")
-        return name
+    /**
+     * Cleans metadata, resolution tags, language suffixes and common descriptors from file name before comparison.
+     */
+    fun cleanFileNameForMatching(fileName: String): String {
+        var name = if (fileName.contains('.')) fileName.substringBeforeLast('.') else fileName
+        // Strip subtitle language codes e.g. .ar, .en, .ar-en, .ar-en-US, .ar-orig, .auto, .synced
+        name = name.replace(Regex("""\.(?:[a-zA-Z]{2,3}(?:-[a-zA-Z0-9]+)*|auto|orig|synced)$""", RegexOption.IGNORE_CASE), "")
+        // Strip resolution tags (e.g. [1080p], (720p), .1080p, [4k], [HD], (1080p))
+        name = name.replace(Regex("""[\.\[\(]\s*(?:\d{3,4}p|4k|2k|8k|hd|fhd|uhd)\s*[\.\]\)]""", RegexOption.IGNORE_CASE), "")
+        // Strip common descriptive tags like (Official Video), [Lyrics], etc.
+        name = name.replace(Regex("""[\(\[]\s*(?:official(?:\s+music)?\s+video|official\s+audio|audio|lyrics|music\s+video|مترجم|ترجمة|فيديو\s+كليب|كليب\s+رسمي|حصريا|حصرياً|كامل)\s*[\)\]]""", RegexOption.IGNORE_CASE), "")
+        return name.trim()
     }
 
     /**
-     * Advanced Arabic and multilingual text normalizer:
-     * - Normalizes Arabic Alef variants (أ, إ, آ -> ا)
-     * - Normalizes Taa Marbuta (ة -> ه)
-     * - Normalizes Yaa / Alef Maksura (ى -> ي)
-     * - Strips Harakat / Tashkeel & Tatweel
-     * - Lowercases and removes punctuation
+     * Advanced Arabic, Persian, Urdu & multilingual text normalizer:
+     * - Normalizes Arabic Alef variants (أ, إ, آ, ٱ -> ا)
+     * - Normalizes Taa Marbuta (ة, ۀ -> ه)
+     * - Normalizes Yaa / Alef Maksura (ى, ي, ی -> ي)
+     * - Normalizes Kaf (ك, ک -> ك)
+     * - Normalizes Waw / Yaa with Hamza (ؤ -> و, ئ -> ي)
+     * - Strips Harakat / Tashkeel, Shadda, Sukun & Tatweel
+     * - Lowercases and removes Arabic & Latin punctuation
      */
     fun normalizeText(text: String): String {
         val arabicNormalized = text
             .replace(Regex("[أإآٱ]"), "ا")
-            .replace(Regex("[ة]"), "ه")
-            .replace(Regex("[ى]"), "ي")
+            .replace(Regex("[ةۀ]"), "ه")
+            .replace(Regex("[ىيی]"), "ي")
+            .replace(Regex("[كک]"), "ك")
+            .replace(Regex("[ؤ]"), "و")
+            .replace(Regex("[ئ]"), "ي")
             .replace(Regex("[\u064B-\u0652\u0670\u0640]"), "") // Tashkeel & Tatweel
 
         return arabicNormalized.lowercase(Locale.US)
-            .replace(Regex("[\\p{Punct}\\s]+"), " ")
+            .replace(Regex("[\\p{Punct}\\s\\u060C\\u061B\\u061F\\u066A\\u066B\\u066C«»“”‘’–—…]+"), " ")
             .trim()
     }
 
-    private fun calculateLevenshteinSimilarity(s1: String, s2: String): Double {
+    /**
+     * Calculates normalized Levenshtein similarity ratio between 0.0 and 1.0.
+     */
+    fun calculateLevenshteinSimilarity(s1: String, s2: String): Double {
         if (s1 == s2) return 1.0
         if (s1.isEmpty() || s2.isEmpty()) return 0.0
         val len1 = s1.length
@@ -411,6 +490,9 @@ object PlaylistVerifier {
         return 1.0 - (dp[len1][len2].toDouble() / maxLen)
     }
 
+    /**
+     * Enqueues verified missing items into the download queue.
+     */
     suspend fun enqueueMissingItems(
         missingItems: List<VerificationItem>,
         targetDirectory: String = "",
@@ -439,11 +521,11 @@ object PlaylistVerifier {
 
             val formattedIndex = String.format(Locale.US, "%03d", item.index)
             val numberedTitle = "$formattedIndex - $baseTitle"
-            val effectiveTitle = if (isSubOnly) numberedTitle else baseTitle
+            val effectiveTitle = if (isSubOnly) "[Subtitle] $numberedTitle" else numberedTitle
 
             val viewState = Task.ViewState(
                 url = itemUrl,
-                title = if (isSubOnly) "[Subtitle] $numberedTitle" else numberedTitle,
+                title = effectiveTitle,
                 duration = 0,
                 uploader = item.playlistTitle,
                 thumbnailUrl = null,
