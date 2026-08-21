@@ -171,6 +171,8 @@ object FFmpegManager {
                 throw IllegalStateException("FFmpeg audio decode failed (code ${result.exitCode}):\n${result.output}")
             }
         }
+    }
+
     /**
      * Isolates vocals and eliminates background music with pristine speech clarity
      * based on Hammil-grade Center-Channel Mid-Side Isolation, Vocal Formant Boosting,

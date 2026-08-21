@@ -16,6 +16,7 @@ import com.junkfood.seal.download.engine.subtitle.youtube.YoutubeClient
 import com.junkfood.seal.download.engine.subtitle.youtube.YoutubeClientStrategy
 import com.junkfood.seal.util.DownloadUtil.DownloadPreferences
 import com.junkfood.seal.util.FileUtil
+import com.junkfood.seal.util.PreferenceUtil.getBoolean
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
 import kotlinx.coroutines.Dispatchers
@@ -302,7 +303,7 @@ object SubtitleDownloader {
                 if (targetFormatStr.isNotBlank()) {
                     addOption("--convert-subs", targetFormatStr)
                 }
-                val extractorArgs = YoutubeClientStrategy.buildExtractorArgs(listOf(YoutubeClient.ANDROID, YoutubeClient.DEFAULT, YoutubeClient.WEB))
+                val extractorArgs = YoutubeClientStrategy.buildExtractorArgs(clientChain = listOf(YoutubeClient.ANDROID, YoutubeClient.DEFAULT, YoutubeClient.WEB))
                 addOption("--extractor-args", extractorArgs)
 
                 if (preferences.cookies) {

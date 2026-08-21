@@ -33,6 +33,7 @@ class SubtitleOrchestrator(
         playlistIndex: Int = 0,
         onProgress: (SubtitleProgress) -> Unit = {}
     ): SubtitleDownloadResult {
+        val startTime = System.currentTimeMillis()
         val videoId = videoInfo?.id ?: YoutubeCompatibility.extractVideoId(url) ?: "video"
         val resolvedTitle = videoInfo?.title ?: preferences.newTitle
 
@@ -82,7 +83,7 @@ class SubtitleOrchestrator(
                     onProgress = onProgress
                 )
 
-                if (downloadRes is SubtitleDownloadResult.Success && downloadRes.files.isNotEmpty()) {
+                if (downloadRes is SubtitleDownloadResult.Success && downloadRes.downloadedFiles.isNotEmpty()) {
                     return downloadRes
                 }
             }
@@ -103,7 +104,11 @@ class SubtitleOrchestrator(
         return directRes.fold(
             onSuccess = { files ->
                 if (files.isNotEmpty()) {
-                    SubtitleDownloadResult.Success(files)
+                    SubtitleDownloadResult.Success(
+                        downloadedFiles = files,
+                        tracks = emptyList(),
+                        executionTimeMs = System.currentTimeMillis() - startTime
+                    )
                 } else {
                     SubtitleDownloadResult.Failure(SubtitleFailure.NoSubtitles)
                 }

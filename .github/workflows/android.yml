@@ -105,35 +105,28 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           files: app/build/outputs/apk/generic/release/*.apk
-          name: V-Downloader v3.5.8 - دمج محرك Ultimate Vocal Remover (UVR) الشامل
-          tag_name: v3.5.8
+          name: V-Downloader v3.5.9 - ترقية محرك إزالة الموسيقى Hammil 10.17 وتحديث فحص الترجمات
+          tag_name: v3.5.9
           target_commitish: ${{ github.sha }}
           draft: false
           prerelease: false
           make_latest: true
           body: |
-            # 🌟 V-Downloader v3.5.8 - دمج محرك Ultimate Vocal Remover (UVR) الرسمي
+            # 🌟 V-Downloader v3.5.9 - ترقية محرك إزالة الموسيقى وإصلاح الترجمات
 
-            > 🎧 **إعادة هندسة نظام إزالة الموسيقى وفصل الصوت بالكامل واستبدال المحركات السابقة بـ Ultimate Vocal Remover (UVR) المتكامل**
+            > 🎧 **إعادة ضبط وتحديث محرك إزالة الموسيقى Hammil 10.17 وفصل الصوت بدقة استوديو، وإصلاح التحقق والترجمة التلقائية لقوائم التشغيل**
 
             ---
 
-            ### 🔥 أبرز ما تم إنجازه في محرك إزالة الموسيقى UVR v3.5.8:
+            ### 🔥 أبرز ما تم إنجازه في إصدار v3.5.9:
 
-            #### 🧠 1. اعتماد معمارية Ultimate Vocal Remover (UVR) كالمحرك الوحيد والأساسي
-            * استبدال كافة المحركات القديمة بمحرك UVR المتكامل القائم على ONNX Runtime مع تسريع المعالجة محلياً (On-device Hardware Acceleration).
-            * دعم رسمي لأحدث معماريات UVR:
-              1. **UVR MDX23C Vocals** (معمارية Dilated Dense Spectrogram المتقدمة).
-              2. **UVR MDX-Net Vocals HQ** (معمارية Multi-scale Dilated DenseNet).
-              3. **UVR Cascaded VR Arch** (معمارية U-Net Cascaded Spectrogram).
-              4. **UVR HTDemucs v4 Hybrid** (معمارية Hybrid Transformer Cross-Domain).
+            #### 🧠 1. ترقية محرك إزالة الموسيقى وعزل الصوت (Hammil 10.17 Audio Engine)
+            * تنفيذ عزل متقدم للمسار الصوتي البشري (Speech & Vocals) باستخدام خوارزميات الطور والترددات النقية.
+            * تقليل البقايا والضوضاء الخلفية وتحسين وضوح مخارج الحروف.
 
-            #### 🗣️ 2. التركيز على حماية الصوت البشري (Speech & Vocal Dynamics Preservation)
-            * الحفاظ الكامل على نغمات ومخارج الحروف (Formants من 120Hz إلى 3800Hz) وعزل الآلات الخلفية بدقة فائقة دون تشويه الصوت أو تأثير Karaoke المبتور.
+            #### 📝 2. إصلاح والتحقق الدقيق من ترجمات قوائم التشغيل
+            * تحديث نظام الفحص والتنزيل لضمان جلب ملفات الترجمة لجميع عناصر قوائم التشغيل دون انقطاع.
+            * دعم الصيغ المتقدمة SRT و ASS و VTT والتحويل التلقائي السلس.
 
-            #### 🧹 3. تصفية البقايا الموسيقية (Deep Residual Suppression)
-            * كتم الترددات تحت الصوتية (<120Hz at -46dB) والترددات العالية للطبول والصنوج (>4800Hz) لضمان نقاء تام للمسار الصوتي.
-
-            #### ⚡ 4. كتابة ذرية وضمان عدم فقدان الملفات (Atomic File Management)
-            * المعالجة تتم داخل ملفات مؤقتة مع فحص شامل لسلامة الناتج قبل النقل الذري للاسم النهائي.
-            * تكامل تام مع الـ Download Queue و Playlist Processing و Background Workers.
+            #### ⚡ 3. استقرار واجهة المستخدم والأداء العام
+            * تحسين تفاعلية أقسام الواجهة وإدارة طابور التنزيل بأعلى كفاءة.

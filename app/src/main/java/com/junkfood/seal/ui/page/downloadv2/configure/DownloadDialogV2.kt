@@ -577,8 +577,8 @@ private fun ConfigurePagePreview() {
                 preferences = PreferencesMock,
                 onPreferencesUpdate = {},
                 onConfigSave = {},
-                settingChips = {},
-            ) {}
+                onActionPost = {},
+            )
         }
     }
 }

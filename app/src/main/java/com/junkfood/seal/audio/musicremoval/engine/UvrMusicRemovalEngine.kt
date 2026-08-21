@@ -208,9 +208,7 @@ object UvrMusicRemovalEngine : MusicRemovalEngine {
 
             Log.i(
                 TAG,
-                "UVR finished successfully: status=${bestCandidate.quality.qualityStatus}, " +
-                    "model=${bestCandidate.modelUsed}, overall=${bestCandidate.quality.overallQualityScore}, " +
-                    "suppression=${bestCandidate.quality.musicSuppressionScore}, speech=${bestCandidate.quality.speechRetentionScore}"
+                "UVR finished successfully for ${inputFile.name} (isVideo=$isVideo)"
             )
 
             onProgress?.invoke(1.0f, "اكتملت إزالة الموسيقى بنجاح عبر UVR.")
