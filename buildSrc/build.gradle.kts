@@ -1,8 +1,9 @@
 plugins { `kotlin-dsl` }
 
 repositories {
-    mavenCentral()
     google()
+    mavenCentral()
+    maven { url = uri("https://maven-central.storage-download.googleapis.com/maven2/") }
 }
 
 dependencies {
