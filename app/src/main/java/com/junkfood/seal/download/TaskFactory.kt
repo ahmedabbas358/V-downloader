@@ -143,7 +143,7 @@ object TaskFactory {
                     Task.ViewState(
                         url = itemUrl,
                         title = if (isSubOnly) "[Subtitle] $baseTitle" else baseTitle,
-                        duration = if (isSubOnly) 0 else (entry.duration?.roundToInt() ?: 0),
+                        durationMs = if (isSubOnly) null else (entry.duration?.times(1000)?.toLong()),
                         uploader = entry.uploader ?: entry.channel ?: playlistResult.channel ?: "",
                         thumbnailUrl = (entry.thumbnails?.lastOrNull()?.url) ?: "",
                         isSubOnly = isSubOnly,

@@ -393,7 +393,7 @@ object PlaylistVerifier {
             val viewState = Task.ViewState(
                 url = itemUrl,
                 title = effectiveTitle,
-                duration = 0,
+                durationMs = null,
                 uploader = item.playlistTitle,
                 thumbnailUrl = null,
                 isSubOnly = isSubOnly
