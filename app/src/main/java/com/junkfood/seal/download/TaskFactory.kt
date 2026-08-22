@@ -121,12 +121,10 @@ object TaskFactory {
                 autoTranslatedSubtitles = true,
                 convertSubtitle = preferences.convertSubtitle,
                 playlistNumbering = preferences.playlistNumbering,
-                removeMusic = false,
             )
         } else {
             preferences.copy(
                 extractAudio = preferences.extractAudio,
-                removeMusic = preferences.removeMusic,
                 formatIdString = if (preferences.extractAudio) "" else (if (preferences.formatIdString.isNotEmpty()) com.junkfood.seal.download.engine.builder.FormatSelectorBuilder.ensureAudioMerged(preferences.formatIdString) else ""),
             )
         }

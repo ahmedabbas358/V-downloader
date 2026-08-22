@@ -94,11 +94,6 @@ fun WelcomeDialog(onClick: () -> Unit) {
                         description = stringResource(R.string.paste_desc),
                     )
                     IconDescription(
-                        icon = Icons.Outlined.SettingsSuggest,
-                        title = stringResource(R.string.feature_music_removal_title),
-                        description = stringResource(R.string.feature_music_removal_desc),
-                    )
-                    IconDescription(
                         icon = Icons.Outlined.Subscriptions,
                         title = stringResource(R.string.feature_playlist_sync_title),
                         description = stringResource(R.string.feature_playlist_sync_desc),

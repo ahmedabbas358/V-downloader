@@ -59,7 +59,7 @@ private const val MONGOLIAN = 47
 val LocaleLanguageCodeMap =
     mapOf(
         Locale("ar") to ARABIC,
-        Locale("en", "US") to ENGLISH,
+        Locale("en") to ENGLISH,
     )
 
 @Composable

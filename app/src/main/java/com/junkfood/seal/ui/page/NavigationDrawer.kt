@@ -204,7 +204,11 @@ fun NavigationDrawerSheetContent(
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
                 ) {
                     Text(
-                        text = "v3.2.0",
+                        text = if (com.junkfood.seal.BuildConfig.VERSION_NAME.startsWith("v", ignoreCase = true)) {
+                            com.junkfood.seal.BuildConfig.VERSION_NAME
+                        } else {
+                            "v${com.junkfood.seal.BuildConfig.VERSION_NAME}"
+                        },
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                             fontSize = 11.sp

@@ -380,10 +380,6 @@ dependencies {
         libs.androidx.media3.ui
     )
 
-    implementation(
-        libs.onnxruntime.android
-    )
-
 
     testImplementation(
         libs.junit4

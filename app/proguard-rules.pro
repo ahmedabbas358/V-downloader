@@ -49,12 +49,4 @@
 -keepclassmembers class <1> {
     public static <1> INSTANCE;
     kotlinx.serialization.KSerializer serializer(...);
-}
-
-# ONNX Runtime rules
--keep class ai.onnxruntime.** { *; }
--dontwarn ai.onnxruntime.**
-
-# AI Audio Separation Engine rules
--keep class com.junkfood.seal.ai.audio.** { *; }
--keepclassmembers class com.junkfood.seal.ai.audio.** { *; }
+}

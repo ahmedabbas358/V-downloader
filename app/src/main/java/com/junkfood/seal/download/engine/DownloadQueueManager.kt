@@ -588,7 +588,7 @@ class DownloadQueueManager(
             val verificationItems = playlistTasks.mapNotNull { task ->
                 val type = task.type as? TypeInfo.Playlist ?: return@mapNotNull null
                 val viewState = taskStateMap[task]?.viewState
-                PlaylistVerifier.VerificationItem(
+                com.junkfood.seal.download.engine.playlist.PlaylistAuditItem(
                     index = type.index,
                     title = viewState?.title ?: task.url,
                     url = viewState?.url ?: task.url,

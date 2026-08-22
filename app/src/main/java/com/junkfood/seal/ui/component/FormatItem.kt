@@ -62,7 +62,7 @@ import com.junkfood.seal.util.connectWithBlank
 import com.junkfood.seal.util.connectWithDelimiter
 import com.junkfood.seal.util.effectiveBitrate
 import com.junkfood.seal.util.toBitrateText
-import com.junkfood.seal.util.toDurationText
+import com.junkfood.seal.ui.common.formatters.DurationFormatter
 import com.junkfood.seal.util.toFileSizeText
 
 @Composable
@@ -71,7 +71,7 @@ fun FormatVideoPreview(
     title: String,
     author: String,
     thumbnailUrl: String,
-    duration: Int,
+    durationMs: Long?,
     isSplittingVideo: Boolean,
     isClippingVideo: Boolean,
     isClippingAvailable: Boolean = false,
@@ -95,13 +95,15 @@ fun FormatVideoPreview(
                     color = Color.Black.copy(alpha = 0.68f),
                     shape = MaterialTheme.shapes.extraSmall,
                 ) {
-                    val durationText = duration.toDurationText()
-                    Text(
-                        modifier = Modifier.padding(horizontal = 4.dp),
-                        text = durationText,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White,
-                    )
+                    val durationText = durationMs?.let { DurationFormatter.format(it) } ?: ""
+                    if (durationText.isNotEmpty()) {
+                        Text(
+                            modifier = Modifier.padding(horizontal = 4.dp),
+                            text = durationText,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White,
+                        )
+                    }
                 }
             }
 
@@ -192,7 +194,7 @@ fun VideoInfoPreview() {
                     title = stringResource(id = R.string.video_title_sample_text),
                     author = stringResource(id = R.string.video_creator_sample_text),
                     thumbnailUrl = "",
-                    duration = 7890,
+                    durationMs = 7890000L,
                     isSplittingVideo = false,
                     isClippingVideo = false,
                     isSplitByChapterAvailable = true,

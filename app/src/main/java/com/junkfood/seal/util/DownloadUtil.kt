@@ -22,7 +22,6 @@ import com.junkfood.seal.download.engine.builder.FormatSelectorBuilder
 import com.junkfood.seal.download.engine.builder.NetworkOptionBuilder
 import com.junkfood.seal.download.engine.builder.OutputTemplateBuilder
 import com.junkfood.seal.download.engine.postprocess.PostDownloadCoordinator
-import com.junkfood.seal.download.engine.resilience.SocialMediaFallbackHandler
 import com.junkfood.seal.ui.page.settings.network.Cookie
 import com.junkfood.seal.util.FileUtil.getConfigFile
 import com.junkfood.seal.util.PreferenceUtil.getBoolean
@@ -95,15 +94,6 @@ object DownloadUtil {
             jsonFormat.decodeFromString<VideoInfo>(response.out)
         }
 
-        if (result.isFailure && SocialMediaFallbackHandler.isSocialMediaUrl(url)) {
-            val fallback = kotlinx.coroutines.runBlocking {
-                SocialMediaFallbackHandler.resolveFallbackVideoInfo(url)
-            }
-            if (fallback != null) {
-                return Result.success(fallback)
-            }
-        }
-
         return result
     }
 
@@ -162,7 +152,6 @@ object DownloadUtil {
         val forceIpv4: Boolean,
         val mergeAudioStream: Boolean,
         val mergeToMkv: Boolean,
-        val removeMusic: Boolean = false,
     ) {
         companion object {
             val EMPTY =
@@ -220,7 +209,6 @@ object DownloadUtil {
                     mergeAudioStream = false,
                     mergeToMkv = false,
                     useCustomAudioPreset = false,
-                    removeMusic = false,
                 )
 
             fun createFromPreferences(): DownloadPreferences {
@@ -282,7 +270,6 @@ object DownloadUtil {
                     mergeAudioStream = false,
                     mergeToMkv =
                         (downloadSubtitle && embedSubtitle) || MERGE_OUTPUT_MKV.getBoolean(),
-                    removeMusic = REMOVE_MUSIC.getBoolean(),
                 )
             }
         }

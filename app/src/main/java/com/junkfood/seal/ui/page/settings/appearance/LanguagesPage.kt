@@ -58,7 +58,7 @@ private const val weblate = "https://hosted.weblate.org/engage/seal/"
 
 @Composable
 fun LanguagePage(onNavigateBack: () -> Unit = {}) {
-    val selectedLocale by remember { mutableStateOf(Locale.getDefault()) }
+    var selectedLocale by remember { mutableStateOf(PreferenceUtil.getLocaleFromPreference()) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val intent =
@@ -129,6 +129,7 @@ fun LanguagePage(onNavigateBack: () -> Unit = {}) {
         },
         selectedLocale = selectedLocale,
     ) {
+        selectedLocale = it
         PreferenceUtil.saveLocalePreference(it)
         setLanguage(it)
     }
@@ -142,7 +143,7 @@ private fun LanguagePageImpl(
     otherLocales: Set<Locale>,
     isSystemLocaleSettingsAvailable: Boolean = false,
     onNavigateToSystemLocaleSettings: () -> Unit,
-    selectedLocale: Locale,
+    selectedLocale: Locale?,
     onLanguageSelected: (Locale?) -> Unit = {},
 ) {
     val scrollBehavior =
@@ -151,6 +152,12 @@ private fun LanguagePageImpl(
             canScroll = { true },
         )
     val uriHandler = LocalUriHandler.current
+
+    fun isLocaleSelected(itemLocale: Locale?): Boolean {
+        if (selectedLocale == null && itemLocale == null) return true
+        if (selectedLocale == null || itemLocale == null) return false
+        return selectedLocale.language.equals(itemLocale.language, ignoreCase = true)
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -175,42 +182,41 @@ private fun LanguagePageImpl(
                     }
                 }
 
-                if (suggestedLocales.isNotEmpty()) {
+                item {
+                    PreferenceSubtitle(text = stringResource(id = R.string.suggested))
+                }
 
-                    item { PreferenceSubtitle(text = stringResource(id = R.string.suggested)) }
-
-                    if (!suggestedLocales.contains(Locale.getDefault())) {
-                        item {
-                            PreferenceSingleChoiceItem(
-                                text = stringResource(id = R.string.follow_system),
-                                selected = !suggestedLocales.contains(selectedLocale),
-                            ) {
-                                onLanguageSelected(null)
-                            }
-                        }
+                item {
+                    PreferenceSingleChoiceItem(
+                        text = stringResource(id = R.string.follow_system),
+                        selected = isLocaleSelected(null),
+                    ) {
+                        onLanguageSelected(null)
                     }
+                }
 
-                    for (locale in suggestedLocales) {
-                        item {
-                            PreferenceSingleChoiceItem(
-                                text = locale.toDisplayName(),
-                                selected = selectedLocale == locale,
-                            ) {
-                                onLanguageSelected(locale)
-                            }
+                for (locale in suggestedLocales) {
+                    item {
+                        PreferenceSingleChoiceItem(
+                            text = locale.toDisplayName(),
+                            selected = isLocaleSelected(locale),
+                        ) {
+                            onLanguageSelected(locale)
                         }
                     }
                 }
 
-                item { PreferenceSubtitle(text = stringResource(id = R.string.all_languages)) }
+                if (otherLocales.isNotEmpty()) {
+                    item { PreferenceSubtitle(text = stringResource(id = R.string.all_languages)) }
 
-                for (locale in otherLocales) {
-                    item {
-                        PreferenceSingleChoiceItem(
-                            text = locale.toDisplayName(),
-                            selected = selectedLocale == locale,
-                        ) {
-                            onLanguageSelected(locale)
+                    for (locale in otherLocales) {
+                        item {
+                            PreferenceSingleChoiceItem(
+                                text = locale.toDisplayName(),
+                                selected = isLocaleSelected(locale),
+                            ) {
+                                onLanguageSelected(locale)
+                            }
                         }
                     }
                 }

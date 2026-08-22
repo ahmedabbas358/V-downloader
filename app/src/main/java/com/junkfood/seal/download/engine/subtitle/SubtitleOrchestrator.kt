@@ -1,12 +1,16 @@
 package com.junkfood.seal.download.engine.subtitle
 
+import com.junkfood.seal.download.engine.builder.SubtitleOptionBuilder
 import com.junkfood.seal.download.engine.subtitle.discovery.LanguageMatcher
 import com.junkfood.seal.download.engine.subtitle.model.SubtitleDiscoveryResult
 import com.junkfood.seal.download.engine.subtitle.model.SubtitleDownloadResult
 import com.junkfood.seal.download.engine.subtitle.model.SubtitleFailure
 import com.junkfood.seal.download.engine.subtitle.model.SubtitleProgress
+import com.junkfood.seal.download.engine.subtitle.model.SubtitleSource
 import com.junkfood.seal.download.engine.subtitle.model.SubtitleTrack
 import com.junkfood.seal.download.engine.subtitle.model.SubtitleTypePolicy
+import com.junkfood.seal.download.engine.subtitle.model.SubtitleDownloadKey
+import com.junkfood.seal.download.engine.subtitle.runtime.SubtitleTaskRegistry
 import com.junkfood.seal.download.engine.subtitle.provider.SubtitleProvider
 import com.junkfood.seal.download.engine.subtitle.provider.YouTubeSubtitleProvider
 import com.junkfood.seal.download.engine.subtitle.youtube.YoutubeCompatibility
@@ -70,18 +74,35 @@ class SubtitleOrchestrator(
                 ).take(2)
             }
 
-            if (matchedTracks.isNotEmpty()) {
+            // Level 2 (Queue) Deduplication
+            val targetFormatStr = SubtitleOptionBuilder.getConvertSubsValue(preferences.convertSubtitle).ifBlank { "srt" }
+            val registeredKeys = mutableListOf<SubtitleDownloadKey>()
+            val uniqueTracks = mutableListOf<SubtitleTrack>()
+            
+            for (track in matchedTracks) {
+                val key = SubtitleDownloadKey(videoId, track.languageCode, track.source, targetFormatStr)
+                if (SubtitleTaskRegistry.registerTask(key)) {
+                    registeredKeys.add(key)
+                    uniqueTracks.add(track)
+                }
+            }
+
+            if (uniqueTracks.isNotEmpty()) {
                 // 3. Stage: Coordinated Download & Conversion
-                val downloadRes = youtubeProvider.downloadTracks(
-                    url = url,
-                    videoId = videoId,
-                    tracks = matchedTracks,
-                    destinationDir = destinationDir,
-                    preferences = preferences,
-                    videoTitle = resolvedTitle,
-                    playlistIndex = playlistIndex,
-                    onProgress = onProgress
-                )
+                val downloadRes = try {
+                    youtubeProvider.downloadTracks(
+                        url = url,
+                        videoId = videoId,
+                        tracks = uniqueTracks,
+                        destinationDir = destinationDir,
+                        preferences = preferences,
+                        videoTitle = resolvedTitle,
+                        playlistIndex = playlistIndex,
+                        onProgress = onProgress
+                    )
+                } finally {
+                    registeredKeys.forEach { SubtitleTaskRegistry.unregisterTask(it) }
+                }
 
                 if (downloadRes is SubtitleDownloadResult.Success && downloadRes.downloadedFiles.isNotEmpty()) {
                     return downloadRes

@@ -106,7 +106,7 @@ fun PlaylistSyncDialog(
     var url by remember { mutableStateOf(initialUrl) }
     var selectedType by remember { mutableStateOf(0) } // 0: Video, 1: Audio, 2: Subtitle
     var isScanning by remember { mutableStateOf(false) }
-    var scanResult by remember { mutableStateOf<PlaylistVerifier.ScanResult?>(null) }
+    var scanResult by remember { mutableStateOf<com.junkfood.seal.download.engine.playlist.PlaylistAuditResult?>(null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     // Quality settings state
@@ -130,6 +130,12 @@ fun PlaylistSyncDialog(
         }
     ) { uri ->
         uri?.let {
+            try {
+                val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                context.contentResolver.takePersistableUriPermission(it, takeFlags)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
             val resolvedPath = FileUtil.getRealPath(it)
             if (resolvedPath.isNotBlank()) {
                 customFolderPath = resolvedPath
@@ -341,7 +347,6 @@ fun PlaylistSyncDialog(
                     extractAudio = selectedType == 1,
                     skipDownload = selectedType == 2,
                     downloadSubtitle = if (selectedType == 2) true else currentPrefs.downloadSubtitle,
-                    removeMusic = false
                 )
             }
 
@@ -363,7 +368,12 @@ fun PlaylistSyncDialog(
                         res.onSuccess {
                             scanResult = it
                             selectedMissingIndices.clear()
-                            selectedMissingIndices.addAll(it.missingItems.map { item -> item.index })
+                            val autoSelectItems = it.items.filter { item -> 
+                                item.state == com.junkfood.seal.download.engine.playlist.AuditState.NOT_DOWNLOADED ||
+                                item.state == com.junkfood.seal.download.engine.playlist.AuditState.PARTIAL ||
+                                item.state == com.junkfood.seal.download.engine.playlist.AuditState.CORRUPTED
+                            }
+                            selectedMissingIndices.addAll(autoSelectItems.map { item -> item.index })
                         }.onFailure { th ->
                             errorMessage = th.localizedMessage ?: "حدث خطأ أثناء فحص ومقارنة عناصر المجلد بالقائمة"
                         }
@@ -409,6 +419,10 @@ fun PlaylistSyncDialog(
 
             // Scan results
             scanResult?.let { result ->
+                val foundItems = result.items.filter { it.state == com.junkfood.seal.download.engine.playlist.AuditState.DOWNLOADED }
+                val missingOrIncompleteItems = result.items.filter { it.state != com.junkfood.seal.download.engine.playlist.AuditState.DOWNLOADED && it.state != com.junkfood.seal.download.engine.playlist.AuditState.UNKNOWN }
+                val unknownItems = result.items.filter { it.state == com.junkfood.seal.download.engine.playlist.AuditState.UNKNOWN }
+
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Directory info + stats
@@ -444,7 +458,7 @@ fun PlaylistSyncDialog(
                                         Text("الموجود بالجهاز", style = MaterialTheme.typography.labelMedium)
                                     }
                                     Text(
-                                        text = "${result.foundItems.size} / ${result.totalCount}",
+                                        text = "${result.summary.downloaded} / ${result.totalCount}",
                                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                         color = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
@@ -458,13 +472,32 @@ fun PlaylistSyncDialog(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(imageVector = Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("المفقود للتنزيل", style = MaterialTheme.typography.labelMedium)
+                                        Text("مفقود/غير مكتمل", style = MaterialTheme.typography.labelMedium)
                                     }
                                     Text(
-                                        text = "${result.missingItems.size} / ${result.totalCount}",
+                                        text = "${missingOrIncompleteItems.size} / ${result.totalCount}",
                                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                         color = MaterialTheme.colorScheme.onErrorContainer
                                     )
+                                }
+                            }
+                            if (unknownItems.isNotEmpty()) {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(imageVector = Icons.Outlined.Info, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.tertiary)
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("غير مؤكد", style = MaterialTheme.typography.labelMedium)
+                                        }
+                                        Text(
+                                            text = "${unknownItems.size} / ${result.totalCount}",
+                                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -481,12 +514,12 @@ fun PlaylistSyncDialog(
                     Tab(
                         selected = resultTab == 0,
                         onClick = { resultTab = 0 },
-                        text = { Text("المفقود (${result.missingItems.size})") }
+                        text = { Text("المفقود (${missingOrIncompleteItems.size + unknownItems.size})") }
                     )
                     Tab(
                         selected = resultTab == 1,
                         onClick = { resultTab = 1 },
-                        text = { Text("الموجود (${result.foundItems.size})") }
+                        text = { Text("الموجود (${foundItems.size})") }
                     )
                 }
 
@@ -494,28 +527,29 @@ fun PlaylistSyncDialog(
 
                 if (resultTab == 0) {
                     // Missing Tab
-                    if (result.missingItems.isNotEmpty()) {
+                    val allMissingItems = missingOrIncompleteItems + unknownItems
+                    if (allMissingItems.isNotEmpty()) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "العناصر المحددة للتنزيل: ${selectedMissingIndices.size} / ${result.missingItems.size}",
+                                text = "العناصر المحددة للتنزيل: ${selectedMissingIndices.size} / ${allMissingItems.size}",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             TextButton(
                                 onClick = {
-                                    if (selectedMissingIndices.size == result.missingItems.size) {
+                                    if (selectedMissingIndices.size == allMissingItems.size) {
                                         selectedMissingIndices.clear()
                                     } else {
                                         selectedMissingIndices.clear()
-                                        selectedMissingIndices.addAll(result.missingItems.map { it.index })
+                                        selectedMissingIndices.addAll(allMissingItems.map { it.index })
                                     }
                                 }
                             ) {
-                                Text(if (selectedMissingIndices.size == result.missingItems.size) "إلغاء تحديد الكل" else "تحديد الكل")
+                                Text(if (selectedMissingIndices.size == allMissingItems.size) "إلغاء تحديد الكل" else "تحديد الكل")
                             }
                         }
 
@@ -527,7 +561,7 @@ fun PlaylistSyncDialog(
                                 .background(MaterialTheme.colorScheme.surfaceContainerLow)
                                 .padding(4.dp)
                         ) {
-                            items(result.missingItems) { item ->
+                            items(allMissingItems) { item ->
                                 val isSelected = selectedMissingIndices.contains(item.index)
                                 Row(
                                     modifier = Modifier
@@ -554,13 +588,23 @@ fun PlaylistSyncDialog(
                                         )
                                     }
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = item.title,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f)
-                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = item.title,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        if (item.state != com.junkfood.seal.download.engine.playlist.AuditState.NOT_DOWNLOADED) {
+                                            val isUnknown = item.state == com.junkfood.seal.download.engine.playlist.AuditState.UNKNOWN
+                                            Text(
+                                                text = if (isUnknown) "الحالة: غير مؤكد (UNKNOWN) - يرجى المراجعة" else "الحالة: ${item.state.name}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = if (isUnknown) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
+                                                modifier = Modifier.padding(top = 2.dp)
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -570,7 +614,7 @@ fun PlaylistSyncDialog(
                         // Download missing items button
                         Button(
                             onClick = {
-                                val toDownload = result.missingItems.filter { selectedMissingIndices.contains(it.index) }
+                                val toDownload = allMissingItems.filter { selectedMissingIndices.contains(it.index) }
                                 if (toDownload.isEmpty()) {
                                     ToastUtil.makeToast("يرجى اختيار عنصر واحد على الأقل للتنزيل")
                                     return@Button
@@ -617,7 +661,7 @@ fun PlaylistSyncDialog(
                     }
                 } else {
                     // Found Tab
-                    if (result.foundItems.isNotEmpty()) {
+                    if (foundItems.isNotEmpty()) {
                         LazyColumn(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -626,7 +670,7 @@ fun PlaylistSyncDialog(
                                 .background(MaterialTheme.colorScheme.surfaceContainerLow)
                                 .padding(6.dp)
                         ) {
-                            items(result.foundItems) { item ->
+                            items(foundItems) { item ->
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -659,9 +703,9 @@ fun PlaylistSyncDialog(
                                             modifier = Modifier.size(16.dp)
                                         )
                                     }
-                                    if (!item.matchedFilePath.isNullOrBlank()) {
+                                    if (item.matchedFile != null) {
                                         Text(
-                                            text = item.matchedFilePath.substringAfterLast('/'),
+                                            text = item.matchedFile.name,
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             maxLines = 1,

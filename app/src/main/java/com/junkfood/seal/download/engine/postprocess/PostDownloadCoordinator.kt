@@ -21,10 +21,9 @@ import java.io.File
  *
  * Orchestrates the complete post-download pipeline:
  * 1. Output file discovery and validation  ← Now prioritizes yt-dlp reported paths
- * 2. Vocal isolation / music removal (if requested)
- * 3. SD card / SAF transfer
- * 4. MediaStore library scanning & indexing
- * 5. Download history database insertion
+ * 2. SD card / SAF transfer
+ * 3. MediaStore library scanning & indexing
+ * 4. Download history database insertion
  *
  * CRITICAL FIX:
  * - discoveredPaths (from yt-dlp --newline output) are now the PRIMARY source of truth.
@@ -158,29 +157,9 @@ object PostDownloadCoordinator {
             )
         }
 
-        val confirmedPaths = existingFinalPaths.ifEmpty { finalPaths }
+        val processedPaths = existingFinalPaths
 
-        // 7. Vocal Isolation / Music Removal
-        var processedPaths = confirmedPaths
-        if (preferences.removeMusic && !isSubtitleOnly && processedPaths.isNotEmpty()) {
-            val isAudioOnly = DownloadUtil.isAudioOnlyDownload(preferences, videoInfo)
-            onProgress?.invoke(0.0f, "جاري إزالة الموسيقى...")
-            processedPaths = VocalIsolationProcessor.removeMusicFromFiles(
-                filePaths = processedPaths,
-                isAudioOnly = isAudioOnly,
-                onProgress = onProgress,
-            )
-            // Non-fatal: if removal failed, revert to confirmed paths
-            val validAfterRemoval = processedPaths.filter { File(it).exists() && File(it).length() > 0 }
-            if (validAfterRemoval.isNotEmpty()) {
-                processedPaths = validAfterRemoval
-            } else {
-                Log.w(TAG, "Music removal produced no valid output; using original paths")
-                processedPaths = confirmedPaths
-            }
-        }
-
-        // 8. Database History Insertion
+        // 7. Database History Insertion
         if (preferences.privateMode) {
             emptyList()
         } else {

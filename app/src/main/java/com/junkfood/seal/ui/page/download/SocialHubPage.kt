@@ -1,12 +1,6 @@
 package com.junkfood.seal.ui.page.download
 
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import android.util.Patterns
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -23,63 +17,39 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentPaste
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material.icons.outlined.Explore
-import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -88,22 +58,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.junkfood.seal.R
-import com.junkfood.seal.download.DownloaderV2
-import com.junkfood.seal.download.PlaylistVerifier
 import com.junkfood.seal.ui.common.hapticClickable
 import com.junkfood.seal.ui.page.downloadv2.configure.DownloadDialogViewModel
-import com.junkfood.seal.util.DownloadUtil
-import com.junkfood.seal.util.FileUtil
-import com.junkfood.seal.util.PreferenceUtil.updateBoolean
-import com.junkfood.seal.util.ToastUtil
 import com.junkfood.seal.util.makeToast
-import kotlinx.coroutines.launch
-import org.koin.compose.koinInject
 
 data class PlatformItem(val name: String, val category: String)
-data class CategoryItem(val key: String, val label: String)
+data class CategoryItem(val key: String, @androidx.annotation.StringRes val labelRes: Int)
 
 val socialPlatforms = listOf(
     // Social
@@ -169,13 +130,13 @@ val socialPlatforms = listOf(
 )
 
 val platformCategories = listOf(
-    CategoryItem("All", "الكل"),
-    CategoryItem("Social", "شبكات اجتماعية"),
-    CategoryItem("Video", "فيديو وبث"),
-    CategoryItem("Music", "صوت وموسيقى"),
-    CategoryItem("Education", "تعليم ومعرفة"),
-    CategoryItem("News", "أخبار ومقالات"),
-    CategoryItem("Media", "وسائط أخرى"),
+    CategoryItem("All", R.string.cat_all),
+    CategoryItem("Social", R.string.cat_social),
+    CategoryItem("Video", R.string.cat_video),
+    CategoryItem("Music", R.string.cat_music),
+    CategoryItem("Education", R.string.cat_education),
+    CategoryItem("News", R.string.cat_news),
+    CategoryItem("Media", R.string.cat_media),
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -185,13 +146,6 @@ fun SocialHubPage(
     onMenuOpen: () -> Unit,
     dialogViewModel: DownloadDialogViewModel
 ) {
-    val context = LocalContext.current
-    val clipboardManager = LocalClipboardManager.current
-    val scope = rememberCoroutineScope()
-    val downloader: DownloaderV2 = koinInject()
-
-    var selectedMainTab by remember { mutableIntStateOf(0) } // 0 = Playlist Synchronizer, 1 = Universal Extractor
-
     Scaffold(
         modifier = modifier.fillMaxSize().statusBarsPadding(),
         containerColor = Color.Transparent,
@@ -199,7 +153,7 @@ fun SocialHubPage(
             TopAppBar(
                 title = {
                     Text(
-                        text = if (selectedMainTab == 0) "مُزامن القوائم الذكي" else "سوشيال هب ومستخرج الروابط",
+                        text = stringResource(R.string.social_hub_title),
                         fontWeight = FontWeight.Bold
                     )
                 },
@@ -218,612 +172,13 @@ fun SocialHubPage(
                 .padding(paddingValues)
                 .padding(horizontal = 16.dp)
         ) {
-            // Main Navigation Tabs
-            PrimaryTabRow(
-                selectedTabIndex = selectedMainTab,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp)),
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-            ) {
-                Tab(
-                    selected = selectedMainTab == 0,
-                    onClick = { selectedMainTab = 0 },
-                    text = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Outlined.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("مُزامن القوائم", fontWeight = FontWeight.Bold)
-                        }
-                    }
-                )
-                Tab(
-                    selected = selectedMainTab == 1,
-                    onClick = { selectedMainTab = 1 },
-                    text = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Outlined.Explore, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("المستخرج والمنصات", fontWeight = FontWeight.Bold)
-                        }
-                    }
-                )
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            if (selectedMainTab == 0) {
-                // Tab 0: Embedded Smart Playlist Synchronizer
-                EmbeddedPlaylistSyncView(
-                    dialogViewModel = dialogViewModel,
-                    downloader = downloader
-                )
-            } else {
-                // Tab 1: Universal Deep Extractor & Supported Platforms Directory
-                UniversalExtractorView(
-                    dialogViewModel = dialogViewModel
-                )
-            }
+            UniversalExtractorView(
+                dialogViewModel = dialogViewModel
+            )
         }
     }
 }
 
-@Composable
-private fun EmbeddedPlaylistSyncView(
-    dialogViewModel: DownloadDialogViewModel,
-    downloader: DownloaderV2
-) {
-    val context = LocalContext.current
-    val clipboardManager = LocalClipboardManager.current
-    val scope = rememberCoroutineScope()
-
-    var playlistUrl by remember { mutableStateOf("") }
-    var selectedType by remember { mutableIntStateOf(0) } // 0 = Video, 1 = Audio, 2 = Subtitle
-    var isScanning by remember { mutableStateOf(false) }
-    var scanResult by remember { mutableStateOf<PlaylistVerifier.ScanResult?>(null) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-
-    var customFolderPath by remember { mutableStateOf("") }
-    var showFolderEditField by remember { mutableStateOf(false) }
-
-    val folderPickerLauncher = rememberLauncherForActivityResult(
-        contract = object : ActivityResultContracts.OpenDocumentTree() {
-            override fun createIntent(context: Context, input: Uri?): Intent {
-                return super.createIntent(context, input).apply {
-                    flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                            Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
-                            Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
-                }
-            }
-        }
-    ) { uri ->
-        uri?.let {
-            val resolvedPath = FileUtil.getRealPath(it)
-            if (resolvedPath.isNotBlank()) {
-                customFolderPath = resolvedPath
-                scanResult = null
-            }
-        }
-    }
-
-    var resultTab by remember { mutableIntStateOf(0) } // 0 = Missing, 1 = Found
-    val selectedMissingIndices = remember { mutableStateListOf<Int>() }
-
-    val basePrefs = remember { DownloadUtil.DownloadPreferences.createFromPreferences() }
-    val effectivePrefs = remember(selectedType) {
-        basePrefs.copy(
-            downloadPlaylist = true,
-            extractAudio = selectedType == 1,
-            skipDownload = selectedType == 2,
-            downloadSubtitle = if (selectedType == 2) true else basePrefs.downloadSubtitle,
-            autoSubtitle = if (selectedType == 2) true else basePrefs.autoSubtitle,
-            autoTranslatedSubtitles = if (selectedType == 2) true else basePrefs.autoTranslatedSubtitles,
-            removeMusic = false
-        )
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-    ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            tonalElevation = 2.dp
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.size(44.dp)
-                    ) {
-                        Icon(
-                            Icons.Outlined.Sync,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.padding(10.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "فحص واستكمال قوائم التشغيل",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = "مقارنة المجلد بالرابط وتحميل المفقود فقط بدقة 100%",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // URL Input with paste button
-                OutlinedTextField(
-                    value = playlistUrl,
-                    onValueChange = { playlistUrl = it; scanResult = null },
-                    label = { Text("رابط قائمة التشغيل (Playlist URL)") },
-                    placeholder = { Text("https://www.youtube.com/playlist?list=...") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    trailingIcon = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (playlistUrl.isNotEmpty()) {
-                                IconButton(onClick = { playlistUrl = ""; scanResult = null }) {
-                                    Icon(Icons.Outlined.Clear, contentDescription = "مسح")
-                                }
-                            }
-                            IconButton(onClick = {
-                                val clip = clipboardManager.getText()?.text?.trim().orEmpty()
-                                if (clip.isNotBlank()) {
-                                    val clean = com.junkfood.seal.util.findURLsFromString(clip, firstMatchOnly = true).firstOrNull() ?: clip
-                                    playlistUrl = clean
-                                    scanResult = null
-                                }
-                            }) {
-                                Icon(Icons.Default.ContentPaste, contentDescription = "لصق من الحافظة", tint = MaterialTheme.colorScheme.primary)
-                            }
-                        }
-                    }
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text(
-                    text = "نوع المحتوى المستهدف للتدقيق:",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                ) {
-                    FilterChip(
-                        selected = selectedType == 0,
-                        onClick = { selectedType = 0; scanResult = null },
-                        label = { Text("🎬 فيديو") }
-                    )
-                    FilterChip(
-                        selected = selectedType == 1,
-                        onClick = { selectedType = 1; scanResult = null },
-                        label = { Text("🎵 صوت") }
-                    )
-                    FilterChip(
-                        selected = selectedType == 2,
-                        onClick = { selectedType = 2; scanResult = null },
-                        label = { Text("📝 ترجمة فقط") }
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Target Folder Selector
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceContainer,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Outlined.Folder, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = if (customFolderPath.isNotBlank()) {
-                                    "المجلد: $customFolderPath"
-                                } else {
-                                    when (selectedType) {
-                                        2 -> "المجلد: [Subtitles] اسم القائمة تلقائياً"
-                                        1 -> "المجلد: [Audio] اسم القائمة تلقائياً"
-                                        else -> "المجلد: اسم القائمة تلقائياً"
-                                    }
-                                },
-                                style = MaterialTheme.typography.labelMedium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f)
-                            )
-                            IconButton(onClick = { folderPickerLauncher.launch(null) }) {
-                                Icon(Icons.Default.FolderOpen, contentDescription = "اختيار مجلد من الهاتف", tint = MaterialTheme.colorScheme.primary)
-                            }
-                            IconButton(onClick = { showFolderEditField = !showFolderEditField }) {
-                                Icon(Icons.Default.Edit, contentDescription = "كتابة المسار", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                        if (showFolderEditField) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            OutlinedTextField(
-                                value = customFolderPath,
-                                onValueChange = { customFolderPath = it; scanResult = null },
-                                label = { Text("مسار المجلد المحلي") },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true,
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                Button(
-                    onClick = {
-                        if (playlistUrl.isBlank()) {
-                            context.makeToast("يرجى إدخال رابط قائمة التشغيل")
-                            return@Button
-                        }
-                        isScanning = true
-                        errorMessage = null
-                        scanResult = null
-                        selectedMissingIndices.clear()
-
-                        scope.launch {
-                            val res = PlaylistVerifier.scanPlaylist(
-                                playlistUrl = playlistUrl.trim(),
-                                preferences = effectivePrefs,
-                                customDirectoryPath = customFolderPath.ifBlank { null }
-                            )
-                            isScanning = false
-                            res.onSuccess {
-                                scanResult = it
-                                selectedMissingIndices.clear()
-                                selectedMissingIndices.addAll(it.missingItems.map { item -> item.index })
-                            }.onFailure { th ->
-                                errorMessage = th.localizedMessage ?: "حدث خطأ أثناء فحص ومقارنة الملفات"
-                            }
-                        }
-                    },
-                    enabled = playlistUrl.isNotBlank() && !isScanning,
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    if (isScanning) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text("جاري فحص وتدقيق التخزين مع القائمة...")
-                    } else {
-                        Icon(Icons.Default.Refresh, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("فحص ومقارنة الملفات في التخزين", fontWeight = FontWeight.Bold)
-                    }
-                }
-
-                errorMessage?.let { err ->
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Surface(
-                        color = MaterialTheme.colorScheme.errorContainer,
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Error, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(text = err, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer)
-                        }
-                    }
-                }
-            }
-        }
-
-        // Scan Results Section
-        scanResult?.let { result ->
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                shape = RoundedCornerShape(18.dp),
-                tonalElevation = 2.dp,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.Folder, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = result.targetDirectory,
-                            style = MaterialTheme.typography.labelSmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                            shape = RoundedCornerShape(14.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("الموجود بالجهاز", style = MaterialTheme.typography.labelMedium)
-                                }
-                                Text(
-                                    text = "${result.foundItems.size} / ${result.totalCount}",
-                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            }
-                        }
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                            shape = RoundedCornerShape(14.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("المفقود للتنزيل", style = MaterialTheme.typography.labelMedium)
-                                }
-                                Text(
-                                    text = "${result.missingItems.size} / ${result.totalCount}",
-                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onErrorContainer
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    PrimaryTabRow(
-                        selectedTabIndex = resultTab,
-                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)),
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer
-                    ) {
-                        Tab(
-                            selected = resultTab == 0,
-                            onClick = { resultTab = 0 },
-                            text = { Text("المفقود (${result.missingItems.size})", fontWeight = FontWeight.Bold) }
-                        )
-                        Tab(
-                            selected = resultTab == 1,
-                            onClick = { resultTab = 1 },
-                            text = { Text("الموجود (${result.foundItems.size})", fontWeight = FontWeight.Bold) }
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    if (resultTab == 0) {
-                        if (result.missingItems.isNotEmpty()) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "المحدد للتنزيل: ${selectedMissingIndices.size} من ${result.missingItems.size}",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                TextButton(
-                                    onClick = {
-                                        if (selectedMissingIndices.size == result.missingItems.size) {
-                                            selectedMissingIndices.clear()
-                                        } else {
-                                            selectedMissingIndices.clear()
-                                            selectedMissingIndices.addAll(result.missingItems.map { it.index })
-                                        }
-                                    }
-                                ) {
-                                    Text(if (selectedMissingIndices.size == result.missingItems.size) "إلغاء التحديد" else "تحديد الكل")
-                                }
-                            }
-
-                            LazyColumn(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(240.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                                    .padding(4.dp)
-                            ) {
-                                items(result.missingItems) { item ->
-                                    val isSelected = selectedMissingIndices.contains(item.index)
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 2.dp, horizontal = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Checkbox(
-                                            checked = isSelected,
-                                            onCheckedChange = { checked ->
-                                                if (checked) selectedMissingIndices.add(item.index)
-                                                else selectedMissingIndices.remove(item.index)
-                                            }
-                                        )
-                                        Surface(
-                                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f),
-                                            shape = RoundedCornerShape(6.dp)
-                                        ) {
-                                            Text(
-                                                text = String.format("#%03d", item.index),
-                                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                            )
-                                        }
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = item.title,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                    }
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            Button(
-                                onClick = {
-                                    val toDownload = result.missingItems.filter { selectedMissingIndices.contains(it.index) }
-                                    if (toDownload.isEmpty()) {
-                                        ToastUtil.makeToast("يرجى تحديد عنصر واحد على الأقل")
-                                        return@Button
-                                    }
-                                    scope.launch {
-                                        val itemsWithQuality = toDownload.map { item ->
-                                            item.copy(
-                                                preferences = effectivePrefs.copy(
-                                                    commandDirectory = customFolderPath.ifBlank { result.targetDirectory },
-                                                    subdirectoryPlaylistTitle = false
-                                                )
-                                            )
-                                        }
-                                        PlaylistVerifier.enqueueMissingItems(
-                                            missingItems = itemsWithQuality,
-                                            targetDirectory = customFolderPath.ifBlank { result.targetDirectory },
-                                            downloader = downloader
-                                        )
-                                        ToastUtil.makeToast("تمت إضافة ${toDownload.size} ملف مفقود إلى قائمة التنزيل")
-                                    }
-                                },
-                                enabled = selectedMissingIndices.isNotEmpty(),
-                                modifier = Modifier.fillMaxWidth().height(50.dp),
-                                shape = RoundedCornerShape(14.dp)
-                            ) {
-                                Icon(Icons.Default.Download, contentDescription = null)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("تنزيل العناصر المحددة (${selectedMissingIndices.size} ملف)", fontWeight = FontWeight.Bold)
-                            }
-                        } else {
-                            Surface(
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                shape = RoundedCornerShape(14.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = "🎉 جميع عناصر قائمة التشغيل مكتملة وموجودة بالكامل في المجلد!",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    modifier = Modifier.padding(16.dp),
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            }
-                        }
-                    } else {
-                        // Found Tab
-                        if (result.foundItems.isNotEmpty()) {
-                            LazyColumn(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(240.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                                    .padding(6.dp)
-                            ) {
-                                items(result.foundItems) { item ->
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 4.dp, horizontal = 4.dp)
-                                    ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Surface(
-                                                color = MaterialTheme.colorScheme.primaryContainer,
-                                                shape = RoundedCornerShape(6.dp)
-                                            ) {
-                                                Text(
-                                                    text = String.format("#%03d", item.index),
-                                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                                )
-                                            }
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                text = item.title,
-                                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                                modifier = Modifier.weight(1f)
-                                            )
-                                            Icon(
-                                                imageVector = Icons.Outlined.CheckCircle,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                        }
-                                        if (!item.matchedFilePath.isNullOrBlank()) {
-                                            Text(
-                                                text = item.matchedFilePath.substringAfterLast('/'),
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                                modifier = Modifier.padding(start = 32.dp, top = 2.dp)
-                                            )
-                                        }
-                                        HorizontalDivider(modifier = Modifier.padding(top = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                                    }
-                                }
-                            }
-                        } else {
-                            Surface(
-                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                shape = RoundedCornerShape(14.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = "لم يتم العثور على أي ملفات من هذه القائمة في هذا المجلد بعد.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    modifier = Modifier.padding(16.dp),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(100.dp))
-    }
-}
 
 @Composable
 private fun UniversalExtractorView(
@@ -868,7 +223,7 @@ private fun UniversalExtractorView(
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        "المستخرج الذكي الشامل (Deep Extractor)",
+                        stringResource(R.string.deep_extractor_title),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -876,7 +231,7 @@ private fun UniversalExtractorView(
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    "الصق أي رابط من أي منصة أو موقع ويب لاستخراج ملفات الفيديو، الصوت، والترجمة بدقة فائقة.",
+                    stringResource(R.string.deep_extractor_desc),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -892,7 +247,7 @@ private fun UniversalExtractorView(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (urlInput.isNotEmpty()) {
                                 IconButton(onClick = { urlInput = "" }) {
-                                    Icon(Icons.Outlined.Clear, contentDescription = "مسح")
+                                    Icon(Icons.Outlined.Clear, contentDescription = "Clear")
                                 }
                             }
                             IconButton(onClick = {
@@ -902,7 +257,7 @@ private fun UniversalExtractorView(
                                     urlInput = clean
                                 }
                             }) {
-                                Icon(Icons.Default.ContentPaste, contentDescription = "لصق من الحافظة", tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Default.ContentPaste, contentDescription = "Paste", tint = MaterialTheme.colorScheme.primary)
                             }
                         }
                     }
@@ -911,11 +266,13 @@ private fun UniversalExtractorView(
                 Button(
                     onClick = {
                         val trimmedUrl = urlInput.trim()
-                        if (trimmedUrl.isNotBlank() && Patterns.WEB_URL.matcher(trimmedUrl).matches()) {
-                            dialogViewModel.postAction(DownloadDialogViewModel.Action.ShowSheet(listOf(trimmedUrl)))
+                        val detectedUrls = com.junkfood.seal.util.findURLsFromString(trimmedUrl, firstMatchOnly = true)
+                        val targetUrl = detectedUrls.firstOrNull() ?: trimmedUrl
+                        if (targetUrl.isNotBlank() && (Patterns.WEB_URL.matcher(targetUrl).matches() || targetUrl.startsWith("http://") || targetUrl.startsWith("https://"))) {
+                            dialogViewModel.postAction(DownloadDialogViewModel.Action.ShowSheet(listOf(targetUrl)))
                             urlInput = ""
                         } else {
-                            context.makeToast("يرجى إدخال رابط صحيح (Valid URL)")
+                            context.makeToast(context.getString(R.string.valid_url_prompt))
                         }
                     },
                     modifier = Modifier
@@ -929,7 +286,7 @@ private fun UniversalExtractorView(
                 ) {
                     Icon(Icons.Outlined.Search, contentDescription = null, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("استخراج الوسائط والتحميل", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.extract_and_download), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
                 }
             }
         }
@@ -947,7 +304,7 @@ private fun UniversalExtractorView(
                 FilterChip(
                     selected = selectedCategory == cat.key,
                     onClick = { selectedCategory = cat.key },
-                    label = { Text(cat.label, fontWeight = if (selectedCategory == cat.key) FontWeight.Bold else FontWeight.Normal) },
+                    label = { Text(stringResource(cat.labelRes), fontWeight = if (selectedCategory == cat.key) FontWeight.Bold else FontWeight.Normal) },
                     shape = RoundedCornerShape(10.dp)
                 )
             }
@@ -968,11 +325,12 @@ private fun UniversalExtractorView(
                         .aspectRatio(1.1f)
                         .hapticClickable {
                             val clip = clipboardManager.getText()?.text?.trim().orEmpty()
-                            if (clip.isNotBlank() && Patterns.WEB_URL.matcher(clip).matches()) {
-                                urlInput = clip
-                                context.makeToast("تم لصق الرابط من الحافظة: $clip")
+                            val detected = com.junkfood.seal.util.findURLsFromString(clip, firstMatchOnly = true).firstOrNull() ?: clip
+                            if (detected.isNotBlank() && Patterns.WEB_URL.matcher(detected).matches()) {
+                                urlInput = detected
+                                context.makeToast(context.getString(R.string.pasted_from_clipboard, detected))
                             } else {
-                                context.makeToast("الصق رابط من ${platform.name} في المستخرج أعلاه")
+                                context.makeToast(context.getString(R.string.paste_platform_prompt, platform.name))
                             }
                         },
                     shape = RoundedCornerShape(16.dp),

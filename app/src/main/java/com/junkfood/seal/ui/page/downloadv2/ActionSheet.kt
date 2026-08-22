@@ -75,8 +75,8 @@ import com.junkfood.seal.ui.theme.ErrorTonalPalettes
 import com.junkfood.seal.ui.theme.SealTheme
 import com.junkfood.seal.util.Format
 import com.junkfood.seal.util.toBitrateText
-import com.junkfood.seal.util.toDurationText
-import com.junkfood.seal.util.toFileSizeText
+import com.junkfood.seal.ui.common.formatters.DurationFormatter
+import com.junkfood.seal.ui.common.formatters.FileSizeFormatter
 import com.junkfood.seal.util.toLocalizedString
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -528,8 +528,11 @@ fun ActionSheetInfo(modifier: Modifier = Modifier, task: Task, viewState: ViewSt
                         task.timeCreated.toLocalizedString(),
                         style = MaterialTheme.typography.titleSmall,
                     )
+                    val durationStr = durationMs?.let { DurationFormatter.format(it) } ?: ""
+                    val sizeStr = FileSizeFormatter.format(fileSizeApproxBytes)
+                    val separator = if (durationStr.isNotBlank() && sizeStr.isNotBlank()) " · " else ""
                     Text(
-                        "${duration.toDurationText()} · ${fileSizeApprox.toFileSizeText()}",
+                        "$durationStr$separator$sizeStr",
                         style = MaterialTheme.typography.bodySmall,
                     )
                 },
@@ -538,7 +541,7 @@ fun ActionSheetInfo(modifier: Modifier = Modifier, task: Task, viewState: ViewSt
                 },
             )
 
-            val dur = duration.toDouble()
+            val dur = (durationMs ?: 0L) / 1000.0
 
             videoFormats?.forEachIndexed { _index, fmt ->
                 val index = _index + 1

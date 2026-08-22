@@ -437,8 +437,8 @@ private fun DownloadDialogContent(
                                                 viewState = com.junkfood.seal.download.Task.ViewState(
                                                     url = itemUrl,
                                                     title = "",
-                                                    duration = 0,
-                                                    uploader = "",
+                                                    durationMs = 0L,
+                                                    fileSizeApproxBytes = 0L,
                                                     thumbnailUrl = "",
                                                 )
                                             )
@@ -968,20 +968,6 @@ private fun AdditionalSettings(
                             onPreferenceUpdate()
                         },
                         label = stringResource(R.string.create_thumbnail),
-                    )
-                }
-
-                // Show "AI Voice / Remove Music" ONLY for Video and Audio (never for Subtitle or Playlist)
-                if (!isPlaylist && (selectedType == Video || selectedType == Audio)) {
-                    val removeMusic = preference.removeMusic
-                    VideoFilterChip(
-                        selected = removeMusic,
-                        enabled = true,
-                        onClick = {
-                            com.junkfood.seal.util.REMOVE_MUSIC.updateBoolean(!removeMusic)
-                            onPreferenceUpdate()
-                        },
-                        label = "عزل الصوت بالذكاء الاصطناعي (AI Voice)",
                     )
                 }
             }

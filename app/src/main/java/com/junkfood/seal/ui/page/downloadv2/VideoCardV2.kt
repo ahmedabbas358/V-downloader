@@ -80,8 +80,8 @@ import com.junkfood.seal.ui.common.LocalFixedColorRoles
 import com.junkfood.seal.ui.common.motion.materialSharedAxisY
 import com.junkfood.seal.ui.component.GreenTonalPalettes
 import com.junkfood.seal.ui.theme.SealTheme
-import com.junkfood.seal.util.toDurationText
-import com.junkfood.seal.util.toFileSizeText
+import com.junkfood.seal.ui.common.formatters.DurationFormatter
+import com.junkfood.seal.ui.common.formatters.FileSizeFormatter
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 
@@ -112,8 +112,8 @@ fun VideoCardV2(
             thumbnailModel = thumbnailUrl,
             title = title,
             uploader = uploader,
-            duration = duration,
-            fileSizeApprox = fileSizeApprox,
+            durationMs = durationMs,
+            fileSizeApproxBytes = fileSizeApproxBytes,
             isSubOnly = isSubOnly,
             isSelected = isSelected,
             showSize = showSize,
@@ -146,8 +146,8 @@ fun VideoListItem(
             thumbnailModel = thumbnailUrl,
             title = title,
             uploader = uploader,
-            duration = duration,
-            fileSizeApprox = fileSizeApprox,
+            durationMs = durationMs,
+            fileSizeApproxBytes = fileSizeApproxBytes,
             isSubOnly = isSubOnly,
             isSelected = isSelected,
             showSize = showSize,
@@ -167,8 +167,8 @@ fun VideoListItem(
     thumbnailModel: Any? = null,
     title: String = "",
     uploader: String = "",
-    duration: Int = 0,
-    fileSizeApprox: Double = .0,
+    durationMs: Long? = null,
+    fileSizeApproxBytes: Long = 0L,
     isSubOnly: Boolean = false,
     isSelected: Boolean = false,
     showSize: Boolean = true,
@@ -191,8 +191,8 @@ fun VideoListItem(
             ListItemImage(modifier = Modifier, thumbnailModel = thumbnailModel, isSubOnly = isSubOnly)
             VideoInfoLabel(
                 modifier = Modifier.align(Alignment.BottomEnd),
-                duration = duration,
-                fileSizeApprox = fileSizeApprox,
+                durationMs = durationMs,
+                fileSizeApproxBytes = fileSizeApproxBytes,
                 showSize = showSize,
                 showDuration = showDuration
             )
@@ -272,8 +272,8 @@ fun VideoCardV2(
     thumbnailModel: Any? = null,
     title: String = "",
     uploader: String = "",
-    duration: Int = 0,
-    fileSizeApprox: Double = .0,
+    durationMs: Long? = null,
+    fileSizeApproxBytes: Long = 0L,
     isSubOnly: Boolean = false,
     isSelected: Boolean = false,
     showSize: Boolean = true,
@@ -307,8 +307,8 @@ fun VideoCardV2(
                 }
                 VideoInfoLabel(
                     modifier = Modifier.align(Alignment.BottomEnd),
-                    duration = duration,
-                    fileSizeApprox = fileSizeApprox,
+                    durationMs = durationMs,
+                    fileSizeApproxBytes = fileSizeApproxBytes,
                     showSize = showSize,
                     showDuration = showDuration
                 )
@@ -463,15 +463,15 @@ private fun TitleText(
 }
 
 @Composable
-private fun VideoInfoLabel(modifier: Modifier = Modifier, duration: Int, fileSizeApprox: Double, showSize: Boolean = true, showDuration: Boolean = true) {
+private fun VideoInfoLabel(modifier: Modifier = Modifier, durationMs: Long?, fileSizeApproxBytes: Long, showSize: Boolean = true, showDuration: Boolean = true) {
     if (!showSize && !showDuration) return
     Surface(
         modifier = modifier.padding(4.dp),
         color = LabelContainerColor,
         shape = MaterialTheme.shapes.extraSmall,
     ) {
-        val fileSizeText = if (showSize && fileSizeApprox > 0.0) fileSizeApprox.toFileSizeText() else ""
-        val durationText = if (showDuration && duration > 0) duration.toDurationText() else ""
+        val fileSizeText = if (showSize && fileSizeApproxBytes > 0L) FileSizeFormatter.format(fileSizeApproxBytes) else ""
+        val durationText = if (showDuration && durationMs != null && durationMs > 0L) DurationFormatter.format(durationMs) else ""
         val text = buildString {
             if (fileSizeText.isNotBlank()) append(fileSizeText)
             if (fileSizeText.isNotBlank() && durationText.isNotBlank()) append("  ")

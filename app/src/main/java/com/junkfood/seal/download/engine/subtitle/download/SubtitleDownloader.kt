@@ -82,9 +82,15 @@ object SubtitleDownloader {
                     }
                 }
 
-            if (existingValidFiles.size == tracks.size) {
-                onProgress(SubtitleProgress.Completed(existingValidFiles.size))
-                return@runCatching existingValidFiles
+            val missingTracks = tracks.filterIndexed { index, _ -> 
+                existingValidFiles[index] == null 
+            }
+            
+            val validFiles = existingValidFiles.filterNotNull().toMutableList()
+
+            if (missingTracks.isEmpty()) {
+                onProgress(SubtitleProgress.Completed(validFiles.size))
+                return@runCatching validFiles
             }
 
             try {
@@ -92,11 +98,11 @@ object SubtitleDownloader {
                 var directDownloadSucceeded = false
                 val directDownloadedTempFiles = mutableListOf<File>()
 
-                val tracksWithUrls = tracks.filter { it.directUrl != null || it.formats.any { f -> f.url.isNotBlank() } }
-                if (tracksWithUrls.size == tracks.size) {
-                    onProgress(SubtitleProgress.Downloading(tracks.joinToString(",") { it.languageCode }, 0.5f))
+                val tracksWithUrls = missingTracks.filter { it.directUrl != null || it.formats.any { f -> f.url.isNotBlank() } }
+                if (tracksWithUrls.size == missingTracks.size) {
+                    onProgress(SubtitleProgress.Downloading(missingTracks.joinToString(",") { it.languageCode }, 0.5f))
                     var allDirectOk = true
-                    for (track in tracks) {
+                    for (track in missingTracks) {
                         val downloadedFile = downloadTrackDirectlyViaHttp(track, tempWorkDir, videoId)
                         if (downloadedFile != null && SubtitleValidator.validateFile(downloadedFile).isSuccess) {
                             directDownloadedTempFiles.add(downloadedFile)
@@ -105,7 +111,7 @@ object SubtitleDownloader {
                             break
                         }
                     }
-                    if (allDirectOk && directDownloadedTempFiles.size == tracks.size) {
+                    if (allDirectOk && directDownloadedTempFiles.size == missingTracks.size) {
                         directDownloadSucceeded = true
                     } else {
                         directDownloadedTempFiles.forEach { it.delete() }
@@ -117,9 +123,9 @@ object SubtitleDownloader {
 
                 // 2. If direct download was not available or failed, fallback to yt-dlp process
                 if (!directDownloadSucceeded) {
-                    val targetLangs = tracks.joinToString(",") { it.languageCode }
-                    val hasAutoTrack = tracks.any { it.source == SubtitleSource.AUTO_GENERATED || it.source == SubtitleSource.TRANSLATED }
-                    val hasManualTrack = tracks.any { it.source == SubtitleSource.MANUAL }
+                    val targetLangs = missingTracks.joinToString(",") { it.languageCode }
+                    val hasAutoTrack = missingTracks.any { it.source == SubtitleSource.AUTO_GENERATED || it.source == SubtitleSource.TRANSLATED }
+                    val hasManualTrack = missingTracks.any { it.source == SubtitleSource.MANUAL }
 
                     onProgress(SubtitleProgress.Downloading(targetLangs, 0.4f))
 
@@ -236,10 +242,11 @@ object SubtitleDownloader {
                     convertedFile.delete()
 
                     downloadedValidFiles.add(finalFile)
+                    validFiles.add(finalFile)
                 }
 
-                onProgress(SubtitleProgress.Completed(downloadedValidFiles.size))
-                downloadedValidFiles
+                onProgress(SubtitleProgress.Completed(validFiles.size))
+                validFiles
             } finally {
                 // Ensure temporary work directory is cleanly deleted
                 tempWorkDir.deleteRecursively()

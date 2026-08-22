@@ -43,26 +43,29 @@ class PlaylistSyncWorker(
                     preferences = defaultPrefs
                 ).getOrNull()
 
-                if (scanResult != null && scanResult.missingItems.isNotEmpty()) {
-                    totalMissingFound += scanResult.missingItems.size
-                    Log.d(TAG, "Found ${scanResult.missingItems.size} missing items in '${scanResult.playlistTitle}'")
+                if (scanResult != null) {
+                    val missingItems = scanResult.items.filter { it.state == com.junkfood.seal.download.engine.playlist.AuditState.NOT_DOWNLOADED }
+                    if (missingItems.isNotEmpty()) {
+                        totalMissingFound += missingItems.size
+                        Log.d(TAG, "Found ${missingItems.size} missing items in '${scanResult.playlistTitle}'")
 
-                    val intent = Intent(applicationContext, MainActivity::class.java).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        val intent = Intent(applicationContext, MainActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        }
+                        val pendingIntent = PendingIntent.getActivity(
+                            applicationContext,
+                            playlistUrl.hashCode(),
+                            intent,
+                            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                        )
+
+                        NotificationUtil.notifyPlaylistCompletion(
+                            id = playlistUrl.hashCode(),
+                            title = "تحديث في قائمة: ${scanResult.playlistTitle}",
+                            text = "يوجد ${missingItems.size} عناصر جديدة متاحة للتنزيل",
+                            intent = pendingIntent
+                        )
                     }
-                    val pendingIntent = PendingIntent.getActivity(
-                        applicationContext,
-                        playlistUrl.hashCode(),
-                        intent,
-                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-                    )
-
-                    NotificationUtil.notifyPlaylistCompletion(
-                        id = playlistUrl.hashCode(),
-                        title = "تحديث في قائمة: ${scanResult.playlistTitle}",
-                        text = "يوجد ${scanResult.missingItems.size} عناصر جديدة متاحة للتنزيل",
-                        intent = pendingIntent
-                    )
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error syncing playlist: $playlistUrl", e)

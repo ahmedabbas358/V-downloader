@@ -9,7 +9,7 @@ import com.junkfood.seal.download.Task.TypeInfo
 import com.junkfood.seal.download.engine.builder.DownloadCommandBuilder
 import com.junkfood.seal.download.engine.builder.OutputTemplateBuilder
 import com.junkfood.seal.download.engine.postprocess.PostDownloadCoordinator
-import com.junkfood.seal.download.engine.resilience.SocialMediaFallbackHandler
+
 import com.junkfood.seal.download.engine.subtitle.SubtitleManager
 import com.junkfood.seal.util.DownloadUtil
 import com.junkfood.seal.util.VideoInfo
@@ -154,14 +154,6 @@ object DownloadTaskExecutor {
                         break
                     }
                     retryCount++
-                }
-            }
-
-            // If yt-dlp failed, attempt emergency fallback for social media platforms
-            if (result?.isFailure == true && SocialMediaFallbackHandler.isSocialMediaUrl(fetchUrl)) {
-                val fallbackInfo = SocialMediaFallbackHandler.resolveFallbackVideoInfo(fetchUrl)
-                if (fallbackInfo != null) {
-                    return@withContext Result.success(fallbackInfo)
                 }
             }
 

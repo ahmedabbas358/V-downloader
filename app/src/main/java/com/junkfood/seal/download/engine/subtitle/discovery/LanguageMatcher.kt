@@ -248,9 +248,27 @@ object LanguageMatcher {
                 tracks.filter { it.source == SubtitleSource.TRANSLATED }
             }
             SubtitleTypePolicy.ANY -> {
-                // Priority ordering: Manual > Auto-Generated > Translated
-                // Within same source, prefer exact/shorter codes
-                tracks.sortedWith(
+                // Group by base language and take the best track for each language
+                val bestTracks = mutableListOf<SubtitleTrack>()
+                val groupedByLang = tracks.groupBy { getBaseLanguageCode(it.languageCode) }
+                for ((_, langTracks) in groupedByLang) {
+                    val best = langTracks.minWithOrNull(
+                        compareBy<SubtitleTrack> {
+                            when (it.source) {
+                                SubtitleSource.MANUAL -> 0
+                                SubtitleSource.AUTO_GENERATED -> 1
+                                SubtitleSource.TRANSLATED -> 2
+                                SubtitleSource.UNKNOWN -> 3
+                            }
+                        }.thenByDescending { it.isOriginal }
+                        .thenBy { it.languageCode.length }
+                    )
+                    if (best != null) {
+                        bestTracks.add(best)
+                    }
+                }
+                
+                bestTracks.sortedWith(
                     compareBy<SubtitleTrack> {
                         when (it.source) {
                             SubtitleSource.MANUAL -> 0

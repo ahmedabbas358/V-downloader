@@ -514,8 +514,6 @@
 
     <string name="feature_smart_download_title">تنزيل ذكي للفيديو والصوت</string>
     <string name="feature_smart_download_desc">الصق الروابط أو شاركها مباشرة من أي تطبيق للتنزيل بأعلى جودة تصل إلى 4K.</string>
-    <string name="feature_music_removal_title">عزل الموسيقى والمؤثرات بالذكاء الاصطناعي</string>
-    <string name="feature_music_removal_desc">عزل الموسيقى والضوضاء الخلفية بدون إنترنت لتحويل المقاطع إلى دروس صوتية نقية.</string>
     <string name="feature_playlist_sync_title">استكمال ومزامنة قوائم التشغيل</string>
     <string name="feature_playlist_sync_desc">يفحص الملفات الموجودة على جهازك ويستكمل تنزيل الحلقات المفقودة فقط بالترقيم الصحيح.</string>
     <string name="feature_subtitles_title">تنزيل الترجمات وضبط التوقيت</string>
@@ -548,4 +546,26 @@
     <string name="setting_guide_aria2c_desc">فعل ميزة التنزيل المتعدد لتسريع التحميل حتى 8 أضعاف عبر تجزئة الملفات.</string>
     <string name="setting_guide_cookies_title">الكوكيز ومصادقة الحسابات</string>
     <string name="setting_guide_cookies_desc">اربط حسابك لتنزيل الفيديوهات الخاصة، مقاطع الأعضاء، أو المحتوى المقيد بالعمر.</string>
+
+    <string name="onboarding_permissions_title">الأذونات وإعدادات الخلفية</string>
+    <string name="onboarding_permissions_desc">نحن نحترم خصوصيتك. لن يطلب التطبيق أي أذونات الآن.</string>
+    <string name="badge_important">هام جداً</string>
+    <string name="badge_storage">التخزين</string>
+    <string name="badge_speed">السرعة</string>
+    <string name="badge_accounts">الحسابات</string>
+
+    <string name="social_hub_title">سوشيال هب ومستخرج الروابط</string>
+    <string name="deep_extractor_title">المستخرج الذكي الشامل (Deep Extractor)</string>
+    <string name="deep_extractor_desc">الصق أي رابط من أي منصة أو موقع ويب لاستخراج ملفات الفيديو، الصوت، والترجمة بدقة فائقة.</string>
+    <string name="extract_and_download">استخراج الوسائط والتحميل</string>
+    <string name="valid_url_prompt">يرجى إدخال رابط صحيح</string>
+    <string name="pasted_from_clipboard">تم لصق الرابط من الحافظة: %s</string>
+    <string name="paste_platform_prompt">الصق رابط من %s في المستخرج أعلاه</string>
+    <string name="cat_all">الكل</string>
+    <string name="cat_social">شبكات اجتماعية</string>
+    <string name="cat_video">فيديو وبث</string>
+    <string name="cat_music">صوت وموسيقى</string>
+    <string name="cat_education">تعليم ومعرفة</string>
+    <string name="cat_news">أخبار ومقالات</string>
+    <string name="cat_media">وسائط أخرى</string>
 </resources>

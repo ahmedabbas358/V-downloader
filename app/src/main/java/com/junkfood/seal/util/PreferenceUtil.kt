@@ -36,7 +36,6 @@ const val CUSTOM_COMMAND = "custom_command"
 const val CONCURRENT = "concurrent_fragments"
 const val MAX_CONCURRENT_DOWNLOADS = "max_concurrent_downloads"
 const val EXTRACT_AUDIO = "extract_audio"
-const val REMOVE_MUSIC = "remove_music"
 const val THUMBNAIL = "create_thumbnail"
 const val YT_DLP_VERSION = "yt-dlp_init"
 const val YT_DLP_AUTO_UPDATE = "yt-dlp_update"
@@ -556,18 +555,32 @@ object PreferenceUtil {
         }
     }
 
-    @DeprecatedSinceApi(api = 33)
     fun getLocaleFromPreference(): Locale? {
         val languageCode = LANGUAGE.getInt()
-        return LocaleLanguageCodeMap.entries.find { it.value == languageCode }?.key
+        if (languageCode != SYSTEM_DEFAULT) {
+            val mapped = LocaleLanguageCodeMap.entries.find { it.value == languageCode }?.key
+            if (mapped != null) return mapped
+        }
+        if (Build.VERSION.SDK_INT >= 33) {
+            val locales = androidx.appcompat.app.AppCompatDelegate.getApplicationLocales()
+            if (!locales.isEmpty) {
+                val appLocale = locales.get(0)
+                return LocaleLanguageCodeMap.keys.find { 
+                    it.language.equals(appLocale?.language, ignoreCase = true) 
+                } ?: appLocale
+            }
+        }
+        return null
     }
 
     fun saveLocalePreference(locale: Locale?) {
-        if (Build.VERSION.SDK_INT >= 33) {
-            // No op
+        val code = if (locale == null) {
+            SYSTEM_DEFAULT
         } else {
-            LANGUAGE.updateInt(LocaleLanguageCodeMap[locale] ?: SYSTEM_DEFAULT)
+            LocaleLanguageCodeMap.entries.find { it.key.language.equals(locale.language, ignoreCase = true) }?.value
+                ?: LocaleLanguageCodeMap[locale] ?: SYSTEM_DEFAULT
         }
+        LANGUAGE.updateInt(code)
     }
 
     fun getConcurrentFragments(level: Int = CONCURRENT.getInt()): Float {

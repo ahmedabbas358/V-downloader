@@ -40,8 +40,6 @@ koin = "4.0.0"
 
 ktfmt = "0.20.1"
 
-onnxruntime = "1.18.0"
-
 [libraries]
 
 
@@ -115,7 +113,6 @@ mmkv = { group = "com.tencent", name = "mmkv", version.ref = "mmkv" }
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version = "2.9.0" }
 androidx-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }
 androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3" }
-onnxruntime-android = { group = "com.microsoft.onnxruntime", name = "onnxruntime-android", version.ref = "onnxruntime" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }

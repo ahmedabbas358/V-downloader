@@ -12,7 +12,7 @@ import com.junkfood.seal.download.engine.builder.OutputTemplateBuilder
 import com.junkfood.seal.download.engine.builder.SubtitleOptionBuilder
 import com.junkfood.seal.download.engine.postprocess.PostDownloadCoordinator
 import com.junkfood.seal.download.engine.resilience.FileCollisionResolver
-import com.junkfood.seal.download.engine.resilience.SocialMediaFallbackHandler
+
 import com.junkfood.seal.download.engine.subtitle.SubtitleManager
 
 /**
@@ -25,7 +25,7 @@ import com.junkfood.seal.download.engine.subtitle.SubtitleManager
  * - Format & Subtitle Generation ([FormatSelectorBuilder], [SubtitleOptionBuilder])
  * - Execution ([DownloadTaskExecutor])
  * - Post-Processing ([PostDownloadCoordinator])
- * - Resilience & Fallbacks ([FileCollisionResolver], [SocialMediaFallbackHandler])
+ * - Resilience & Fallbacks ([FileCollisionResolver])
  */
 class DownloadEngine(
     private val appContext: Context = context,

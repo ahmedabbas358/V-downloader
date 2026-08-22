@@ -88,7 +88,11 @@ import java.util.Locale
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun OnboardingScreen(onFinished: () -> Unit) {
-    val pagerState = rememberPagerState(pageCount = { 4 })
+    var initialPage by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
+    val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { 4 })
+    androidx.compose.runtime.LaunchedEffect(pagerState.currentPage) {
+        initialPage = pagerState.currentPage
+    }
     val scope = rememberCoroutineScope()
 
     var currentLocale by remember { mutableStateOf(PreferenceUtil.getLocaleFromPreference()) }
@@ -191,6 +195,12 @@ fun OnboardingScreen(onFinished: () -> Unit) {
 fun LanguageSelectionPage(currentLocale: Locale?, onLocaleChange: (Locale?) -> Unit) {
     var selectedLocale by remember(currentLocale) { mutableStateOf(currentLocale) }
 
+    fun isLocaleSelected(target: Locale?): Boolean {
+        if (selectedLocale == null && target == null) return true
+        if (selectedLocale == null || target == null) return false
+        return selectedLocale?.language.equals(target.language, ignoreCase = true)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -240,7 +250,7 @@ fun LanguageSelectionPage(currentLocale: Locale?, onLocaleChange: (Locale?) -> U
             item {
                 PreferenceSingleChoiceItem(
                     text = stringResource(R.string.follow_system),
-                    selected = selectedLocale == null,
+                    selected = isLocaleSelected(null),
                     onClick = {
                         selectedLocale = null
                         onLocaleChange(null)
@@ -253,7 +263,7 @@ fun LanguageSelectionPage(currentLocale: Locale?, onLocaleChange: (Locale?) -> U
             items(LocaleLanguageCodeMap.keys.toList()) { locale ->
                 PreferenceSingleChoiceItem(
                     text = locale.toDisplayName(),
-                    selected = selectedLocale == locale,
+                    selected = isLocaleSelected(locale),
                     onClick = {
                         selectedLocale = locale
                         onLocaleChange(locale)
@@ -302,13 +312,6 @@ fun FeaturesTourPage() {
                     icon = Icons.Outlined.Download,
                     title = stringResource(R.string.feature_smart_download_title),
                     desc = stringResource(R.string.feature_smart_download_desc)
-                )
-            }
-            item {
-                FeatureCard(
-                    icon = Icons.Outlined.GraphicEq,
-                    title = stringResource(R.string.feature_music_removal_title),
-                    desc = stringResource(R.string.feature_music_removal_desc)
                 )
             }
             item {
@@ -386,7 +389,7 @@ fun EssentialSettingsPage() {
                     icon = Icons.Outlined.BuildCircle,
                     title = stringResource(R.string.setting_guide_ytdlp_title),
                     desc = stringResource(R.string.setting_guide_ytdlp_desc),
-                    badge = "هام جداً"
+                    badge = stringResource(R.string.badge_important)
                 )
             }
             item {
@@ -394,7 +397,7 @@ fun EssentialSettingsPage() {
                     icon = Icons.Outlined.FolderSpecial,
                     title = stringResource(R.string.setting_guide_storage_title),
                     desc = stringResource(R.string.setting_guide_storage_desc),
-                    badge = "التخزين"
+                    badge = stringResource(R.string.badge_storage)
                 )
             }
             item {
@@ -402,7 +405,7 @@ fun EssentialSettingsPage() {
                     icon = Icons.Outlined.FlashOn,
                     title = stringResource(R.string.setting_guide_aria2c_title),
                     desc = stringResource(R.string.setting_guide_aria2c_desc),
-                    badge = "السرعة"
+                    badge = stringResource(R.string.badge_speed)
                 )
             }
             item {
@@ -410,7 +413,7 @@ fun EssentialSettingsPage() {
                     icon = Icons.Outlined.Cookie,
                     title = stringResource(R.string.setting_guide_cookies_title),
                     desc = stringResource(R.string.setting_guide_cookies_desc),
-                    badge = "الحسابات"
+                    badge = stringResource(R.string.badge_accounts)
                 )
             }
         }
@@ -526,36 +529,6 @@ private fun FeatureCard(icon: ImageVector, title: String, desc: String) {
 fun SmartPermissionsPage(onFinished: () -> Unit) {
     val context = LocalContext.current
 
-    var hasNotifPermission by remember {
-        mutableStateOf(
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                NotificationManagerCompat.from(context).areNotificationsEnabled()
-            } else {
-                true
-            }
-        )
-    }
-
-    var isBatteryIgnored by remember {
-        mutableStateOf(
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
-                pm?.isIgnoringBatteryOptimizations(context.packageName) ?: false
-            } else {
-                true
-            }
-        )
-    }
-
-    // Register the permission launcher directly in the composable scope.
-    // rememberLauncherForActivityResult is a @Composable function and MUST NOT
-    // be wrapped in runCatching or any non-composable lambda.
-    val notifPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        hasNotifPermission = isGranted
-    }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -578,13 +551,13 @@ fun SmartPermissionsPage(onFinished: () -> Unit) {
 
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "الأذونات وإعدادات الخلفية",
+            text = stringResource(R.string.onboarding_permissions_title),
             style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = "للحصول على أفضل تجربة تنزيل مستقرة في الخلفية بدون انقطاع",
+            text = stringResource(R.string.onboarding_permissions_desc),
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -604,16 +577,15 @@ fun SmartPermissionsPage(onFinished: () -> Unit) {
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.elevatedCardColors(
-                        containerColor = if (hasNotifPermission) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-                        else MaterialTheme.colorScheme.surfaceContainer
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer
                     )
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = if (hasNotifPermission) Icons.Outlined.CheckCircle else Icons.Outlined.NotificationsActive,
+                                imageVector = Icons.Outlined.NotificationsActive,
                                 contentDescription = null,
-                                tint = if (hasNotifPermission) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
@@ -627,33 +599,6 @@ fun SmartPermissionsPage(onFinished: () -> Unit) {
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        if (!hasNotifPermission) {
-                            Button(
-                                onClick = {
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                        notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                    } else {
-                                        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                                            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                        }
-                                        context.startActivity(intent)
-                                    }
-                                },
-                                shape = CircleShape,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(stringResource(R.string.perm_grant_button))
-                            }
-                        } else {
-                            Text(
-                                text = stringResource(R.string.perm_granted),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
                     }
                 }
             }
@@ -664,16 +609,15 @@ fun SmartPermissionsPage(onFinished: () -> Unit) {
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.elevatedCardColors(
-                        containerColor = if (isBatteryIgnored) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
-                        else MaterialTheme.colorScheme.surfaceContainer
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer
                     )
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = if (isBatteryIgnored) Icons.Outlined.CheckCircle else Icons.Outlined.BatteryChargingFull,
+                                imageVector = Icons.Outlined.BatteryChargingFull,
                                 contentDescription = null,
-                                tint = if (isBatteryIgnored) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
@@ -687,38 +631,6 @@ fun SmartPermissionsPage(onFinished: () -> Unit) {
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        if (!isBatteryIgnored) {
-                            OutlinedButton(
-                                onClick = {
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                        try {
-                                            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                                                data = Uri.parse("package:${context.packageName}")
-                                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                            }
-                                            context.startActivity(intent)
-                                        } catch (e: Exception) {
-                                            val fallbackIntent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
-                                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                            }
-                                            context.startActivity(fallbackIntent)
-                                        }
-                                    }
-                                },
-                                shape = CircleShape,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(stringResource(R.string.perm_request_battery_button))
-                            }
-                        } else {
-                            Text(
-                                text = stringResource(R.string.perm_battery_enabled),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.secondary,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
                     }
                 }
             }
