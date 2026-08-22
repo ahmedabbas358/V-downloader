@@ -219,7 +219,7 @@ fun SuggestedFormatItem(
     val duration = videoInfo.duration ?: 0.0
 
     val containsVideo = requestedFormats.any { it.containsVideo() }
-    val containsAudio = requestedFormats.any { it.containsVideo() }
+    val containsAudio = requestedFormats.any { it.containsAudio() }
 
     val title = requestedFormats.joinToString(separator = " + ") { it.format ?: it.formatNote ?: it.resolution ?: it.formatId ?: "Unknown" }
 
