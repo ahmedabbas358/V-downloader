@@ -61,7 +61,7 @@ object SubtitleDownloader {
             )
             val cleanBaseTitle = FileUtil.cleanFileName(title).ifBlank { "Video_$videoId" }
             val existingValidFiles =
-                tracks.mapNotNull { track ->
+                tracks.map { track ->
                     val expectedName =
                         buildSafeSubtitleFileName(
                             baseTitle = cleanBaseTitle,
