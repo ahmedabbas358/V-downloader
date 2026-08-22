@@ -49,7 +49,7 @@ jobs:
           fi
 
       - name: Build Release APKs
-        run: ./gradlew --no-daemon clean assembleGenericRelease --stacktrace
+        run: ./gradlew --no-daemon assembleGenericRelease --stacktrace --info
 
       - name: List generated APKs
         run: |
