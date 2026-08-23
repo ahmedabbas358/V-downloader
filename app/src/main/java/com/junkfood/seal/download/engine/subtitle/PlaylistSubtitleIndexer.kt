@@ -14,8 +14,7 @@ object PlaylistSubtitleIndexer {
      * Builds the dedicated directory name for playlist subtitles: "[Subtitles] PlaylistTitle"
      */
     fun getSubtitleDirectoryName(playlistTitle: String): String {
-        val cleanName = FileUtil.cleanFileName(playlistTitle).ifBlank { "Playlist" }
-        return "[Subtitles] $cleanName"
+        return FileUtil.cleanFileName(playlistTitle).ifBlank { "Playlist" }
     }
 
     /**

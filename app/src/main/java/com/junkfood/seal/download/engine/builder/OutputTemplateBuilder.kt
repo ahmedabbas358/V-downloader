@@ -95,7 +95,7 @@ object OutputTemplateBuilder {
 
         return when {
             isSubtitleOnly && playlistName.isNotEmpty() -> {
-                "[Subtitles] ${FileUtil.cleanFileName(playlistName)}/"
+                "${FileUtil.cleanFileName(playlistName)}/"
             }
             preferences.subdirectoryPlaylistTitle -> {
                 if (fallbackPlaylistTitle.isNotEmpty()) {

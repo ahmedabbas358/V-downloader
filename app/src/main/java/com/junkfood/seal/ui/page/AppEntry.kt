@@ -81,6 +81,9 @@ import com.junkfood.seal.util.PreferenceUtil
 import com.junkfood.seal.util.PreferenceUtil.getInt
 import com.junkfood.seal.util.PreferenceUtil.updateInt
 import com.junkfood.seal.util.WELCOME_DIALOG
+import com.junkfood.seal.util.DownloadUtil
+import com.junkfood.seal.util.PreferenceUtil.getString
+import com.junkfood.seal.util.YT_DLP_VERSION
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import com.junkfood.seal.ui.page.downloadv2.configure.Config
@@ -88,14 +91,11 @@ import com.junkfood.seal.ui.page.downloadv2.configure.DownloadDialog
 import com.junkfood.seal.ui.page.downloadv2.configure.FormatPage
 import com.junkfood.seal.ui.page.downloadv2.configure.PlaylistSelectionPage
 import com.junkfood.seal.ui.page.downloadv2.configure.DownloadDialogViewModel.Action
-import com.junkfood.seal.util.DownloadUtil
-import com.junkfood.seal.util.PreferenceUtil.getString
-import com.junkfood.seal.util.YT_DLP_VERSION
 
 private const val TAG = "HomeEntry"
 
 private val TopDestinations =
-    listOf(Route.HOME, Route.SOCIAL_HUB, Route.TASK_LIST, Route.SETTINGS_PAGE, Route.DOWNLOADS)
+    listOf(Route.HOME, Route.SOCIAL_HUB, Route.TASK_LIST, Route.SETTINGS_PAGE, Route.SETTINGS, Route.DOWNLOADS)
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
@@ -124,7 +124,6 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
 
     val ytdlpVersion = YT_DLP_VERSION.getString()
     var showYtDlpWarning by rememberSaveable { mutableStateOf(ytdlpVersion.isEmpty()) }
-
     if (showYtDlpWarning) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { showYtDlpWarning = false },

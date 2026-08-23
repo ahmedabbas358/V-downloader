@@ -575,4 +575,16 @@
     <string name="cat_education">Education</string>
     <string name="cat_news">News</string>
     <string name="cat_media">Media</string>
+    <string name="deselect_all">Deselect all</string>
+    <string name="conflict_dialog_title">File or Folder Already Exists</string>
+    <string name="conflict_dialog_desc">The file or directory already exists on disk. How would you like to proceed?</string>
+    <string name="action_replace">Replace / Overwrite</string>
+    <string name="action_duplicate">Keep Both (Duplicate)</string>
+    <string name="action_skip">Skip Existing</string>
+    <string name="action_delete_and_redownload">Delete &amp; Re-download</string>
+    <string name="request_all_permissions">Grant All Permissions</string>
+    <string name="permission_granted">Granted</string>
+    <string name="permission_required">Grant</string>
+    <string name="manual_subtitles">Manual Subtitles</string>
+    <string name="video_clip">Video clip</string>
 </resources>

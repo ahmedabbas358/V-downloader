@@ -42,6 +42,11 @@ private val fadeTween = tween<Float>(durationMillis = DURATION_EXIT)
 
 private val fadeSpec = fadeTween
 
+private val navEnterSpec = tween<IntOffset>(durationMillis = 320, easing = EmphasizeEasing)
+private val navExitSpec = tween<IntOffset>(durationMillis = 280, easing = EmphasizedAccelerate)
+private val navFadeEnterSpec = tween<Float>(durationMillis = 260)
+private val navFadeExitSpec = tween<Float>(durationMillis = 200)
+
 fun NavGraphBuilder.animatedComposable(
     route: String,
     arguments: List<NamedNavArgument> = emptyList(),
@@ -69,26 +74,26 @@ fun NavGraphBuilder.animatedComposablePredictiveBack(
         enterTransition = { 
             slideInHorizontally(
                 initialOffsetX = { it },
-                animationSpec = spring(stiffness = 300f, dampingRatio = 0.8f)
-            ) 
+                animationSpec = navEnterSpec
+            ) + fadeIn(navFadeEnterSpec)
         },
         exitTransition = {
             slideOutHorizontally(
-                targetOffsetX = { -(it * 0.3f).toInt() },
-                animationSpec = spring(stiffness = 300f, dampingRatio = 0.8f)
-            )
+                targetOffsetX = { -(it * 0.25f).toInt() },
+                animationSpec = navExitSpec
+            ) + fadeOut(navFadeExitSpec)
         },
         popEnterTransition = {
             slideInHorizontally(
-                initialOffsetX = { -(it * 0.3f).toInt() },
-                animationSpec = spring(stiffness = 300f, dampingRatio = 0.8f)
-            )
+                initialOffsetX = { -(it * 0.25f).toInt() },
+                animationSpec = navEnterSpec
+            ) + fadeIn(navFadeEnterSpec)
         },
         popExitTransition = {
             slideOutHorizontally(
                 targetOffsetX = { it },
-                animationSpec = spring(stiffness = 300f, dampingRatio = 0.8f)
-            )
+                animationSpec = navExitSpec
+            ) + fadeOut(navFadeExitSpec)
         },
         content = content,
     )
@@ -106,26 +111,26 @@ fun NavGraphBuilder.animatedComposableLegacy(
         enterTransition = { 
             slideInHorizontally(
                 initialOffsetX = { it },
-                animationSpec = spring(stiffness = 300f, dampingRatio = 0.8f)
-            ) 
+                animationSpec = navEnterSpec
+            ) + fadeIn(navFadeEnterSpec)
         },
         exitTransition = {
             slideOutHorizontally(
-                targetOffsetX = { -(it * 0.3f).toInt() },
-                animationSpec = spring(stiffness = 300f, dampingRatio = 0.8f)
-            )
+                targetOffsetX = { -(it * 0.25f).toInt() },
+                animationSpec = navExitSpec
+            ) + fadeOut(navFadeExitSpec)
         },
         popEnterTransition = {
             slideInHorizontally(
-                initialOffsetX = { -(it * 0.3f).toInt() },
-                animationSpec = spring(stiffness = 300f, dampingRatio = 0.8f)
-            )
+                initialOffsetX = { -(it * 0.25f).toInt() },
+                animationSpec = navEnterSpec
+            ) + fadeIn(navFadeEnterSpec)
         },
         popExitTransition = {
             slideOutHorizontally(
                 targetOffsetX = { it },
-                animationSpec = spring(stiffness = 300f, dampingRatio = 0.8f)
-            )
+                animationSpec = navExitSpec
+            ) + fadeOut(navFadeExitSpec)
         },
         content = content,
     )
@@ -143,26 +148,26 @@ fun NavGraphBuilder.animatedComposableVariant(
         enterTransition = { 
             slideInHorizontally(
                 initialOffsetX = { it },
-                animationSpec = spring(stiffness = 300f, dampingRatio = 0.8f)
-            ) 
+                animationSpec = navEnterSpec
+            ) + fadeIn(navFadeEnterSpec)
         },
         exitTransition = {
             slideOutHorizontally(
-                targetOffsetX = { -(it * 0.3f).toInt() },
-                animationSpec = spring(stiffness = 300f, dampingRatio = 0.8f)
-            )
+                targetOffsetX = { -(it * 0.25f).toInt() },
+                animationSpec = navExitSpec
+            ) + fadeOut(navFadeExitSpec)
         },
         popEnterTransition = {
             slideInHorizontally(
-                initialOffsetX = { -(it * 0.3f).toInt() },
-                animationSpec = spring(stiffness = 300f, dampingRatio = 0.8f)
-            )
+                initialOffsetX = { -(it * 0.25f).toInt() },
+                animationSpec = navEnterSpec
+            ) + fadeIn(navFadeEnterSpec)
         },
         popExitTransition = {
             slideOutHorizontally(
                 targetOffsetX = { it },
-                animationSpec = spring(stiffness = 300f, dampingRatio = 0.8f)
-            )
+                animationSpec = navExitSpec
+            ) + fadeOut(navFadeExitSpec)
         },
         content = content,
     )

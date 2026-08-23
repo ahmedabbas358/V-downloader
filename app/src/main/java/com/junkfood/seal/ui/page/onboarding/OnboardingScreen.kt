@@ -52,12 +52,15 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import com.junkfood.seal.util.PermissionManager
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -529,6 +532,28 @@ private fun FeatureCard(icon: ImageVector, title: String, desc: String) {
 fun SmartPermissionsPage(onFinished: () -> Unit) {
     val context = LocalContext.current
 
+    var notificationGranted by remember {
+        mutableStateOf(PermissionManager.checkNotificationCapability(context) == PermissionManager.CapabilityStatus.GRANTED)
+    }
+    var storageGranted by remember {
+        mutableStateOf(PermissionManager.checkStorageCapability(context) == PermissionManager.CapabilityStatus.GRANTED)
+    }
+    var batteryGranted by remember {
+        mutableStateOf(PermissionManager.checkBatteryOptimizationCapability(context) == PermissionManager.CapabilityStatus.GRANTED)
+    }
+
+    val notificationLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        notificationGranted = isGranted || (PermissionManager.checkNotificationCapability(context) == PermissionManager.CapabilityStatus.GRANTED)
+    }
+
+    val storageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        storageGranted = PermissionManager.checkStorageCapability(context) == PermissionManager.CapabilityStatus.GRANTED
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -563,13 +588,13 @@ fun SmartPermissionsPage(onFinished: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Notification Permission Card
             item {
@@ -581,21 +606,114 @@ fun SmartPermissionsPage(onFinished: () -> Unit) {
                     )
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Outlined.NotificationsActive,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = stringResource(R.string.perm_notifications_title),
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                            )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.NotificationsActive,
+                                    contentDescription = null,
+                                    tint = if (notificationGranted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = stringResource(R.string.perm_notifications_title),
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                            }
+                            if (notificationGranted) {
+                                FilterChip(
+                                    selected = true,
+                                    onClick = {},
+                                    label = { Text(stringResource(R.string.permission_granted)) },
+                                    leadingIcon = { Icon(Icons.Rounded.Check, null, modifier = Modifier.size(16.dp)) }
+                                )
+                            } else {
+                                Button(
+                                    onClick = {
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                        } else {
+                                            PermissionManager.openAppSettings(context)
+                                        }
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Text(stringResource(R.string.permission_required))
+                                }
+                            }
                         }
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
                             text = stringResource(R.string.perm_notifications_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            // Storage Permission Card
+            item {
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.FolderSpecial,
+                                    contentDescription = null,
+                                    tint = if (storageGranted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = stringResource(R.string.setting_guide_storage_title),
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                            }
+                            if (storageGranted) {
+                                FilterChip(
+                                    selected = true,
+                                    onClick = {},
+                                    label = { Text(stringResource(R.string.permission_granted)) },
+                                    leadingIcon = { Icon(Icons.Rounded.Check, null, modifier = Modifier.size(16.dp)) }
+                                )
+                            } else {
+                                Button(
+                                    onClick = {
+                                        val perms = PermissionManager.getRequiredStoragePermissions()
+                                        if (perms.isNotEmpty()) {
+                                            storageLauncher.launch(perms)
+                                        } else {
+                                            storageGranted = true
+                                        }
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Text(stringResource(R.string.permission_required))
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = stringResource(R.string.setting_guide_storage_desc),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -613,17 +731,50 @@ fun SmartPermissionsPage(onFinished: () -> Unit) {
                     )
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Outlined.BatteryChargingFull,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = stringResource(R.string.perm_battery_title),
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                            )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.BatteryChargingFull,
+                                    contentDescription = null,
+                                    tint = if (batteryGranted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = stringResource(R.string.perm_battery_title),
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                            }
+                            if (batteryGranted) {
+                                FilterChip(
+                                    selected = true,
+                                    onClick = {},
+                                    label = { Text(stringResource(R.string.permission_granted)) },
+                                    leadingIcon = { Icon(Icons.Rounded.Check, null, modifier = Modifier.size(16.dp)) }
+                                )
+                            } else {
+                                FilledTonalButton(
+                                    onClick = {
+                                        val intent = PermissionManager.createBatteryOptimizationIntent(context)
+                                        if (intent != null) {
+                                            try {
+                                                context.startActivity(intent)
+                                            } catch (e: Exception) {
+                                                PermissionManager.openAppSettings(context)
+                                            }
+                                        }
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Text(stringResource(R.string.permission_required))
+                                }
+                            }
                         }
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
@@ -655,6 +806,6 @@ fun SmartPermissionsPage(onFinished: () -> Unit) {
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
             )
         }
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }

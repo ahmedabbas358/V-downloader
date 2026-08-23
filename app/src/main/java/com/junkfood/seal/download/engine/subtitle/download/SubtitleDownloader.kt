@@ -70,7 +70,7 @@ object SubtitleDownloader {
                             videoId = videoId,
                             source = track.source,
                             playlistIndex = playlistIndex,
-                            includePlaylistNumbering = preferences.playlistNumbering || playlistIndex > 0,
+                            includePlaylistNumbering = preferences.playlistNumbering,
                         )
                     val existingFile = File(destinationDir, expectedName)
                     if (existingFile.exists() &&
@@ -220,7 +220,7 @@ object SubtitleDownloader {
                             videoId = videoId,
                             source = findSourceForGeneratedFile(convertedFile, tracks),
                             playlistIndex = playlistIndex,
-                            includePlaylistNumbering = preferences.playlistNumbering || playlistIndex > 0,
+                            includePlaylistNumbering = preferences.playlistNumbering,
                         )
                     val finalFile = File(destinationDir, finalFileName)
                     val finalPartFile = File(destinationDir, "$finalFileName.part")
@@ -349,70 +349,70 @@ object SubtitleDownloader {
                     tempFile
                 }
 
-                val finalFileName = buildSafeSubtitleFileName(
-                    baseTitle = cleanBaseTitle,
-                    tempGeneratedName = convertedFile.name,
-                    targetFormat = targetFormat,
-                    videoId = videoId,
-                    source = SubtitleSource.AUTO_GENERATED,
-                    playlistIndex = playlistIndex,
-                    includePlaylistNumbering = preferences.playlistNumbering || playlistIndex > 0,
-                )
-                val finalFile = File(destinationDir, finalFileName)
-                convertedFile.copyTo(finalFile, overwrite = true)
-                convertedFile.delete()
-                downloadedFiles.add(finalFile)
+                    val finalFileName = buildSafeSubtitleFileName(
+                        baseTitle = cleanBaseTitle,
+                        tempGeneratedName = convertedFile.name,
+                        targetFormat = targetFormat,
+                        videoId = videoId,
+                        source = SubtitleSource.AUTO_GENERATED,
+                        playlistIndex = playlistIndex,
+                        includePlaylistNumbering = preferences.playlistNumbering,
+                    )
+                    val finalFile = File(destinationDir, finalFileName)
+                    convertedFile.copyTo(finalFile, overwrite = true)
+                    convertedFile.delete()
+                    downloadedFiles.add(finalFile)
+                }
+
+                tempWorkDir.deleteRecursively()
+                onProgress(SubtitleProgress.Completed(downloadedFiles.size))
+                downloadedFiles
             }
-
-            tempWorkDir.deleteRecursively()
-            onProgress(SubtitleProgress.Completed(downloadedFiles.size))
-            downloadedFiles
-        }
-    }
-
-    /**
-     * Generates a safe, non-traversing, sanitized filename for the subtitle file.
-     */
-    fun buildSafeSubtitleFileName(
-        baseTitle: String,
-        tempGeneratedName: String,
-        targetFormat: SubtitleOutputFormat,
-        videoId: String = "",
-        source: SubtitleSource = SubtitleSource.UNKNOWN,
-        playlistIndex: Int = 0,
-        includePlaylistNumbering: Boolean = false,
-    ): String {
-        // Extract language suffix from generated temp file name (e.g., "title.ar.srt" -> ".ar")
-        val langSuffix = Regex("""\.([a-zA-Z]{2,3}(?:-[a-zA-Z0-9_-]+)?)\.[a-zA-Z0-9]+$""")
-            .find(tempGeneratedName)?.groupValues?.get(1)?.let { ".$it" } ?: ""
-        val sourceSuffix =
-            when (source) {
-                SubtitleSource.AUTO_GENERATED -> ".auto"
-                SubtitleSource.TRANSLATED -> ".translated"
-                else -> ""
-            }
-
-        val cleanTitle = FileUtil.cleanFileName(baseTitle)
-            .replace(Regex("""[/\\:*?"<>|]"""), "_")
-            .replace("..", "_")
-            .trim()
-            .ifBlank { "subtitle" }
-
-        val shouldNumber = includePlaylistNumbering || playlistIndex > 0 || com.junkfood.seal.util.PLAYLIST_NUMBERING.getBoolean()
-        val indexPrefix = if (shouldNumber && playlistIndex > 0 && !Regex("""^\d{2,4}\s*-\s*""").containsMatchIn(cleanTitle)) {
-            "%03d - ".format(Locale.US, playlistIndex)
-        } else {
-            ""
         }
 
-        val identitySuffix =
-            videoId
-                .takeIf { it.isNotBlank() && !cleanTitle.contains(it, ignoreCase = true) }
-                ?.let { " [$it]" }
-                ?: ""
+        /**
+         * Generates a safe, non-traversing, sanitized filename for the subtitle file.
+         */
+        fun buildSafeSubtitleFileName(
+            baseTitle: String,
+            tempGeneratedName: String,
+            targetFormat: SubtitleOutputFormat,
+            videoId: String = "",
+            source: SubtitleSource = SubtitleSource.UNKNOWN,
+            playlistIndex: Int = 0,
+            includePlaylistNumbering: Boolean = false,
+        ): String {
+            // Extract language suffix from generated temp file name (e.g., "title.ar.srt" -> ".ar")
+            val langSuffix = Regex("""\.([a-zA-Z]{2,3}(?:-[a-zA-Z0-9_-]+)?)\.[a-zA-Z0-9]+$""")
+                .find(tempGeneratedName)?.groupValues?.get(1)?.let { ".$it" } ?: ""
+            val sourceSuffix =
+                when (source) {
+                    SubtitleSource.AUTO_GENERATED -> ".auto"
+                    SubtitleSource.TRANSLATED -> ".translated"
+                    else -> ""
+                }
 
-        return "$indexPrefix$cleanTitle$identitySuffix$sourceSuffix$langSuffix.${targetFormat.extension}"
-    }
+            val cleanTitle = FileUtil.cleanFileName(baseTitle)
+                .replace(Regex("""[/\\:*?"<>|]"""), "_")
+                .replace("..", "_")
+                .trim()
+                .ifBlank { "subtitle" }
+
+            val shouldNumber = includePlaylistNumbering && playlistIndex > 0
+            val indexPrefix = if (shouldNumber && !Regex("""^\d{2,4}\s*-\s*""").containsMatchIn(cleanTitle)) {
+                "%03d - ".format(Locale.US, playlistIndex)
+            } else {
+                ""
+            }
+
+            val identitySuffix =
+                videoId
+                    .takeIf { it.isNotBlank() && !cleanTitle.contains(it, ignoreCase = true) }
+                    ?.let { " [$it]" }
+                    ?: ""
+
+            return "$indexPrefix$cleanTitle$identitySuffix$sourceSuffix$langSuffix.${targetFormat.extension}"
+        }
 
     private fun findSourceForGeneratedFile(
         file: File,

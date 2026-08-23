@@ -323,7 +323,7 @@ fun NavigationDrawerSheetContent(
                         .launch { onDismissRequest() }
                         .invokeOnCompletion { onNavigateToRoute(Route.SETTINGS) }
                 },
-                selected = currentRoute == Route.SETTINGS_PAGE,
+                selected = currentRoute == Route.SETTINGS_PAGE || currentRoute == Route.SETTINGS,
                 colors = androidx.compose.material3.NavigationDrawerItemDefaults.colors(
                     unselectedTextColor = MaterialTheme.colorScheme.onSurface,
                     unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -361,7 +361,6 @@ fun NavigationDrawerSheetContent(
                         scope
                             .launch { onDismissRequest() }
                             .invokeOnCompletion {
-                                onNavigateToRoute(Route.SETTINGS)
                                 onNavigateToRoute(Route.GENERAL_DOWNLOAD_PREFERENCES)
                             }
                     },
@@ -377,7 +376,6 @@ fun NavigationDrawerSheetContent(
                         scope
                             .launch { onDismissRequest() }
                             .invokeOnCompletion {
-                                onNavigateToRoute(Route.SETTINGS)
                                 onNavigateToRoute(Route.DOWNLOAD_DIRECTORY)
                             }
                     },
@@ -393,7 +391,6 @@ fun NavigationDrawerSheetContent(
                         scope
                             .launch { onDismissRequest() }
                             .invokeOnCompletion {
-                                onNavigateToRoute(Route.SETTINGS)
                                 onNavigateToRoute(Route.COOKIE_PROFILE)
                             }
                     },
@@ -409,7 +406,6 @@ fun NavigationDrawerSheetContent(
                         scope
                             .launch { onDismissRequest() }
                             .invokeOnCompletion {
-                                onNavigateToRoute(Route.SETTINGS)
                                 onNavigateToRoute(Route.TROUBLESHOOTING)
                             }
                     },
@@ -425,7 +421,6 @@ fun NavigationDrawerSheetContent(
                         scope
                             .launch { onDismissRequest() }
                             .invokeOnCompletion {
-                                onNavigateToRoute(Route.SETTINGS)
                                 onNavigateToRoute(Route.ABOUT)
                             }
                     },

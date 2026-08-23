@@ -83,6 +83,38 @@ object PermissionManager {
     }
 
     /**
+     * Centralized check for storage / media permissions.
+     */
+    fun checkStorageCapability(context: Context): CapabilityStatus {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val hasVideo = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_VIDEO) == PackageManager.PERMISSION_GRANTED
+            val hasAudio = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED
+            if (hasVideo && hasAudio) CapabilityStatus.GRANTED else CapabilityStatus.DENIED
+        } else if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+                CapabilityStatus.GRANTED
+            } else {
+                CapabilityStatus.DENIED
+            }
+        } else {
+            CapabilityStatus.GRANTED
+        }
+    }
+
+    /**
+     * Gets the list of storage permissions needed based on Android SDK level.
+     */
+    fun getRequiredStoragePermissions(): Array<String> {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            arrayOf(Manifest.permission.READ_MEDIA_VIDEO, Manifest.permission.READ_MEDIA_AUDIO)
+        } else if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
+            arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE)
+        } else {
+            emptyArray()
+        }
+    }
+
+    /**
      * Strict check to verify if a persisted Storage Access Framework (SAF) URI is still valid.
      * This guarantees idempotent access and throws NO exceptions if it fails, just returns false safely.
      */

@@ -568,4 +568,16 @@
     <string name="cat_education">تعليم ومعرفة</string>
     <string name="cat_news">أخبار ومقالات</string>
     <string name="cat_media">وسائط أخرى</string>
+    <string name="deselect_all">إلغاء تحديد الكل</string>
+    <string name="conflict_dialog_title">الملف أو المجلد موجود بالفعل</string>
+    <string name="conflict_dialog_desc">الملف أو المجلد المستهدف متوفر مسبقاً في مسار التخزين. كيف ترغب في المتابعة؟</string>
+    <string name="action_replace">استبدال / إعادة التنزيل</string>
+    <string name="action_duplicate">الاحتفاظ بالإثنين (تكرار)</string>
+    <string name="action_skip">تخطي الموجود</string>
+    <string name="action_delete_and_redownload">حذف وإعادة التنزيل</string>
+    <string name="request_all_permissions">منح كافة الأذونات</string>
+    <string name="permission_granted">ممنوح</string>
+    <string name="permission_required">منح الإذن</string>
+    <string name="manual_subtitles">الترجمات اليدوية</string>
+    <string name="video_clip">مقطع الفيديو</string>
 </resources>

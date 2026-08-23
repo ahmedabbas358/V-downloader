@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -31,6 +32,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.ContentCut
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FileDownload
@@ -437,13 +439,11 @@ private fun FormatPageImpl(
     
     var subtitleFormat by remember { mutableIntStateOf(com.junkfood.seal.util.CONVERT_SUBTITLE.getInt()) }
 
+    val manualSubtitleMap: Map<String, List<SubtitleFormat>> = videoInfo.subtitles
+    val autoCaptionMap: Map<String, List<SubtitleFormat>> = videoInfo.automaticCaptions
     val suggestedSubtitleMap: Map<String, List<SubtitleFormat>> =
-        videoInfo.subtitles.takeIf { it.isNotEmpty() }
-            ?: videoInfo.automaticCaptions.takeIf { it.isNotEmpty() }
-            ?: emptyMap()
-
-    val otherSubtitleMap: Map<String, List<SubtitleFormat>> =
-        (videoInfo.subtitles + videoInfo.automaticCaptions).filterKeys { !suggestedSubtitleMap.containsKey(it) }
+        if (manualSubtitleMap.isNotEmpty()) manualSubtitleMap else autoCaptionMap
+    val totalSubtitlesCount = manualSubtitleMap.size + autoCaptionMap.size
 
     LaunchedEffect(isClippingVideo) {
         delay(200)
@@ -539,18 +539,22 @@ private fun FormatPageImpl(
         LazyVerticalGrid(
             modifier = Modifier.padding(paddingValues),
             state = lazyGridState,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
             columns = GridCells.Adaptive(150.dp),
-            contentPadding = PaddingValues(8.dp),
+            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 96.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            videoInfo.run {
-                item(span = { GridItemSpan(maxLineSpan) }) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     FormatVideoPreview(
                         modifier = Modifier.padding(horizontal = 8.dp),
-                        title = videoTitle.ifEmpty { title },
-                        author = uploader ?: channel ?: uploaderId ?: extractor ?: stringResource(id = R.string.unknown),
-                        thumbnailUrl = thumbnail.toHttpsUrl(),
+                        title = videoTitle.ifEmpty { videoInfo.title ?: "" },
+                        author = videoInfo.uploader ?: videoInfo.channel ?: videoInfo.uploaderId ?: videoInfo.extractor ?: stringResource(id = R.string.unknown),
+                        thumbnailUrl = videoInfo.thumbnail.toHttpsUrl(),
                         durationMs = videoInfo.duration?.times(1000)?.toLong(),
                         isClippingVideo = isClippingVideo,
                         isSplittingVideo = isSplittingVideo,
@@ -559,7 +563,7 @@ private fun FormatPageImpl(
                         onClippingToggled = { isClippingVideo = !isClippingVideo },
                         onSplittingToggled = { isSplittingVideo = !isSplittingVideo },
                         onRename = { showRenameDialog = true },
-                        onOpenThumbnail = { uriHandler.openUri(thumbnail.toHttpsUrl()) },
+                        onOpenThumbnail = { uriHandler.openUri(videoInfo.thumbnail.toHttpsUrl()) },
                     )
                 }
             }
@@ -623,7 +627,7 @@ private fun FormatPageImpl(
                 }
             }
 
-            if (suggestedSubtitleMap.isNotEmpty() || isSubtitleOnly) {
+            if (totalSubtitlesCount > 0 || isSubtitleOnly) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Row(
@@ -637,19 +641,12 @@ private fun FormatPageImpl(
                                 modifier = Modifier.weight(1f),
                             )
 
-                            // FIX: the previous code referenced
-                            // androidx.appcompat.R.string.abc_activity_chooser_view_see_all,
-                            // an internal AppCompat resource that is not part of its public
-                            // R class. Referencing it causes an unresolved-reference compile
-                            // error. R.string.show_all_items is already defined and used
-                            // elsewhere in this file, so we reuse it here with the total
-                            // subtitle/caption count instead.
                             ClickableTextAction(
                                 visible = true,
                                 text =
                                     stringResource(
                                         id = R.string.show_all_items,
-                                        suggestedSubtitleMap.size + otherSubtitleMap.size,
+                                        totalSubtitlesCount,
                                     ),
                             ) {
                                 showSubtitleSelectionDialog = true
@@ -687,17 +684,21 @@ private fun FormatPageImpl(
                                 }
                             }
                             for ((code, formats) in suggestedSubtitleMap) {
-                                item {
+                                item(key = code) {
+                                    val isManual = manualSubtitleMap.containsKey(code)
+                                    val isChecked = if (isManual) selectedSubtitles.contains(code) else selectedAutoCaptions.contains(code)
                                     VideoFilterChip(
-                                        selected = selectedSubtitles.contains(code),
+                                        selected = isChecked,
                                         onClick = {
-                                            if (selectedSubtitles.contains(code)) {
-                                                selectedSubtitles.remove(code)
+                                            if (isManual) {
+                                                if (selectedSubtitles.contains(code)) selectedSubtitles.remove(code)
+                                                else selectedSubtitles.add(code)
                                             } else {
-                                                selectedSubtitles.add(code)
+                                                if (selectedAutoCaptions.contains(code)) selectedAutoCaptions.remove(code)
+                                                else selectedAutoCaptions.add(code)
                                             }
                                         },
-                                        label = formats.first().run { name ?: protocol ?: code },
+                                        label = formats.firstOrNull()?.run { name ?: protocol ?: code } ?: code,
                                     )
                                 }
                             }
@@ -768,7 +769,7 @@ private fun FormatPageImpl(
                 }
             }
 
-            if (audioOnlyFormats.isNotEmpty() && !isSubtitleOnly)
+            if (audioOnlyFormats.isNotEmpty() && !isSubtitleOnly) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -790,28 +791,29 @@ private fun FormatPageImpl(
                     }
                 }
 
-            itemsIndexed(
-                audioOnlyFormats.subList(
-                    fromIndex = 0,
-                    toIndex = min(audioOnlyItemLimit, audioOnlyFormats.size),
-                )
-            ) { index, formatInfo ->
-                FormatItem(
-                    formatInfo = formatInfo,
-                    duration = duration,
-                    selected = selectedAudioOnlyFormats.contains(index),
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    outlineColor = MaterialTheme.colorScheme.secondary,
-                    onLongClick = { formatInfo.url.share() },
-                ) {
-                    if (selectedAudioOnlyFormats.contains(index)) {
-                        selectedAudioOnlyFormats.remove(index)
-                    } else {
-                        if (!mergeAudioStream) {
-                            selectedAudioOnlyFormats.clear()
+                itemsIndexed(
+                    audioOnlyFormats.subList(
+                        fromIndex = 0,
+                        toIndex = min(audioOnlyItemLimit, audioOnlyFormats.size),
+                    )
+                ) { index, formatInfo ->
+                    FormatItem(
+                        formatInfo = formatInfo,
+                        duration = duration,
+                        selected = selectedAudioOnlyFormats.contains(index),
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        outlineColor = MaterialTheme.colorScheme.secondary,
+                        onLongClick = { formatInfo.url.share() },
+                    ) {
+                        if (selectedAudioOnlyFormats.contains(index)) {
+                            selectedAudioOnlyFormats.remove(index)
+                        } else {
+                            if (!mergeAudioStream) {
+                                selectedAudioOnlyFormats.clear()
+                            }
+                            isSuggestedFormatSelected = false
+                            selectedAudioOnlyFormats.add(index)
                         }
-                        isSuggestedFormatSelected = false
-                        selectedAudioOnlyFormats.add(index)
                     }
                 }
             }
@@ -875,15 +877,15 @@ private fun FormatPageImpl(
 
     if (showRenameDialog)
         RenameDialog(
-            initialValue = videoTitle.ifEmpty { videoInfo.title },
+            initialValue = videoTitle.ifEmpty { videoInfo.title ?: "" },
             onDismissRequest = { showRenameDialog = false },
         ) {
             videoTitle = it
         }
     if (showSubtitleSelectionDialog)
         SubtitleSelectionDialog(
-            suggestedSubtitles = suggestedSubtitleMap,
-            autoCaptions = otherSubtitleMap,
+            suggestedSubtitles = manualSubtitleMap,
+            autoCaptions = autoCaptionMap,
             selectedSubtitles = selectedSubtitles,
             selectedAutoCaptions = selectedAutoCaptions,
             onDismissRequest = { showSubtitleSelectionDialog = false },
@@ -928,6 +930,49 @@ private fun RenameDialog(
                     onValueChange = { filename = it },
                     label = { Text(text = stringResource(id = R.string.title)) },
                     trailingIcon = { if (filename == initialValue) ClearButton { filename = "" } },
+                )
+            }
+        },
+    )
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun VideoClipDialog(
+    modifier: Modifier = Modifier,
+    initialValue: ClosedFloatingPointRange<Float>,
+    valueRange: ClosedFloatingPointRange<Float>,
+    onDismissRequest: () -> Unit,
+    onConfirm: (ClosedFloatingPointRange<Float>) -> Unit,
+) {
+    var range by remember { mutableStateOf(initialValue) }
+    SealDialog(
+        modifier = modifier,
+        onDismissRequest = onDismissRequest,
+        confirmButton = {
+            ConfirmButton {
+                onConfirm(range)
+                onDismissRequest()
+            }
+        },
+        dismissButton = { DismissButton { onDismissRequest() } },
+        title = { Text(text = stringResource(id = R.string.video_clip)) },
+        icon = { Icon(imageVector = Icons.Outlined.ContentCut, contentDescription = null) },
+        text = {
+            Column {
+                VideoSelectionSlider(
+                    modifier = Modifier.fillMaxWidth(),
+                    state =
+                        remember {
+                            RangeSliderState(
+                                activeRangeStart = range.start,
+                                activeRangeEnd = range.endInclusive,
+                                valueRange = valueRange,
+                                onValueChangeFinished = {},
+                            )
+                        },
+                    onDiscard = {},
+                    onDurationClick = {},
                 )
             }
         },
@@ -1026,7 +1071,7 @@ private fun SubtitleSelectionDialog(
     val suggestedSubtitlesFiltered =
         suggestedSubtitles.filterWithSearchText(searchText).sortedWithSelection(selectedSubtitlesState)
     val autoCaptionsFiltered =
-        autoCaptions.filterWithSearchText(searchText).sortedWithSelection(selectedSubtitlesState)
+        autoCaptions.filterWithSearchText(searchText).sortedWithSelection(selectedAutoCaptionsState)
 
     SealDialog(
         containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
@@ -1036,42 +1081,73 @@ private fun SubtitleSelectionDialog(
         title = { Text(text = stringResource(id = R.string.subtitle_language)) },
         icon = { Icon(imageVector = Icons.Outlined.Subtitles, contentDescription = null) },
         text = {
-            Column {
-                if (autoCaptions.size + suggestedSubtitles.size > 5) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                if (autoCaptions.size + suggestedSubtitles.size > 4) {
                     SealSearchBar(
                         text = searchText,
                         placeholderText = stringResource(R.string.search_in_subtitles),
-                        modifier = Modifier.padding(horizontal = 16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
                     ) {
                         searchText = it
                     }
                 }
 
-                LazyColumn(contentPadding = PaddingValues(vertical = 12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(
+                        onClick = {
+                            selectedSubtitlesState.clear()
+                            selectedSubtitlesState.addAll(suggestedSubtitles.keys)
+                            selectedAutoCaptionsState.clear()
+                            selectedAutoCaptionsState.addAll(autoCaptions.keys)
+                        }
+                    ) {
+                        Text(stringResource(R.string.select_all))
+                    }
+                    TextButton(
+                        onClick = {
+                            selectedSubtitlesState.clear()
+                            selectedAutoCaptionsState.clear()
+                        }
+                    ) {
+                        Text(stringResource(R.string.deselect_all))
+                    }
+                }
+
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f, fill = false)
+                        .heightIn(max = 380.dp),
+                    contentPadding = PaddingValues(vertical = 4.dp)
+                ) {
                     if (suggestedSubtitlesFiltered.isNotEmpty()) {
                         item {
                             Text(
-                                text = stringResource(id = R.string.suggested),
+                                text = stringResource(id = R.string.manual_subtitles),
                                 style = MaterialTheme.typography.titleSmall,
                                 color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
                             )
                         }
-                    }
-                    for ((code, formats) in suggestedSubtitlesFiltered) {
-                        item(key = code) {
-                            DialogCheckBoxItem(
-                                modifier = Modifier.animateItem(),
-                                checked = selectedSubtitlesState.contains(code),
-                                onValueChange = {
-                                    if (selectedSubtitlesState.contains(code)) {
-                                        selectedSubtitlesState.remove(code)
-                                    } else {
-                                        selectedSubtitlesState.add(code)
-                                    }
-                                },
-                                text = getLocalizedSubtitleName(code, formats.firstOrNull()?.name ?: formats.firstOrNull()?.protocol ?: code),
-                            )
+                        for ((code, formats) in suggestedSubtitlesFiltered) {
+                            item(key = "manual_$code") {
+                                DialogCheckBoxItem(
+                                    modifier = Modifier.animateItem(),
+                                    checked = selectedSubtitlesState.contains(code),
+                                    onValueChange = {
+                                        if (selectedSubtitlesState.contains(code)) {
+                                            selectedSubtitlesState.remove(code)
+                                        } else {
+                                            selectedSubtitlesState.add(code)
+                                        }
+                                    },
+                                    text = getLocalizedSubtitleName(code, formats.firstOrNull()?.name ?: formats.firstOrNull()?.protocol ?: code),
+                                )
+                            }
                         }
                     }
 
@@ -1080,12 +1156,12 @@ private fun SubtitleSelectionDialog(
                             Text(
                                 text = stringResource(id = R.string.auto_subtitle),
                                 style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                                color = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                             )
                         }
                         for ((code, formats) in autoCaptionsFiltered) {
-                            item(key = code) {
+                            item(key = "auto_$code") {
                                 DialogCheckBoxItem(
                                     modifier = Modifier.animateItem(),
                                     checked = selectedAutoCaptionsState.contains(code),
@@ -1102,7 +1178,7 @@ private fun SubtitleSelectionDialog(
                         }
                     }
                 }
-                androidx.compose.material3.HorizontalDivider()
+                androidx.compose.material3.HorizontalDivider(modifier = Modifier.padding(top = 4.dp))
             }
         },
     )

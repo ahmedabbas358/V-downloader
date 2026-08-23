@@ -191,10 +191,9 @@ object FileCollisionResolver {
 
         val cleanPlaylistName = FileUtil.cleanFileName(playlistTitle)
         val candidateDirs = mutableListOf<File>()
-        if (isSubtitleOnly && cleanPlaylistName.isNotEmpty()) {
-            candidateDirs.add(File(baseDir, "[Subtitles] $cleanPlaylistName"))
-        } else if (subdirectoryPlaylistTitle && cleanPlaylistName.isNotEmpty()) {
+        if (cleanPlaylistName.isNotEmpty()) {
             candidateDirs.add(File(baseDir, cleanPlaylistName))
+            candidateDirs.add(File(baseDir, "[Subtitles] $cleanPlaylistName"))
         }
         candidateDirs.add(File(baseDir))
 
