@@ -545,6 +545,18 @@ private fun FormatPageImpl(
             contentPadding = PaddingValues(8.dp),
         ) {
             videoInfo.run {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    FormatVideoPreview(
+                        modifier = Modifier.padding(horizontal = 8.dp),
+                        title = videoTitle.ifEmpty { title },
+                        author = uploader ?: channel ?: uploaderId ?: extractor ?: stringResource(id = R.string.unknown),
+                        thumbnailUrl = thumbnail.toHttpsUrl(),
+                        durationMs = videoInfo.duration?.times(1000)?.toLong(),
+                        isClippingVideo = isClippingVideo,
+                        isSplittingVideo = isSplittingVideo,
+                        isClippingAvailable = isClippingAvailable,
+                        isSplitByChapterAvailable = isSplitByChapterAvailable,
+                        onClippingToggled = { isClippingVideo = !isClippingVideo },
                         onSplittingToggled = { isSplittingVideo = !isSplittingVideo },
                         onRename = { showRenameDialog = true },
                         onOpenThumbnail = { uriHandler.openUri(thumbnail.toHttpsUrl()) },

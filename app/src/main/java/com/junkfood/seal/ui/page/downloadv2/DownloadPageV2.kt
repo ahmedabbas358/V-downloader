@@ -371,8 +371,8 @@ fun DownloadPageImplV2(
                         SortOption.DateOldest -> a.first.timeCreated.compareTo(b.first.timeCreated)
                         SortOption.NameAZ -> a.second.viewState.title.compareTo(b.second.viewState.title, ignoreCase = true)
                         SortOption.NameZA -> b.second.viewState.title.compareTo(a.second.viewState.title, ignoreCase = true)
-                        SortOption.SizeLargest -> b.second.viewState.fileSizeApprox.compareTo(a.second.viewState.fileSizeApprox)
-                        SortOption.SizeSmallest -> a.second.viewState.fileSizeApprox.compareTo(b.second.viewState.fileSizeApprox)
+                        SortOption.SizeLargest -> b.second.viewState.fileSizeApproxBytes.compareTo(a.second.viewState.fileSizeApproxBytes)
+                        SortOption.SizeSmallest -> a.second.viewState.fileSizeApproxBytes.compareTo(b.second.viewState.fileSizeApproxBytes)
                         SortOption.Status -> {
                             val stateA = a.second.downloadState::class.java.simpleName
                             val stateB = b.second.downloadState::class.java.simpleName

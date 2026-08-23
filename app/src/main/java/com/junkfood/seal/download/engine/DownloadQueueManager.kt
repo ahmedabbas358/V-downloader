@@ -377,7 +377,7 @@ class DownloadQueueManager(
                         val current = taskStateMap[task]
                         if (current != null) {
                             taskStateMap[task] = current.copy(
-                                viewState = current.viewState.copy(fileSizeApprox = actualLen)
+                                viewState = current.viewState.copy(fileSizeApproxBytes = actualLen.toLong())
                             )
                         }
                     }
