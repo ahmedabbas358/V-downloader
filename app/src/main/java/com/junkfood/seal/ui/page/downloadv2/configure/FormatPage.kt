@@ -366,7 +366,7 @@ private fun FormatPageImpl(
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
-    if (videoInfo.formats.orEmpty().isEmpty()) return
+    if (videoInfo.formats.orEmpty().isEmpty() && !isSubtitleOnly) return
     val videoFormats = remember(videoInfo.formats) {
         videoInfo.formats.orEmpty()
             .filter { it.containsVideo() && !it.formatId.isNullOrEmpty() && !it.formatId.startsWith("sb") }
@@ -441,8 +441,16 @@ private fun FormatPageImpl(
 
     val manualSubtitleMap: Map<String, List<SubtitleFormat>> = videoInfo.subtitles
     val autoCaptionMap: Map<String, List<SubtitleFormat>> = videoInfo.automaticCaptions
-    val suggestedSubtitleMap: Map<String, List<SubtitleFormat>> =
-        if (manualSubtitleMap.isNotEmpty()) manualSubtitleMap else autoCaptionMap
+    val suggestedSubtitleMap: Map<String, List<SubtitleFormat>> = remember(manualSubtitleMap, autoCaptionMap) {
+        val combined = mutableMapOf<String, List<SubtitleFormat>>()
+        combined.putAll(manualSubtitleMap)
+        for ((code, formats) in autoCaptionMap) {
+            if (!combined.containsKey(code)) {
+                combined[code] = formats
+            }
+        }
+        combined
+    }
     val totalSubtitlesCount = manualSubtitleMap.size + autoCaptionMap.size
 
     LaunchedEffect(isClippingVideo) {
@@ -478,6 +486,8 @@ private fun FormatPageImpl(
 
     val selectedAutoCaptions = remember { mutableStateListOf<String>() }
 
+    val isAnyDialogShown = showSubtitleSelectionDialog || showVideoClipDialog || showRenameDialog
+
     Scaffold(
         modifier = modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
@@ -503,7 +513,7 @@ private fun FormatPageImpl(
                     isSubtitleOnly ||
                     selectedSubtitles.isNotEmpty() ||
                     selectedAutoCaptions.isNotEmpty()
-            if (isFormatSelected) {
+            if (isFormatSelected && !isAnyDialogShown) {
                 ExtendedFloatingActionButton(
                     onClick = {
                         onDownloadPressed(
@@ -654,35 +664,6 @@ private fun FormatPageImpl(
                         }
 
                         LazyRow(modifier = Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (isSubtitleOnly) {
-                                item {
-                                    androidx.compose.material3.OutlinedButton(
-                                        onClick = {
-                                            onDownloadPressed(
-                                                FormatConfig(
-                                                    formatList = formatList,
-                                                    videoClips =
-                                                        if (isClippingVideo) listOf(VideoClip(videoClipDuration))
-                                                        else emptyList(),
-                                                    splitByChapter = isSplittingVideo,
-                                                    newTitle = videoTitle,
-                                                    selectedSubtitles = selectedSubtitles,
-                                                    selectedAutoCaptions = selectedAutoCaptions,
-                                                    skipDownload = true,
-                                                    subtitleFormat = subtitleFormat,
-                                                )
-                                            )
-                                        }
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Outlined.FileDownload,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(18.dp).padding(end = 4.dp)
-                                        )
-                                        Text(stringResource(R.string.download_subtitles))
-                                    }
-                                }
-                            }
                             for ((code, formats) in suggestedSubtitleMap) {
                                 item(key = code) {
                                     val isManual = manualSubtitleMap.containsKey(code)

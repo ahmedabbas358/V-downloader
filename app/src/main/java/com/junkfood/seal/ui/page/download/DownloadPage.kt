@@ -148,16 +148,7 @@ fun DownloadPage(
     val processCount by CustomCommandRunner.processCount.collectAsStateWithLifecycle()
 
     var showNotificationDialog by remember { mutableStateOf(false) }
-    val notificationPermission =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            rememberPermissionState(permission = Manifest.permission.POST_NOTIFICATIONS) {
-                isGranted: Boolean ->
-                showNotificationDialog = false
-                if (!isGranted) {
-                    ToastUtil.makeToast(R.string.permission_denied)
-                }
-            }
-        } else null
+    var pendingDownloadAction by remember { mutableStateOf<(() -> Unit)?>(null) }
 
     val clipboardManager = LocalClipboardManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -171,17 +162,17 @@ fun DownloadPage(
             showMeteredNetworkDialog = true
         } else {
             dialogViewModel.postAction(Action.ShowSheet(listOf(viewState.url)))
-            //            downloadViewModel.startDownloadVideo()
         }
     }
 
     val storagePermission =
-        rememberPermissionState(permission = Manifest.permission.WRITE_EXTERNAL_STORAGE) {
-            b: Boolean ->
+        rememberPermissionState(permission = Manifest.permission.WRITE_EXTERNAL_STORAGE) { b: Boolean ->
             if (b) {
-                checkNetworkOrDownload()
+                pendingDownloadAction?.invoke() ?: checkNetworkOrDownload()
+                pendingDownloadAction = null
             } else {
                 ToastUtil.makeToast(R.string.permission_denied)
+                pendingDownloadAction = null
             }
         }
 
@@ -189,20 +180,43 @@ fun DownloadPage(
         if (Build.VERSION.SDK_INT > 29 || storagePermission.status == PermissionStatus.Granted) {
             checkNetworkOrDownload()
         } else {
+            pendingDownloadAction = { checkNetworkOrDownload() }
             storagePermission.launchPermissionRequest()
         }
     }
 
+    val notificationPermission =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            rememberPermissionState(permission = Manifest.permission.POST_NOTIFICATIONS) { isGranted: Boolean ->
+                showNotificationDialog = false
+                if (isGranted) {
+                    pendingDownloadAction?.invoke()
+                    pendingDownloadAction = null
+                } else {
+                    ToastUtil.makeToast(R.string.permission_denied)
+                    // If user denies notification, still allow download if pending
+                    pendingDownloadAction?.invoke()
+                    pendingDownloadAction = null
+                }
+            }
+        } else null
+
     val downloadCallback: () -> Unit = {
         view.slightHapticFeedback()
         keyboardController?.hide()
-        if (NOTIFICATION.getBoolean() && notificationPermission?.status?.isGranted == false) {
-            showNotificationDialog = true
+        val proceedAction = {
+            if (CONFIGURE.getBoolean()) {
+                showDownloadDialog = true
+            } else {
+                checkPermissionOrDownload()
+            }
         }
-        if (CONFIGURE.getBoolean()) {
-            showDownloadDialog = true
+
+        if (NOTIFICATION.getBoolean() && notificationPermission?.status?.isGranted == false) {
+            pendingDownloadAction = proceedAction
+            showNotificationDialog = true
         } else {
-            checkPermissionOrDownload()
+            proceedAction()
         }
     }
 
@@ -211,6 +225,8 @@ fun DownloadPage(
             onDismissRequest = {
                 showNotificationDialog = false
                 NOTIFICATION.updateBoolean(false)
+                pendingDownloadAction?.invoke()
+                pendingDownloadAction = null
             },
             onPermissionGranted = { notificationPermission?.launchPermissionRequest() },
         )

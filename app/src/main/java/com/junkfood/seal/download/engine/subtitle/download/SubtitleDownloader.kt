@@ -52,7 +52,7 @@ object SubtitleDownloader {
             }
 
             destinationDir.mkdirs()
-            val tempWorkDir = File(destinationDir, ".sub_temp_${videoId}_${UUID.randomUUID().toString().take(8)}")
+            val tempWorkDir = File(appContext.cacheDir, "sub_temp_${videoId}_${UUID.randomUUID().toString().take(8)}")
             tempWorkDir.mkdirs()
 
             val downloadedValidFiles = mutableListOf<File>()
@@ -89,6 +89,7 @@ object SubtitleDownloader {
             val validFiles = existingValidFiles.filterNotNull().toMutableList()
 
             if (missingTracks.isEmpty()) {
+                tempWorkDir.deleteRecursively()
                 onProgress(SubtitleProgress.Completed(validFiles.size))
                 return@runCatching validFiles
             }
@@ -123,29 +124,25 @@ object SubtitleDownloader {
 
                 // 2. If direct download was not available or failed, fallback to yt-dlp process
                 if (!directDownloadSucceeded) {
-                    val targetLangs = missingTracks.joinToString(",") { it.languageCode }
+                    val rawTargetLangs = missingTracks.joinToString(",") { it.languageCode }
+                    val targetLangs = buildSubLangsOption(rawTargetLangs)
                     val hasAutoTrack = missingTracks.any { it.source == SubtitleSource.AUTO_GENERATED || it.source == SubtitleSource.TRANSLATED }
                     val hasManualTrack = missingTracks.any { it.source == SubtitleSource.MANUAL }
 
-                    onProgress(SubtitleProgress.Downloading(targetLangs, 0.4f))
+                    onProgress(SubtitleProgress.Downloading(rawTargetLangs, 0.4f))
 
                     val request = YoutubeDLRequest(url).apply {
                         addOption("--skip-download")
                         addOption("--no-playlist")
                         addOption("--no-mtime")
                         addOption("--force-overwrites")
+                        addOption("--no-check-certificates")
 
                         if (hasManualTrack) addOption("--write-subs")
                         if (hasAutoTrack) addOption("--write-auto-subs")
 
                         addOption("--sub-langs", targetLangs)
-                        addOption("--sub-format", "srt/best/ass/vtt/lrc")
-
-                        // Target format
-                        val targetFormatStr = SubtitleOptionBuilder.getConvertSubsValue(preferences.convertSubtitle)
-                        if (targetFormatStr.isNotBlank()) {
-                            addOption("--convert-subs", targetFormatStr)
-                        }
+                        addOption("--sub-format", "best/vtt/srt/ass/lrc/srv3/srv2/srv1")
 
                         // Client strategy
                         val extractorArgs = YoutubeClientStrategy.buildExtractorArgs(clientChain = clientChain)
@@ -160,7 +157,7 @@ object SubtitleDownloader {
                         }
                         NetworkOptionBuilder.applyNetworkResilience(this, preferences.forceIpv4, preferences.debug)
 
-                        // Output to temp working directory
+                        // Output to temp working directory in cacheDir
                         addOption("-P", tempWorkDir.absolutePath)
                         addOption("-o", OutputTemplateBuilder.BASENAME)
                     }
@@ -287,67 +284,65 @@ object SubtitleDownloader {
     ): Result<List<File>> = withContext(Dispatchers.IO) {
         runCatching {
             destinationDir.mkdirs()
-            val tempWorkDir = File(destinationDir, ".sub_direct_${videoId}_${UUID.randomUUID().toString().take(8)}")
+            val tempWorkDir = File(appContext.cacheDir, "sub_direct_${videoId}_${UUID.randomUUID().toString().take(8)}")
             tempWorkDir.mkdirs()
 
-            val rawLang = preferences.subtitleLanguage.ifBlank { "ar,en" }
-            val subLangs = buildSubLangsOption(rawLang)
-            val targetFormatStr = SubtitleOptionBuilder.getConvertSubsValue(preferences.convertSubtitle).ifBlank { "srt" }
-            val targetFormat = SubtitleOutputFormat.fromExtension(targetFormatStr)
+            try {
+                val rawLang = preferences.subtitleLanguage.ifBlank { "ar,en" }
+                val subLangs = buildSubLangsOption(rawLang)
+                val targetFormatStr = SubtitleOptionBuilder.getConvertSubsValue(preferences.convertSubtitle).ifBlank { "srt" }
+                val targetFormat = SubtitleOutputFormat.fromExtension(targetFormatStr)
 
-            onProgress(SubtitleProgress.Downloading(subLangs, 0.3f))
+                onProgress(SubtitleProgress.Downloading(subLangs, 0.3f))
 
-            val request = YoutubeDLRequest(url).apply {
-                addOption("--skip-download")
-                addOption("--no-playlist")
-                addOption("--no-mtime")
-                addOption("--force-overwrites")
-                addOption("--no-check-certificates")
-                addOption("--write-subs")
-                addOption("--write-auto-subs")
-                addOption("--sub-langs", subLangs)
-                addOption("--sub-format", "srt/best/ass/vtt/lrc")
-                if (targetFormatStr.isNotBlank()) {
-                    addOption("--convert-subs", targetFormatStr)
+                val request = YoutubeDLRequest(url).apply {
+                    addOption("--skip-download")
+                    addOption("--no-playlist")
+                    addOption("--no-mtime")
+                    addOption("--force-overwrites")
+                    addOption("--no-check-certificates")
+                    addOption("--write-subs")
+                    addOption("--write-auto-subs")
+                    addOption("--sub-langs", subLangs)
+                    addOption("--sub-format", "best/vtt/srt/ass/lrc/srv3/srv2/srv1")
+                    val extractorArgs = YoutubeClientStrategy.buildExtractorArgs(clientChain = listOf(YoutubeClient.ANDROID, YoutubeClient.DEFAULT, YoutubeClient.WEB))
+                    addOption("--extractor-args", extractorArgs)
+
+                    if (preferences.cookies) {
+                        NetworkOptionBuilder.applyCookies(this, preferences.userAgentString, appContext)
+                    }
+                    if (preferences.proxy) {
+                        NetworkOptionBuilder.applyProxy(this, preferences.proxyUrl)
+                    }
+                    NetworkOptionBuilder.applyNetworkResilience(this, preferences.forceIpv4, preferences.debug)
+
+                    addOption("-P", tempWorkDir.absolutePath)
+                    addOption("-o", OutputTemplateBuilder.BASENAME)
                 }
-                val extractorArgs = YoutubeClientStrategy.buildExtractorArgs(clientChain = listOf(YoutubeClient.ANDROID, YoutubeClient.DEFAULT, YoutubeClient.WEB))
-                addOption("--extractor-args", extractorArgs)
 
-                if (preferences.cookies) {
-                    NetworkOptionBuilder.applyCookies(this, preferences.userAgentString, appContext)
+                val processId = "sub_direct_${videoId}_${System.currentTimeMillis()}"
+                YoutubeDL.getInstance().execute(request, processId) { progress, _, _ ->
+                    onProgress(SubtitleProgress.Downloading(subLangs, 0.3f + (progress / 100f) * 0.5f))
                 }
-                if (preferences.proxy) {
-                    NetworkOptionBuilder.applyProxy(this, preferences.proxyUrl)
+
+                val tempFiles = tempWorkDir.listFiles()?.filter { file ->
+                    file.isFile && !file.name.endsWith(".part") && !file.name.endsWith(".ytdl") && !file.name.endsWith(".tmp") && file.length() > 10L
+                } ?: emptyList()
+
+                if (tempFiles.isEmpty()) {
+                    throw SubtitleFailure.NoSubtitles
                 }
-                NetworkOptionBuilder.applyNetworkResilience(this, preferences.forceIpv4, preferences.debug)
 
-                addOption("-P", tempWorkDir.absolutePath)
-                addOption("-o", OutputTemplateBuilder.BASENAME)
-            }
+                val downloadedFiles = mutableListOf<File>()
+                val cleanBaseTitle = FileUtil.cleanFileName(title).ifBlank { "Video_$videoId" }
 
-            val processId = "sub_direct_${videoId}_${System.currentTimeMillis()}"
-            YoutubeDL.getInstance().execute(request, processId) { progress, _, _ ->
-                onProgress(SubtitleProgress.Downloading(subLangs, 0.3f + (progress / 100f) * 0.5f))
-            }
-
-            val tempFiles = tempWorkDir.listFiles()?.filter { file ->
-                file.isFile && !file.name.endsWith(".part") && !file.name.endsWith(".ytdl") && !file.name.endsWith(".tmp") && file.length() > 10L
-            } ?: emptyList()
-
-            if (tempFiles.isEmpty()) {
-                throw SubtitleFailure.NoSubtitles
-            }
-
-            val downloadedFiles = mutableListOf<File>()
-            val cleanBaseTitle = FileUtil.cleanFileName(title).ifBlank { "Video_$videoId" }
-
-            for (tempFile in tempFiles) {
-                val convertedFile = if (SubtitleOutputFormat.fromExtension(tempFile.extension) != targetFormat) {
-                    onProgress(SubtitleProgress.Converting(targetFormat.extension))
-                    SubtitleConverter.convert(tempFile, targetFormat).getOrElse { tempFile }
-                } else {
-                    tempFile
-                }
+                for (tempFile in tempFiles) {
+                    val convertedFile = if (SubtitleOutputFormat.fromExtension(tempFile.extension) != targetFormat) {
+                        onProgress(SubtitleProgress.Converting(targetFormat.extension))
+                        SubtitleConverter.convert(tempFile, targetFormat).getOrElse { tempFile }
+                    } else {
+                        tempFile
+                    }
 
                     val finalFileName = buildSafeSubtitleFileName(
                         baseTitle = cleanBaseTitle,
@@ -364,11 +359,13 @@ object SubtitleDownloader {
                     downloadedFiles.add(finalFile)
                 }
 
-                tempWorkDir.deleteRecursively()
                 onProgress(SubtitleProgress.Completed(downloadedFiles.size))
                 downloadedFiles
+            } finally {
+                tempWorkDir.deleteRecursively()
             }
         }
+    }
 
         /**
          * Generates a safe, non-traversing, sanitized filename for the subtitle file.
@@ -385,18 +382,12 @@ object SubtitleDownloader {
             // Extract language suffix from generated temp file name (e.g., "title.ar.srt" -> ".ar")
             val langSuffix = Regex("""\.([a-zA-Z]{2,3}(?:-[a-zA-Z0-9_-]+)?)\.[a-zA-Z0-9]+$""")
                 .find(tempGeneratedName)?.groupValues?.get(1)?.let { ".$it" } ?: ""
-            val sourceSuffix =
-                when (source) {
-                    SubtitleSource.AUTO_GENERATED -> ".auto"
-                    SubtitleSource.TRANSLATED -> ".translated"
-                    else -> ""
-                }
 
             val cleanTitle = FileUtil.cleanFileName(baseTitle)
                 .replace(Regex("""[/\\:*?"<>|]"""), "_")
                 .replace("..", "_")
                 .trim()
-                .ifBlank { "subtitle" }
+                .ifBlank { "Video_${videoId.ifBlank { "subtitle" }}" }
 
             val shouldNumber = includePlaylistNumbering && playlistIndex > 0
             val indexPrefix = if (shouldNumber && !Regex("""^\d{2,4}\s*-\s*""").containsMatchIn(cleanTitle)) {
@@ -405,13 +396,7 @@ object SubtitleDownloader {
                 ""
             }
 
-            val identitySuffix =
-                videoId
-                    .takeIf { it.isNotBlank() && !cleanTitle.contains(it, ignoreCase = true) }
-                    ?.let { " [$it]" }
-                    ?: ""
-
-            return "$indexPrefix$cleanTitle$identitySuffix$sourceSuffix$langSuffix.${targetFormat.extension}"
+            return "$indexPrefix$cleanTitle$langSuffix.${targetFormat.extension}"
         }
 
     private fun findSourceForGeneratedFile(

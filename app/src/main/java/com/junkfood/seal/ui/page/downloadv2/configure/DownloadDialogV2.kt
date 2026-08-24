@@ -225,6 +225,7 @@ fun DownloadDialog(
 ) {
     var showVideoPresetDialog by remember { mutableStateOf(false) }
     var showAudioPresetDialog by remember { mutableStateOf(false) }
+    var showSubtitlePresetDialog by remember { mutableStateOf(false) }
 
     SealModalBottomSheet(
         sheetState = sheetState,
@@ -241,10 +242,23 @@ fun DownloadDialog(
                 when (type) {
                     Audio -> showAudioPresetDialog = true
                     Video -> showVideoPresetDialog = true
+                    DownloadType.Subtitle -> showSubtitlePresetDialog = true
                     else -> {}
                 }
             },
             onActionPost = onActionPost,
+        )
+    }
+
+    if (showSubtitlePresetDialog) {
+        SubtitleLanguagePickerDialog(
+            initialLanguage = preferences.subtitleLanguage,
+            onDismissRequest = { showSubtitlePresetDialog = false },
+            onConfirm = { newLang ->
+                SUBTITLE_LANGUAGE.updateString(newLang)
+                onPreferencesUpdate(DownloadUtil.DownloadPreferences.createFromPreferences())
+                showSubtitlePresetDialog = false
+            }
         )
     }
 
@@ -1375,39 +1389,85 @@ private fun SubtitleLanguageSelector(
     )
 
     if (showDialog) {
-        val availableSubs = videoInfo?.subtitles ?: emptyMap()
-        val availableAutoCaptions = videoInfo?.automaticCaptions ?: emptyMap()
-        val hasFetchedSubs = availableSubs.isNotEmpty() || availableAutoCaptions.isNotEmpty()
-
-        var selectedCodes by remember {
-            mutableStateOf(
-                preference.subtitleLanguage.split(",")
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-                    .toSet()
-            )
-        }
-        var customText by remember { mutableStateOf(preference.subtitleLanguage) }
-
-        AlertDialog(
+        SubtitleLanguagePickerDialog(
+            initialLanguage = preference.subtitleLanguage,
+            videoInfo = videoInfo,
             onDismissRequest = { showDialog = false },
-            title = { Text(stringResource(R.string.subtitle_language_selection)) },
-            text = {
-                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    if (hasFetchedSubs) {
+            onConfirm = {
+                onLanguageChange(it)
+                showDialog = false
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun SubtitleLanguagePickerDialog(
+    initialLanguage: String,
+    videoInfo: VideoInfo? = null,
+    onDismissRequest: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    val availableSubs = videoInfo?.subtitles ?: emptyMap()
+    val availableAutoCaptions = videoInfo?.automaticCaptions ?: emptyMap()
+    val hasFetchedSubs = availableSubs.isNotEmpty() || availableAutoCaptions.isNotEmpty()
+
+    var selectedCodes by remember {
+        mutableStateOf(
+            initialLanguage.split(",")
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .toSet()
+        )
+    }
+    var customText by remember { mutableStateOf(initialLanguage) }
+
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        title = { Text(stringResource(R.string.subtitle_language_selection)) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                if (hasFetchedSubs) {
+                    Text(
+                        text = stringResource(R.string.suggested),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(vertical = 4.dp),
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    ) {
+                        for ((code, formats) in availableSubs) {
+                            val name = formats.firstOrNull()?.name ?: code
+                            val isSelected = selectedCodes.contains(code)
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = {
+                                    selectedCodes = if (isSelected) selectedCodes - code else selectedCodes + code
+                                    customText = selectedCodes.joinToString(",")
+                                },
+                                label = { Text("$name [$code]") }
+                            )
+                        }
+                    }
+
+                    if (availableAutoCaptions.isNotEmpty()) {
                         Text(
-                            text = stringResource(R.string.suggested),
+                            text = stringResource(R.string.auto_generated_subtitles),
                             style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(vertical = 4.dp),
+                            color = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
                         )
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.padding(vertical = 8.dp)
                         ) {
-                            for ((code, formats) in availableSubs) {
-                                val name = formats.firstOrNull()?.name ?: code
+                            for ((code, formats) in availableAutoCaptions) {
+                                val name = formats.firstOrNull()?.name ?: "$code (auto)"
                                 val isSelected = selectedCodes.contains(code)
                                 FilterChip(
                                     selected = isSelected,
@@ -1419,92 +1479,64 @@ private fun SubtitleLanguageSelector(
                                 )
                             }
                         }
-
-                        if (availableAutoCaptions.isNotEmpty()) {
-                            Text(
-                                text = stringResource(R.string.auto_generated_subtitles),
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                } else {
+                    Text(
+                        text = stringResource(R.string.select_language),
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    ) {
+                        val presets = listOf("ar" to "العربية", "en" to "English", "fr" to "Français", "es" to "Español", "" to "الكل (All)")
+                        presets.forEach { (code, label) ->
+                            val isSelected = if (code.isEmpty()) selectedCodes.isEmpty() else selectedCodes.contains(code)
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = {
+                                    if (code.isEmpty()) {
+                                        selectedCodes = emptySet()
+                                        customText = ""
+                                    } else {
+                                        selectedCodes = if (isSelected) selectedCodes - code else selectedCodes + code
+                                        customText = selectedCodes.joinToString(",")
+                                    }
+                                },
+                                label = { Text(label) }
                             )
-                            FlowRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.padding(vertical = 8.dp)
-                            ) {
-                                for ((code, formats) in availableAutoCaptions) {
-                                    val name = formats.firstOrNull()?.name ?: "$code (auto)"
-                                    val isSelected = selectedCodes.contains(code)
-                                    FilterChip(
-                                        selected = isSelected,
-                                        onClick = {
-                                            selectedCodes = if (isSelected) selectedCodes - code else selectedCodes + code
-                                            customText = selectedCodes.joinToString(",")
-                                        },
-                                        label = { Text("$name [$code]") }
-                                    )
-                                }
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(12.dp))
-                    } else {
-                        Text(
-                            text = stringResource(R.string.select_language),
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.padding(bottom = 12.dp)
-                        ) {
-                            val presets = listOf("ar" to "العربية", "en" to "English", "fr" to "Français", "es" to "Español", "" to "الكل (All)")
-                            presets.forEach { (code, label) ->
-                                val isSelected = if (code.isEmpty()) selectedCodes.isEmpty() else selectedCodes.contains(code)
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick = {
-                                        if (code.isEmpty()) {
-                                            selectedCodes = emptySet()
-                                            customText = ""
-                                        } else {
-                                            selectedCodes = if (isSelected) selectedCodes - code else selectedCodes + code
-                                            customText = selectedCodes.joinToString(",")
-                                        }
-                                    },
-                                    label = { Text(label) }
-                                )
-                            }
                         }
                     }
+                }
 
-                    OutlinedTextField(
-                        value = customText,
-                        onValueChange = {
-                            customText = it
-                            selectedCodes = it.split(",").map { s -> s.trim() }.filter { s -> s.isNotEmpty() }.toSet()
-                        },
-                        label = { Text(stringResource(R.string.select_language)) },
-                        placeholder = { Text("ar,en,fr...") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    val finalLang = customText.trim()
-                    onLanguageChange(finalLang)
-                    showDialog = false
-                }) {
-                    Text(stringResource(android.R.string.ok))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDialog = false }) {
-                    Text(stringResource(android.R.string.cancel))
-                }
+                OutlinedTextField(
+                    value = customText,
+                    onValueChange = {
+                        customText = it
+                        selectedCodes = it.split(",").map { s -> s.trim() }.filter { s -> s.isNotEmpty() }.toSet()
+                    },
+                    label = { Text(stringResource(R.string.select_language)) },
+                    placeholder = { Text("ar,en,fr...") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
-        )
-    }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val finalLang = customText.trim()
+                onConfirm(finalLang)
+            }) {
+                Text(stringResource(android.R.string.ok))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismissRequest) {
+                Text(stringResource(android.R.string.cancel))
+            }
+        }
+    )
 }

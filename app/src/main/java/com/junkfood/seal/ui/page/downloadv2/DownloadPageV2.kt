@@ -329,6 +329,11 @@ private operator fun PaddingValues.plus(other: PaddingValues): PaddingValues {
 
 private const val HeaderSpacingDp = 28
 
+sealed interface QueueUiItem {
+    data class SingleTask(val item: Pair<Task, Task.State>) : QueueUiItem
+    data class PlaylistSubtitleBatch(val playlistTitle: String, val tasks: List<Pair<Task, Task.State>>) : QueueUiItem
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadPageImplV2(
@@ -382,6 +387,40 @@ fun DownloadPageImplV2(
                 })
             }
         }
+
+    val queueUiItems by remember(filteredMap) {
+        derivedStateOf {
+            val result = mutableListOf<QueueUiItem>()
+            val playlistSubtitleGroups = mutableMapOf<String, MutableList<Pair<Task, Task.State>>>()
+            val nonBatchTasks = mutableListOf<Pair<Task, Task.State>>()
+
+            filteredMap.forEach { pair ->
+                val task = pair.first
+                val isSubtitle = task.preferences.skipDownload && task.preferences.downloadSubtitle
+                val playlistInfo = task.type as? Task.TypeInfo.Playlist
+                val isPlaylist = playlistInfo != null || task.preferences.downloadPlaylist
+                if (isSubtitle && isPlaylist) {
+                    val groupKey = playlistInfo?.playlistTitle?.ifBlank { null }
+                        ?: playlistInfo?.playlistUrl?.ifBlank { null }
+                        ?: task.preferences.newTitle.ifBlank { "Playlist Subtitles" }
+                    playlistSubtitleGroups.getOrPut(groupKey) { mutableListOf() }.add(pair)
+                } else {
+                    nonBatchTasks.add(pair)
+                }
+            }
+
+            playlistSubtitleGroups.forEach { (title, tasks) ->
+                val sortedTasks = tasks.sortedBy { (it.first.type as? Task.TypeInfo.Playlist)?.index ?: 0 }
+                result.add(QueueUiItem.PlaylistSubtitleBatch(title, sortedTasks))
+            }
+
+            nonBatchTasks.forEach {
+                result.add(QueueUiItem.SingleTask(it))
+            }
+
+            result
+        }
+    }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
     var selectedTask by remember { mutableStateOf<Task?>(null) }
@@ -583,81 +622,95 @@ fun DownloadPageImplV2(
                         }
                     }
 
-                    if (viewOptions.isGridView) {
-                        itemsIndexed(
-                            items = filteredMap,
-                            key = { _, (task, _) -> task.id },
-                        ) { _, item ->
-                            val task = item.first
-                            val state = item.second
-                            with(state.viewState) {
-                                VideoCardV2(
-                                    modifier = Modifier.padding(bottom = 20.dp),
-                                    viewState = this,
-                                    isSelected = selectedTasks.contains(task),
-                                    showSize = viewOptions.showSize,
-                                    showDuration = viewOptions.showDuration,
-                                    showSource = viewOptions.showSource,
-                                    actionButton = {
-                                        ActionButton(
-                                            modifier = Modifier,
-                                            downloadState = state.downloadState,
-                                        ) {
-                                            onActionPost(task, it)
-
-                                        }
-                                    },
-                                    stateIndicator = {
-                                        CardStateIndicator(
-                                            modifier = Modifier,
-                                            downloadState = state.downloadState,
-                                        )
-                                    },
-                                    onLongClick = {
-                                        view.slightHapticFeedback()
-                                        toggleSelection(task)
-                                    },
-                                    onButtonClick = {
-                                        if (isSelectionMode) toggleSelection(task) else showActionSheet(task)
-                                    },
-                                )
+                    itemsIndexed(
+                        items = queueUiItems,
+                        key = { _, queueItem ->
+                            when (queueItem) {
+                                is QueueUiItem.PlaylistSubtitleBatch -> "batch_${queueItem.playlistTitle}_${queueItem.tasks.firstOrNull()?.first?.id}"
+                                is QueueUiItem.SingleTask -> queueItem.item.first.id
+                            }
+                        },
+                        span = { _, queueItem ->
+                            when (queueItem) {
+                                is QueueUiItem.PlaylistSubtitleBatch -> GridItemSpan(maxLineSpan)
+                                is QueueUiItem.SingleTask -> if (viewOptions.isGridView) GridItemSpan(1) else GridItemSpan(maxLineSpan)
                             }
                         }
-                    } else {
-                        itemsIndexed(
-                            items = filteredMap,
-                            key = { _, (task, _) -> task.id },
-                            span = { _, _ -> GridItemSpan(maxLineSpan) },
-                        ) { _, item ->
-                            val task = item.first
-                            val state = item.second
-                            VideoListItem(
-                                modifier = Modifier.padding(bottom = 16.dp),
-                                viewState = state.viewState,
-                                isSelected = selectedTasks.contains(task),
-                                showSize = viewOptions.showSize,
-                                showDuration = viewOptions.showDuration,
-                                showSource = viewOptions.showSource,
-                                stateIndicator = {
-                                    ListItemStateText(
-                                        modifier = Modifier.padding(top = 3.dp),
-                                        downloadState = state.downloadState,
+                    ) { _, queueItem ->
+                        when (queueItem) {
+                            is QueueUiItem.PlaylistSubtitleBatch -> {
+                                PlaylistSubtitleBatchCard(
+                                    modifier = Modifier.padding(bottom = 16.dp),
+                                    playlistTitle = queueItem.playlistTitle,
+                                    tasks = queueItem.tasks,
+                                    onActionPost = onActionPost
+                                )
+                            }
+                            is QueueUiItem.SingleTask -> {
+                                val task = queueItem.item.first
+                                val state = queueItem.item.second
+                                if (viewOptions.isGridView) {
+                                    with(state.viewState) {
+                                        VideoCardV2(
+                                            modifier = Modifier.padding(bottom = 20.dp),
+                                            viewState = this,
+                                            isSelected = selectedTasks.contains(task),
+                                            showSize = viewOptions.showSize,
+                                            showDuration = viewOptions.showDuration,
+                                            showSource = viewOptions.showSource,
+                                            actionButton = {
+                                                ActionButton(
+                                                    modifier = Modifier,
+                                                    downloadState = state.downloadState,
+                                                ) {
+                                                    onActionPost(task, it)
+                                                }
+                                            },
+                                            stateIndicator = {
+                                                CardStateIndicator(
+                                                    modifier = Modifier,
+                                                    downloadState = state.downloadState,
+                                                )
+                                            },
+                                            onLongClick = {
+                                                view.slightHapticFeedback()
+                                                toggleSelection(task)
+                                            },
+                                            onButtonClick = {
+                                                if (isSelectionMode) toggleSelection(task) else showActionSheet(task)
+                                            },
+                                        )
+                                    }
+                                } else {
+                                    VideoListItem(
+                                        modifier = Modifier.padding(bottom = 16.dp),
+                                        viewState = state.viewState,
+                                        isSelected = selectedTasks.contains(task),
+                                        showSize = viewOptions.showSize,
+                                        showDuration = viewOptions.showDuration,
+                                        showSource = viewOptions.showSource,
+                                        stateIndicator = {
+                                            ListItemStateText(
+                                                modifier = Modifier.padding(top = 3.dp),
+                                                downloadState = state.downloadState,
+                                            )
+                                        },
+                                        onLongClick = {
+                                            view.slightHapticFeedback()
+                                            toggleSelection(task)
+                                        },
+                                        onButtonClick = {
+                                            if (isSelectionMode) toggleSelection(task) else showActionSheet(task)
+                                        },
                                     )
-                                },
-                                onLongClick = {
-                                    view.slightHapticFeedback()
-                                    toggleSelection(task)
-                                },
-                                onButtonClick = {
-                                    if (isSelectionMode) toggleSelection(task) else showActionSheet(task)
-                                },
-                            )
+                                }
+                            }
                         }
                     }
                 }
             }
         }
-        if (filteredMap.isEmpty()) {
+        if (queueUiItems.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize()) {
                 DownloadQueuePlaceholder(
                     modifier =

@@ -135,9 +135,7 @@ object PlaylistVerifier {
             }
             
             if (targetDirFile == null && targetDocumentDir == null) {
-                targetDirFile = if (isSubtitleOnly && cleanPlaylistName.isNotEmpty()) {
-                    File(defaultBaseDir, "[Subtitles] $cleanPlaylistName")
-                } else if (cleanPlaylistName.isNotEmpty()) {
+                targetDirFile = if (cleanPlaylistName.isNotEmpty()) {
                     File(defaultBaseDir, cleanPlaylistName)
                 } else {
                     defaultBaseDir
@@ -264,32 +262,31 @@ object PlaylistVerifier {
                 )
             }
 
-            // Persist manifest
-            if (targetDirFile != null && targetDirFile.exists()) {
-                val playlistId = videoIdOrPlaylistId(playlistInfo.webpageUrl ?: cleanUrl)
-                PlaylistManifestStore.writeAtomic(
-                    targetDirFile,
-                    PlaylistManifest(
-                        playlistId = playlistId,
-                        title = playlistTitle,
-                        canonicalUrl = cleanUrl,
-                        totalItems = entries.size,
-                        orderedItems = auditItems.sortedBy { it.index }.map { item ->
-                            PlaylistManifestItem(
-                                index = item.index,
-                                videoId = item.videoId,
-                                title = item.title,
-                                canonicalUrl = item.url,
-                                state = item.toLegacyContentState(),
-                                contentType = contentType,
-                                localPath = item.matchedFile?.absolutePath,
-                                language = primarySubtitleLanguage(preferences.subtitleLanguage),
-                                format = subtitleOutputFormat(preferences.convertSubtitle).extension,
-                            )
-                        },
-                    ),
-                )
-            }
+            // Persist manifest in app internal storage (never pollute user download directory)
+            val manifestDir = File(context.filesDir, "playlist_manifests")
+            val playlistId = videoIdOrPlaylistId(playlistInfo.webpageUrl ?: cleanUrl)
+            PlaylistManifestStore.writeAtomic(
+                manifestDir,
+                PlaylistManifest(
+                    playlistId = playlistId,
+                    title = playlistTitle,
+                    canonicalUrl = cleanUrl,
+                    totalItems = entries.size,
+                    orderedItems = auditItems.sortedBy { it.index }.map { item ->
+                        PlaylistManifestItem(
+                            index = item.index,
+                            videoId = item.videoId,
+                            title = item.title,
+                            canonicalUrl = item.url,
+                            state = item.toLegacyContentState(),
+                            contentType = contentType,
+                            localPath = item.matchedFile?.absolutePath,
+                            language = primarySubtitleLanguage(preferences.subtitleLanguage),
+                            format = subtitleOutputFormat(preferences.convertSubtitle).extension,
+                        )
+                    },
+                ),
+            )
 
             com.junkfood.seal.download.engine.playlist.PlaylistAuditResult(
                 playlistTitle = playlistTitle,

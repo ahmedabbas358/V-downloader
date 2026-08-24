@@ -142,12 +142,13 @@ class DownloadQueueManager(
     fun cancel(task: Task, isPaused: Boolean = false): Boolean {
         val currentState = taskStateMap[task]?.downloadState ?: return false
 
-        when (currentState) {
+        val res = when (currentState) {
             is DownloadState.Cancelable -> {
                 YoutubeDL.destroyProcessById(currentState.taskId)
                 currentState.job.cancel()
                 val progress = (currentState as? Running)?.progress
                 NotificationUtil.cancelNotification(task.id.hashCode())
+                NotificationUtil.cancelNotification(NotificationUtil.DEFAULT_NOTIFICATION_ID)
 
                 taskStateMap[task] = taskStateMap[task]!!.copy(
                     downloadState = Canceled(
@@ -156,22 +157,33 @@ class DownloadQueueManager(
                         isPaused = isPaused
                     )
                 )
-                return true
+                true
             }
             Idle -> {
                 taskStateMap[task] = taskStateMap[task]!!.copy(
                     downloadState = Canceled(action = FetchInfo, isPaused = isPaused)
                 )
-                return true
+                true
             }
             ReadyWithInfo -> {
                 taskStateMap[task] = taskStateMap[task]!!.copy(
                     downloadState = Canceled(action = Download, isPaused = isPaused)
                 )
-                return true
+                true
             }
-            else -> return false
+            else -> false
         }
+
+        if (res) {
+            val hasActive = taskStateMap.values.any { state ->
+                state.downloadState is Running || state.downloadState is FetchingInfo
+            }
+            if (!hasActive) {
+                NotificationUtil.cancelNotification(NotificationUtil.SUMMARY_NOTIFICATION_ID)
+                App.stopService()
+            }
+        }
+        return res
     }
 
     fun restart(task: Task) {

@@ -108,16 +108,29 @@ class DownloadService : Service() {
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
         Log.d(TAG, "onTaskRemoved: ")
-        // Synchronously save the task list before the service is killed
-        PreferenceUtil.encodeTaskListBackup(downloader.getTaskStateMap())
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            stopForeground(STOP_FOREGROUND_REMOVE)
+        val hasBackgroundPermission = com.junkfood.seal.util.PermissionManager.checkBatteryOptimizationCapability(this) == com.junkfood.seal.util.PermissionManager.CapabilityStatus.GRANTED
+        
+        if (!hasBackgroundPermission) {
+            Log.d(TAG, "Background permission not granted, terminating downloads on app exit.")
+            downloader.getTaskStateMap().forEach { (task, state) ->
+                if (state.downloadState is com.junkfood.seal.download.Task.DownloadState.Running || 
+                    state.downloadState is com.junkfood.seal.download.Task.DownloadState.FetchingInfo) {
+                    downloader.cancel(task)
+                }
+            }
+            NotificationUtil.cancelAllNotifications()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } else {
+                @Suppress("DEPRECATION")
+                stopForeground(true)
+            }
+            stopSelf()
+            releaseLocks()
         } else {
-            @Suppress("DEPRECATION")
-            stopForeground(true)
+            // Background permission granted -> save state and continue background execution
+            PreferenceUtil.encodeTaskListBackup(downloader.getTaskStateMap())
         }
-        stopSelf()
-        releaseLocks()
     }
 
     override fun onDestroy() {
