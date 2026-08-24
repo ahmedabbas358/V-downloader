@@ -135,6 +135,9 @@ import com.junkfood.seal.util.AUDIO_CONVERSION_FORMAT
 import com.junkfood.seal.util.AUDIO_CONVERT
 import com.junkfood.seal.util.AUDIO_FORMAT
 import com.junkfood.seal.util.AUDIO_QUALITY
+import com.junkfood.seal.util.AUTO_SUBTITLE
+import com.junkfood.seal.util.AUTO_TRANSLATED_SUBTITLES
+import com.junkfood.seal.util.CONVERT_SUBTITLE
 import com.junkfood.seal.util.COOKIES
 import com.junkfood.seal.util.CUSTOM_COMMAND
 import com.junkfood.seal.util.DatabaseUtil
@@ -147,22 +150,24 @@ import com.junkfood.seal.util.DownloadType.entries
 import com.junkfood.seal.util.DownloadUtil
 import com.junkfood.seal.util.EXTRACT_AUDIO
 import com.junkfood.seal.util.FORMAT_SELECTION
+import com.junkfood.seal.util.PLAYLIST_NUMBERING
 import com.junkfood.seal.util.PreferenceStrings
 import com.junkfood.seal.util.PreferenceUtil
 import com.junkfood.seal.util.PreferenceUtil.getBoolean
 import com.junkfood.seal.util.PreferenceUtil.updateBoolean
-import com.junkfood.seal.util.VideoInfo
-import com.junkfood.seal.util.SubtitleFormat
 import com.junkfood.seal.util.PreferenceUtil.updateInt
 import com.junkfood.seal.util.PreferenceUtil.updateString
+import com.junkfood.seal.util.SUBDIRECTORY_PLAYLIST_TITLE
 import com.junkfood.seal.util.SUBTITLE
 import com.junkfood.seal.util.SUBTITLE_LANGUAGE
+import com.junkfood.seal.util.SubtitleFormat
 import com.junkfood.seal.util.TEMPLATE_ID
 import com.junkfood.seal.util.THUMBNAIL
 import com.junkfood.seal.util.ToastUtil
 import com.junkfood.seal.util.USE_CUSTOM_AUDIO_PRESET
 import com.junkfood.seal.util.VIDEO_FORMAT
 import com.junkfood.seal.util.VIDEO_QUALITY
+import com.junkfood.seal.util.VideoInfo
 import com.junkfood.seal.download.TaskFactory
 import kotlinx.coroutines.launch
 
@@ -723,12 +728,13 @@ private fun ConfigurePage(
                     }
                 }
             }
+            val isPlaylistUrl = selectedType == Playlist || url.contains("list=", ignoreCase = true) || preferences.downloadPlaylist
             var expanded by remember { mutableStateOf(false) }
             ExpandableTitle(expanded = expanded, onClick = { expanded = !expanded }) {
                 AdditionalSettings(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     isQuickDownload = false,
-                    isPlaylist = false,
+                    isPlaylist = isPlaylistUrl,
                     preference = preferences,
                     selectedType = selectedType,
                     useFormatSelection = useFormatSelection,
@@ -972,6 +978,51 @@ private fun AdditionalSettings(
                     )
                 }
 
+                // Auto captions & translated subtitles toggles
+                val isSubtitleMode = selectedType == DownloadType.Subtitle || (downloadSubtitle && (selectedType == Video || selectedType == Playlist))
+                if (isSubtitleMode) {
+                    VideoFilterChip(
+                        selected = autoSubtitle,
+                        enabled = true,
+                        onClick = {
+                            AUTO_SUBTITLE.updateBoolean(!autoSubtitle)
+                            onPreferenceUpdate()
+                        },
+                        label = stringResource(R.string.auto_subtitle),
+                    )
+                    VideoFilterChip(
+                        selected = autoTranslatedSubtitles,
+                        enabled = true,
+                        onClick = {
+                            AUTO_TRANSLATED_SUBTITLES.updateBoolean(!autoTranslatedSubtitles)
+                            onPreferenceUpdate()
+                        },
+                        label = "ترجمة تلقائية مترجمة",
+                    )
+                }
+
+                // Playlist numbering & folder options
+                if (isPlaylist) {
+                    VideoFilterChip(
+                        selected = playlistNumbering,
+                        enabled = true,
+                        onClick = {
+                            PLAYLIST_NUMBERING.updateBoolean(!playlistNumbering)
+                            onPreferenceUpdate()
+                        },
+                        label = stringResource(R.string.playlist_numbering),
+                    )
+                    VideoFilterChip(
+                        selected = subdirectoryPlaylistTitle,
+                        enabled = true,
+                        onClick = {
+                            SUBDIRECTORY_PLAYLIST_TITLE.updateBoolean(!subdirectoryPlaylistTitle)
+                            onPreferenceUpdate()
+                        },
+                        label = stringResource(R.string.subdirectory),
+                    )
+                }
+
                 // Show "Create Thumbnail" ONLY for Video, Audio, Playlist (never for Subtitle)
                 if (selectedType != DownloadType.Subtitle && selectedType != Command) {
                     VideoFilterChip(
@@ -986,10 +1037,41 @@ private fun AdditionalSettings(
                 }
             }
 
-            // Always show Subtitle Language Selector in Subtitle mode, or in Video/Playlist when downloadSubtitle is enabled
+            // Subtitle format selection (SRT, VTT, ASS, LRC) & Language Selector
             val isSubtitleMode = selectedType == DownloadType.Subtitle || (downloadSubtitle && (selectedType == Video || selectedType == Playlist))
             if (isSubtitleMode && selectedType != Command) {
                 Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "تنسيق الترجمة:",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    val formats = listOf(
+                        Pair("SRT", 2),
+                        Pair("VTT", 3),
+                        Pair("ASS", 1),
+                        Pair("LRC", 0)
+                    )
+                    formats.forEach { (name, code) ->
+                        FilterChip(
+                            selected = convertSubtitle == code,
+                            onClick = {
+                                CONVERT_SUBTITLE.updateInt(code)
+                                onPreferenceUpdate()
+                            },
+                            label = { Text(name, style = MaterialTheme.typography.labelSmall) },
+                            modifier = Modifier.height(32.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
                 SubtitleLanguageSelector(
                     preference = preference,
                     videoInfo = videoInfo,
@@ -1409,8 +1491,8 @@ fun SubtitleLanguagePickerDialog(
     onDismissRequest: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
-    val availableSubs = videoInfo?.subtitles ?: emptyMap()
-    val availableAutoCaptions = videoInfo?.automaticCaptions ?: emptyMap()
+    val availableSubs: Map<String, List<SubtitleFormat>> = videoInfo?.subtitles ?: emptyMap()
+    val availableAutoCaptions: Map<String, List<SubtitleFormat>> = videoInfo?.automaticCaptions ?: emptyMap()
     val hasFetchedSubs = availableSubs.isNotEmpty() || availableAutoCaptions.isNotEmpty()
 
     var selectedCodes by remember {
