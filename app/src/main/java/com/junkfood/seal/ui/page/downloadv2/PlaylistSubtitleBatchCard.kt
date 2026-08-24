@@ -90,6 +90,13 @@ fun PlaylistSubtitleBatchCard(
     val context = LocalContext.current
     var isExpanded by remember { mutableStateOf(false) }
 
+    val cleanPlaylistTitle = playlistTitle
+        .removePrefix("[Subtitles] ")
+        .removePrefix("[Subtitle] ")
+        .replace(Regex("^#\\d+\\s*"), "")
+        .trim()
+        .ifBlank { stringResource(R.string.playlist) }
+
     val totalCount = tasks.size
     val completedCount = tasks.count { it.second.downloadState is Completed }
     val errorCount = tasks.count { it.second.downloadState is Error }
@@ -163,7 +170,7 @@ fun PlaylistSubtitleBatchCard(
                             )
                         }
                         Text(
-                            text = playlistTitle.ifBlank { stringResource(R.string.playlist) },
+                            text = cleanPlaylistTitle,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
@@ -248,7 +255,7 @@ fun PlaylistSubtitleBatchCard(
                         .height(8.dp)
                         .clip(CircleShape),
                     strokeCap = StrokeCap.Round,
-                    color = if (isAllCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary,
+                    color = MaterialTheme.colorScheme.primary,
                     trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
                 )
             }
@@ -258,7 +265,12 @@ fun PlaylistSubtitleBatchCard(
                 val activeTask = activeTaskPair.first
                 val activeState = activeTaskPair.second
                 val playlistIndex = (activeTask.type as? TypeInfo.Playlist)?.index ?: 0
-                val activeTitle = activeState.viewState.title.ifBlank { "مقطع $playlistIndex" }
+                val rawActiveTitle = activeState.viewState.title
+                    .removePrefix("[Subtitles] ")
+                    .removePrefix("[Subtitle] ")
+                    .replace(Regex("^#\\d+\\s*"), "")
+                    .trim()
+                val activeTitle = rawActiveTitle.ifBlank { "مقطع $playlistIndex" }
                 val progressText = (activeState.downloadState as? Running)?.progressText.orEmpty()
 
                 Spacer(Modifier.height(12.dp))
@@ -330,24 +342,22 @@ fun PlaylistSubtitleBatchCard(
 
                 // Batch Actions
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (isAllCompleted || completedCount > 0) {
-                        FilledTonalIconButton(
-                            onClick = {
-                                val basePath = OutputTemplateBuilder.resolveBaseDirectory(tasks.first().first.preferences, false)
-                                val cleanFolder = FileUtil.cleanFileName(playlistTitle).ifBlank { "Playlist" }
-                                val targetDir = java.io.File(basePath, cleanFolder)
-                                if (targetDir.exists()) {
-                                    FileUtil.openFile(targetDir.absolutePath) {}
-                                }
-                            },
-                            modifier = Modifier.size(34.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.FolderOpen,
-                                contentDescription = "فتح المجلد",
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
+                    // Open folder button
+                    FilledTonalIconButton(
+                        onClick = {
+                            val basePath = OutputTemplateBuilder.resolveBaseDirectory(tasks.first().first.preferences, false)
+                            val cleanFolder = FileUtil.cleanFileName(cleanPlaylistTitle).ifBlank { "Playlist" }
+                            val targetDir = File(basePath, cleanFolder)
+                            val dirToOpen = if (targetDir.exists()) targetDir else File(basePath)
+                            FileUtil.openDirectory(dirToOpen.absolutePath)
+                        },
+                        modifier = Modifier.size(34.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.FolderOpen,
+                            contentDescription = "فتح مجلد القائمة",
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
 
                     if (isRunning) {
@@ -363,7 +373,7 @@ fun PlaylistSubtitleBatchCard(
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Pause,
-                                contentDescription = "إيقاف مؤقت",
+                                contentDescription = "إيقاف مؤقت للكل",
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -425,7 +435,12 @@ fun PlaylistSubtitleBatchCard(
                 ) {
                     tasks.forEachIndexed { index, (task, state) ->
                         val itemIndex = (task.type as? TypeInfo.Playlist)?.index ?: (index + 1)
-                        val itemTitle = state.viewState.title.ifBlank { "مقطع $itemIndex" }
+                        val itemTitle = state.viewState.title
+                            .removePrefix("[Subtitles] ")
+                            .removePrefix("[Subtitle] ")
+                            .replace(Regex("^#\\d+\\s*"), "")
+                            .trim()
+                            .ifBlank { "مقطع $itemIndex" }
                         val isItemDone = state.downloadState is Completed
                         val isItemRunning = state.downloadState is Running || state.downloadState is FetchingInfo
                         val isItemError = state.downloadState is Error

@@ -606,15 +606,17 @@ fun DownloadPageImplV2(
                 ) {
                     if (filteredMap.isNotEmpty()) {
                         item(span = { GridItemSpan(maxLineSpan) }) {
-                            val videoCount =
-                                filteredMap.count {
-                                    !it.second.viewState.videoFormats.isNullOrEmpty() &&
-                                        !it.second.viewState.title.startsWith("[Subtitle]")
-                                }
+                            val subtitleCount = filteredMap.count { it.first.preferences.skipDownload && it.first.preferences.downloadSubtitle }
+                            val videoCount = filteredMap.count {
+                                !it.second.viewState.videoFormats.isNullOrEmpty() &&
+                                    !it.first.preferences.skipDownload
+                            }
+                            val audioCount = (filteredMap.size - videoCount - subtitleCount).coerceAtLeast(0)
                             SubHeader(
                                 modifier = Modifier,
+                                subtitleCount = subtitleCount,
                                 videoCount = videoCount,
-                                audioCount = filteredMap.size - videoCount,
+                                audioCount = audioCount,
                                 isGridView = viewOptions.isGridView,
                                 onToggleView = { viewOptions = viewOptions.copy(isGridView = !viewOptions.isGridView) },
                                 onShowMenu = { isMenuSheetOpen = true },
@@ -1279,6 +1281,7 @@ fun SubHeader(
         MaterialTheme.colorScheme.run {
             if (LocalDarkTheme.current.isDarkTheme()) surfaceContainer else surfaceContainerLowest
         },
+    subtitleCount: Int = 0,
     videoCount: Int = 0,
     audioCount: Int = 0,
     isGridView: Boolean = true,
@@ -1286,6 +1289,12 @@ fun SubHeader(
     onShowMenu: () -> Unit,
 ) {
     val text = buildString {
+        if (subtitleCount > 0) {
+            append("$subtitleCount ترجمة")
+            if (videoCount > 0 || audioCount > 0) {
+                append(", ")
+            }
+        }
         if (videoCount > 0) {
             append(pluralStringResource(R.plurals.video_count, videoCount).format(videoCount))
             if (audioCount > 0) {

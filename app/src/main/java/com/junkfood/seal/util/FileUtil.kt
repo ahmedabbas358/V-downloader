@@ -44,6 +44,31 @@ object FileUtil {
             }
             .onFailure { onFailureCallback(it) }
 
+    fun openDirectory(path: String, onFailureCallback: (Throwable) -> Unit = {}) {
+        path.runCatching {
+            val dir = File(path)
+            if (!dir.exists()) dir.mkdirs()
+
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                val uri = try {
+                    FileProvider.getUriForFile(context, context.getFileProvider(), dir)
+                } catch (e: Exception) {
+                    Uri.parse(path)
+                }
+                setDataAndType(uri, DocumentsContract.Document.MIME_TYPE_DIR)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            try {
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                val fallbackIntent = Intent(android.app.DownloadManager.ACTION_VIEW_DOWNLOADS).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(fallbackIntent)
+            }
+        }.onFailure { onFailureCallback(it) }
+    }
+
     private fun createIntentForFile(path: String?): Intent? {
         if (path.isNullOrBlank()) return null
         val file = File(path)

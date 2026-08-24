@@ -40,6 +40,7 @@ import com.junkfood.seal.util.PreferenceUtil.getBoolean
 import com.junkfood.seal.util.VideoInfo
 import com.yausername.youtubedl_android.YoutubeDL
 import java.io.File
+import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -681,38 +682,42 @@ class DownloadQueueManager(
         val preferences = task.preferences
         val isSubtitleOnly = preferences.skipDownload && preferences.downloadSubtitle
         val playlistType = task.type as? TypeInfo.Playlist
+        val playlistIndex = playlistType?.index ?: 0
         val rawPlaylistTitle = playlistType?.playlistTitle.orEmpty().ifEmpty { preferences.newTitle }
         val cleanPlaylistName = FileUtil.cleanFileName(rawPlaylistTitle).trim()
 
         val baseDir = OutputTemplateBuilder.resolveBaseDirectory(preferences, preferences.extractAudio)
 
         val candidateDirs = mutableListOf<File>()
-        if (isSubtitleOnly && cleanPlaylistName.isNotEmpty() && cleanPlaylistName != "Playlist") {
-            candidateDirs.add(File(baseDir, "[Subtitles] $cleanPlaylistName"))
-        } else if (preferences.subdirectoryPlaylistTitle && cleanPlaylistName.isNotEmpty() && cleanPlaylistName != "Playlist") {
+        if (cleanPlaylistName.isNotEmpty() && cleanPlaylistName != "Playlist") {
             candidateDirs.add(File(baseDir, cleanPlaylistName))
-        } else {
-            candidateDirs.add(File(baseDir))
         }
+        candidateDirs.add(File(baseDir))
 
         val state = taskStateMap[task]
         val rawUrl = task.url.ifEmpty { state?.viewState?.url.orEmpty() }
-        val extractedId = FileCollisionResolver.extractVideoId(rawUrl, fallbackId = state?.videoInfo?.id.orEmpty())
+        val extractedId = FileCollisionResolver.extractVideoId(rawUrl, fallbackId = state?.videoInfo?.id.orEmpty()).trim()
 
-        val rawTitle = state?.viewState?.title.orEmpty().removePrefix("[Subtitle] ").replace(Regex("^#\\d+\\s*"), "").trim()
+        val rawTitle = state?.viewState?.title.orEmpty()
+            .removePrefix("[Subtitle] ")
+            .removePrefix("[Subtitles] ")
+            .replace(Regex("^#\\d+\\s*"), "")
+            .trim()
         val isUrlTitle = rawTitle.startsWith("http://", ignoreCase = true) || rawTitle.startsWith("https://", ignoreCase = true)
-        val cleanTitleStr = if (!isUrlTitle && rawTitle.isNotEmpty()) FileUtil.cleanFileName(rawTitle) else ""
+        val cleanTitleStr = if (!isUrlTitle && rawTitle.isNotEmpty()) FileUtil.cleanFileName(rawTitle).trim() else ""
+
+        val minSize = if (isSubtitleOnly) 50L else 1024L
 
         for (dir in candidateDirs) {
             if (!dir.exists() || !dir.isDirectory) continue
 
-            val files = dir.walkTopDown().maxDepth(2).filter { file ->
+            val files = dir.listFiles()?.filter { file ->
                 file.isFile &&
                 !file.name.endsWith(".part", ignoreCase = true) &&
                 !file.name.endsWith(".ytdl", ignoreCase = true) &&
                 !file.name.endsWith(".tmp", ignoreCase = true) &&
-                file.length() > (if (isSubtitleOnly) 10L else 1024L)
-            }.toList()
+                file.length() > minSize
+            } ?: emptyList()
 
             for (file in files) {
                 val fileName = file.name
@@ -724,13 +729,22 @@ class DownloadQueueManager(
                 if (isSubtitleOnly && !isSubFile) continue
                 if (!isSubtitleOnly && isSubFile) continue
 
-                // 1. Exact Video ID match (minimum 4 chars)
-                if (extractedId.length >= 4 && fileName.contains(extractedId)) {
+                // 1. Exact Video ID match (minimum 5 chars)
+                if (extractedId.length >= 5 && fileName.contains(extractedId)) {
                     return file.absolutePath
                 }
 
-                // 2. Strict cleaned title match (only if not a raw URL)
-                if (cleanTitleStr.length >= 6 && fileName.contains(cleanTitleStr)) {
+                // 2. Playlist item matching: require exact index prefix matching AND matching title prefix
+                if (playlistIndex > 0) {
+                    val idxPrefix3 = String.format(Locale.ROOT, "%03d - ", playlistIndex)
+                    val idxPrefix2 = String.format(Locale.ROOT, "%02d - ", playlistIndex)
+                    if ((fileName.startsWith(idxPrefix3) || fileName.startsWith(idxPrefix2)) &&
+                        cleanTitleStr.length >= 4 && fileName.contains(cleanTitleStr.take(20))
+                    ) {
+                        return file.absolutePath
+                    }
+                } else if (cleanTitleStr.length >= 8 && fileName.startsWith(cleanTitleStr)) {
+                    // Non-playlist matching: file MUST start with the exact title
                     return file.absolutePath
                 }
             }
