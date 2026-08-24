@@ -181,28 +181,28 @@ object LanguageMatcher {
         val exactManual = candidateTracks.filter {
             normalizeLangCode(it.languageCode) == normQuery && it.source == SubtitleSource.MANUAL
         }
-        if (exactManual.isNotEmpty()) return exactManual
+        if (exactManual.isNotEmpty()) return exactManual.take(1)
 
         // Tier 2: Manual Variant (e.g. ar-SA, ar-EG for ar query)
         val manualVariant = candidateTracks.filter {
             getBaseLanguageCode(it.languageCode) == baseQuery && it.source == SubtitleSource.MANUAL
         }
         if (manualVariant.isNotEmpty()) {
-            return manualVariant.sortedBy { it.languageCode.length }
+            return listOf(manualVariant.minByOrNull { it.languageCode.length }!!)
         }
 
         // Tier 3: Exact Automatic
         val exactAuto = candidateTracks.filter {
             normalizeLangCode(it.languageCode) == normQuery && it.source == SubtitleSource.AUTO_GENERATED
         }
-        if (exactAuto.isNotEmpty()) return exactAuto
+        if (exactAuto.isNotEmpty()) return exactAuto.take(1)
 
         // Tier 4: Automatic Variant
         val autoVariant = candidateTracks.filter {
             getBaseLanguageCode(it.languageCode) == baseQuery && it.source == SubtitleSource.AUTO_GENERATED
         }
         if (autoVariant.isNotEmpty()) {
-            return autoVariant.sortedBy { it.languageCode.length }
+            return listOf(autoVariant.minByOrNull { it.languageCode.length }!!)
         }
 
         // Tier 5: Translated subtitle (if allowed in candidateTracks)
@@ -211,7 +211,7 @@ object LanguageMatcher {
                 it.source == SubtitleSource.TRANSLATED
         }
         if (translated.isNotEmpty()) {
-            return translated.sortedBy { it.languageCode.length }
+            return listOf(translated.minByOrNull { it.languageCode.length }!!)
         }
 
         // Tier 6: Regional fallback if user requested "ar-SA" but only "ar" exists
@@ -220,7 +220,7 @@ object LanguageMatcher {
                 normalizeLangCode(it.languageCode) == baseQuery
             }
             if (fallbackMatches.isNotEmpty()) {
-                return filterBestByPolicy(fallbackMatches, policy)
+                return fallbackMatches.take(1)
             }
         }
 

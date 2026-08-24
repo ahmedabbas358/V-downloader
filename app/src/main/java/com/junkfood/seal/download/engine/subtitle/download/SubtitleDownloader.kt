@@ -333,10 +333,31 @@ object SubtitleDownloader {
                     throw SubtitleFailure.NoSubtitles
                 }
 
-                val downloadedFiles = mutableListOf<File>()
-                val cleanBaseTitle = FileUtil.cleanFileName(title).ifBlank { "Video_$videoId" }
+                // Deduplicate generated subtitle files: select only 1 best file per language code
+                val deduplicatedTempFiles = tempFiles
+                    .groupBy { file ->
+                        val match = Regex("""\.([a-zA-Z]{2,3}(?:-[a-zA-Z0-9_-]+)?)\.[a-zA-Z0-9]+$""").find(file.name)
+                        match?.groupValues?.get(1)?.substringBefore('-') ?: file.nameWithoutExtension
+                    }
+                    .values
+                    .mapNotNull { langGroup ->
+                        langGroup.minByOrNull { file ->
+                            val isOrig = file.name.contains("-orig", ignoreCase = true)
+                            val isAuto = file.name.contains("auto", ignoreCase = true)
+                            val length = file.name.length
+                            (if (isOrig) 100 else 0) + (if (isAuto) 50 else 0) + length
+                        }
+                    }
 
-                for (tempFile in tempFiles) {
+                val downloadedFiles = mutableListOf<File>()
+                val cleanBaseTitle = FileUtil.cleanFileName(title)
+                    .removePrefix("[Subtitles] ")
+                    .removePrefix("[Subtitle] ")
+                    .replace(Regex("""^\d{2,4}\s*-\s*"""), "")
+                    .trim()
+                    .ifBlank { "Video_$videoId" }
+
+                for (tempFile in deduplicatedTempFiles) {
                     val convertedFile = if (SubtitleOutputFormat.fromExtension(tempFile.extension) != targetFormat) {
                         onProgress(SubtitleProgress.Converting(targetFormat.extension))
                         SubtitleConverter.convert(tempFile, targetFormat).getOrElse { tempFile }
@@ -384,6 +405,8 @@ object SubtitleDownloader {
                 .find(tempGeneratedName)?.groupValues?.get(1)?.let { ".$it" } ?: ""
 
             val cleanTitle = FileUtil.cleanFileName(baseTitle)
+                .removePrefix("[Subtitles] ")
+                .removePrefix("[Subtitle] ")
                 .replace(Regex("""[/\\:*?"<>|]"""), "_")
                 .replace("..", "_")
                 .trim()

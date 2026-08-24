@@ -347,8 +347,9 @@ fun PlaylistSubtitleBatchCard(
                         onClick = {
                             val basePath = OutputTemplateBuilder.resolveBaseDirectory(tasks.first().first.preferences, false)
                             val cleanFolder = FileUtil.cleanFileName(cleanPlaylistTitle).ifBlank { "Playlist" }
-                            val targetDir = File(basePath, cleanFolder)
-                            val dirToOpen = if (targetDir.exists()) targetDir else File(basePath)
+                            val subtitleFolder = File(basePath, "[Subtitle] $cleanFolder")
+                            val normalFolder = File(basePath, cleanFolder)
+                            val dirToOpen = if (subtitleFolder.exists()) subtitleFolder else if (normalFolder.exists()) normalFolder else subtitleFolder
                             FileUtil.openDirectory(dirToOpen.absolutePath)
                         },
                         modifier = Modifier.size(34.dp)

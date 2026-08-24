@@ -204,7 +204,8 @@ object DownloadTaskExecutor {
 
             val isPlaylistSubtitle = (playlistItem != 0) || (task.type is TypeInfo.Playlist) || (task.preferences.downloadPlaylist && cleanPlaylistTitle.isNotEmpty() && cleanPlaylistTitle != "Playlist")
             val targetDir = if (isPlaylistSubtitle && task.preferences.commandDirectory.isBlank()) {
-                File(basePath, cleanPlaylistTitle)
+                val subtitleFolderName = "[Subtitle] $cleanPlaylistTitle"
+                File(basePath, subtitleFolderName)
             } else {
                 File(basePath)
             }
