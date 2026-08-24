@@ -10,6 +10,8 @@ import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import com.junkfood.seal.util.PreferenceUtil.getBoolean
+import com.junkfood.seal.util.PreferenceUtil.getString
 
 object PermissionManager {
 
@@ -65,8 +67,15 @@ object PermissionManager {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
             }
         } catch (e: Exception) {
-            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            try {
+                Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+            } catch (e: Exception) {
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
             }
         }
     }
@@ -86,18 +95,22 @@ object PermissionManager {
      * Centralized check for storage / media permissions.
      */
     fun checkStorageCapability(context: Context): CapabilityStatus {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val hasVideo = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_VIDEO) == PackageManager.PERMISSION_GRANTED
-            val hasAudio = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED
-            if (hasVideo && hasAudio) CapabilityStatus.GRANTED else CapabilityStatus.DENIED
-        } else if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
+        return if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
             if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
                 CapabilityStatus.GRANTED
             } else {
                 CapabilityStatus.DENIED
             }
         } else {
-            CapabilityStatus.GRANTED
+            if (SDCARD_DOWNLOAD.getBoolean(false)) {
+                if (verifySafPermission(context, SDCARD_URI.getString())) {
+                    CapabilityStatus.GRANTED
+                } else {
+                    CapabilityStatus.DENIED
+                }
+            } else {
+                CapabilityStatus.GRANTED
+            }
         }
     }
 
@@ -105,9 +118,7 @@ object PermissionManager {
      * Gets the list of storage permissions needed based on Android SDK level.
      */
     fun getRequiredStoragePermissions(): Array<String> {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            arrayOf(Manifest.permission.READ_MEDIA_VIDEO, Manifest.permission.READ_MEDIA_AUDIO)
-        } else if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
+        return if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
             arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE)
         } else {
             emptyArray()

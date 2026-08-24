@@ -1,7 +1,11 @@
 package com.junkfood.seal.ui.page.download
 
 import android.Manifest
+import android.content.Intent
 import android.os.Build
+import android.provider.Settings
+import androidx.compose.ui.platform.LocalContext
+import com.junkfood.seal.util.PermissionManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -154,6 +158,7 @@ fun DownloadPage(
     val keyboardController = LocalSoftwareKeyboardController.current
     val useDialog = LocalWindowWidthState.current != WindowWidthSizeClass.Compact
     val view = LocalView.current
+    val context = LocalContext.current
     var showDownloadDialog by rememberSaveable { mutableStateOf(false) }
     var showMeteredNetworkDialog by remember { mutableStateOf(false) }
 
@@ -221,14 +226,34 @@ fun DownloadPage(
     }
 
     if (showNotificationDialog) {
+        val isPermanentlyDenied = notificationPermission?.status?.let {
+            it is com.google.accompanist.permissions.PermissionStatus.Denied && !it.shouldShowRationale
+        } == true
+
         NotificationPermissionDialog(
+            isPermanentlyDenied = isPermanentlyDenied,
+            onOpenSettings = {
+                try {
+                    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                        putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    PermissionManager.openAppSettings(context)
+                }
+                showNotificationDialog = false
+            },
             onDismissRequest = {
                 showNotificationDialog = false
                 NOTIFICATION.updateBoolean(false)
                 pendingDownloadAction?.invoke()
                 pendingDownloadAction = null
             },
-            onPermissionGranted = { notificationPermission?.launchPermissionRequest() },
+            onPermissionGranted = {
+                showNotificationDialog = false
+                notificationPermission?.launchPermissionRequest()
+            },
         )
     }
 

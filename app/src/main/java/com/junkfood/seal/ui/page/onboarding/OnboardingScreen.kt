@@ -83,6 +83,11 @@ import com.junkfood.seal.R
 import com.junkfood.seal.ui.component.PreferenceSingleChoiceItem
 import com.junkfood.seal.util.LocaleLanguageCodeMap
 import com.junkfood.seal.util.PreferenceUtil
+import com.junkfood.seal.util.NOTIFICATION
+import com.junkfood.seal.util.SDCARD_DOWNLOAD
+import com.junkfood.seal.util.SDCARD_URI
+import com.junkfood.seal.util.PreferenceUtil.updateBoolean
+import com.junkfood.seal.util.PreferenceUtil.updateString
 import com.junkfood.seal.util.setLanguage
 import com.junkfood.seal.util.toDisplayName
 import kotlinx.coroutines.launch
@@ -531,6 +536,7 @@ private fun FeatureCard(icon: ImageVector, title: String, desc: String) {
 @Composable
 fun SmartPermissionsPage(onFinished: () -> Unit) {
     val context = LocalContext.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
     var notificationGranted by remember {
         mutableStateOf(PermissionManager.checkNotificationCapability(context) == PermissionManager.CapabilityStatus.GRANTED)
@@ -542,16 +548,53 @@ fun SmartPermissionsPage(onFinished: () -> Unit) {
         mutableStateOf(PermissionManager.checkBatteryOptimizationCapability(context) == PermissionManager.CapabilityStatus.GRANTED)
     }
 
+    val refreshPermissions = {
+        notificationGranted = (PermissionManager.checkNotificationCapability(context) == PermissionManager.CapabilityStatus.GRANTED)
+        storageGranted = (PermissionManager.checkStorageCapability(context) == PermissionManager.CapabilityStatus.GRANTED)
+        batteryGranted = (PermissionManager.checkBatteryOptimizationCapability(context) == PermissionManager.CapabilityStatus.GRANTED)
+    }
+
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                refreshPermissions()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     val notificationLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
-        notificationGranted = isGranted || (PermissionManager.checkNotificationCapability(context) == PermissionManager.CapabilityStatus.GRANTED)
+        NOTIFICATION.updateBoolean(isGranted)
+        refreshPermissions()
     }
 
     val storageLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) {
-        storageGranted = PermissionManager.checkStorageCapability(context) == PermissionManager.CapabilityStatus.GRANTED
+        refreshPermissions()
+    }
+
+    val safDirectoryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+                SDCARD_URI.updateString(uri.toString())
+                SDCARD_DOWNLOAD.updateBoolean(true)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        refreshPermissions()
     }
 
     Column(
@@ -639,7 +682,16 @@ fun SmartPermissionsPage(onFinished: () -> Unit) {
                                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                                             notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                                         } else {
-                                            PermissionManager.openAppSettings(context)
+                                            try {
+                                                context.startActivity(
+                                                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                                        putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                                    }
+                                                )
+                                            } catch (e: Exception) {
+                                                PermissionManager.openAppSettings(context)
+                                            }
                                         }
                                     },
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
@@ -691,7 +743,7 @@ fun SmartPermissionsPage(onFinished: () -> Unit) {
                             if (storageGranted) {
                                 FilterChip(
                                     selected = true,
-                                    onClick = {},
+                                    onClick = { safDirectoryLauncher.launch(null) },
                                     label = { Text(stringResource(R.string.permission_granted)) },
                                     leadingIcon = { Icon(Icons.Rounded.Check, null, modifier = Modifier.size(16.dp)) }
                                 )
@@ -702,7 +754,7 @@ fun SmartPermissionsPage(onFinished: () -> Unit) {
                                         if (perms.isNotEmpty()) {
                                             storageLauncher.launch(perms)
                                         } else {
-                                            storageGranted = true
+                                            safDirectoryLauncher.launch(null)
                                         }
                                     },
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
@@ -759,7 +811,7 @@ fun SmartPermissionsPage(onFinished: () -> Unit) {
                                     leadingIcon = { Icon(Icons.Rounded.Check, null, modifier = Modifier.size(16.dp)) }
                                 )
                             } else {
-                                FilledTonalButton(
+                                Button(
                                     onClick = {
                                         val intent = PermissionManager.createBatteryOptimizationIntent(context)
                                         if (intent != null) {

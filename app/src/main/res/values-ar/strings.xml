@@ -548,7 +548,7 @@
     <string name="setting_guide_cookies_desc">اربط حسابك لتنزيل الفيديوهات الخاصة، مقاطع الأعضاء، أو المحتوى المقيد بالعمر.</string>
 
     <string name="onboarding_permissions_title">الأذونات وإعدادات الخلفية</string>
-    <string name="onboarding_permissions_desc">نحن نحترم خصوصيتك. لن يطلب التطبيق أي أذونات الآن.</string>
+    <string name="onboarding_permissions_desc">امنح الأذونات اللازمة لتفعيل الإشعارات الفورية، تنظيم مجلدات التنزيل، وضمان استمرار التحميل في الخلفية دون انقطاع.</string>
     <string name="badge_important">هام جداً</string>
     <string name="badge_storage">التخزين</string>
     <string name="badge_speed">السرعة</string>

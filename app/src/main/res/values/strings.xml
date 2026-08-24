@@ -555,7 +555,7 @@
     <string name="setting_guide_cookies_desc">Link your browser account in Settings &gt; Cookies to download private, member-only, or age-restricted videos.</string>
 
     <string name="onboarding_permissions_title">Permissions &amp; Background Setup</string>
-    <string name="onboarding_permissions_desc">We respect your privacy. No permissions will be requested right now.</string>
+    <string name="onboarding_permissions_desc">Grant the necessary permissions to enable instant notifications, folder organization, and uninterrupted background downloading.</string>
     <string name="badge_important">Important</string>
     <string name="badge_storage">Storage</string>
     <string name="badge_speed">Speed</string>
