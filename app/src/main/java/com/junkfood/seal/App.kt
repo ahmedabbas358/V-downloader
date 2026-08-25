@@ -42,6 +42,8 @@ import com.junkfood.seal.util.UpdateUtil
 import com.junkfood.seal.util.UpgradeManager
 import com.junkfood.seal.util.VIDEO_DIRECTORY
 import com.junkfood.seal.util.YT_DLP_VERSION
+import com.junkfood.seal.util.YT_DLP_UPDATE_TIME
+import com.junkfood.seal.util.PreferenceUtil.getLong
 import com.junkfood.seal.worker.YtDlpUpdateWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
@@ -109,7 +111,7 @@ class App : Application() {
 
                 // Keep yt-dlp binary up-to-date with latest Instagram/TikTok/YouTube extractor fixes
                 runCatching {
-                    val lastUpdateTime = PreferenceUtil.getLong(YT_DLP_UPDATE_TIME, 0L)
+                    val lastUpdateTime = YT_DLP_UPDATE_TIME.getLong(0L)
                     val twelveHours = 12 * 3600 * 1000L
                     if (System.currentTimeMillis() - lastUpdateTime > twelveHours) {
                         UpdateUtil.updateYtDlp()

@@ -27,9 +27,15 @@ import com.google.accompanist.web.AccompanistWebViewClient
 import com.google.accompanist.web.WebView
 import com.google.accompanist.web.rememberWebViewState
 import com.google.android.material.R
+import com.junkfood.seal.App.Companion.context
+import com.junkfood.seal.download.engine.builder.NetworkOptionBuilder
+import com.junkfood.seal.util.FileUtil
+import com.junkfood.seal.util.FileUtil.getCookiesFile
 import com.junkfood.seal.util.PreferenceUtil.updateString
 import com.junkfood.seal.util.USER_AGENT_STRING
 import com.junkfood.seal.util.connectWithDelimiter
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 private const val TAG = "WebViewPage"
 
@@ -89,9 +95,9 @@ fun WebViewPage(cookiesViewModel: CookiesViewModel, onDismissRequest: () -> Unit
 
     val onDismiss = {
         cookieManager.flush()
-        com.junkfood.seal.App.applicationScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            com.junkfood.seal.download.engine.builder.NetworkOptionBuilder.getCookiesContentFromDatabase().getOrNull()?.let { content ->
-                com.junkfood.seal.util.FileUtil.writeContentToFile(content, com.junkfood.seal.util.FileUtil.getCookiesFile())
+        com.junkfood.seal.App.applicationScope.launch(Dispatchers.IO) {
+            NetworkOptionBuilder.getCookiesContentFromDatabase().getOrNull()?.let { content ->
+                FileUtil.writeContentToFile(content, context.getCookiesFile())
             }
         }
         onDismissRequest()
