@@ -5,10 +5,16 @@ import android.content.pm.PackageInfo
 import android.os.Build
 import android.util.Log
 import com.junkfood.seal.App.Companion.packageInfo
+import com.junkfood.seal.download.engine.builder.NetworkOptionBuilder
+import com.junkfood.seal.util.FileUtil.getCookiesFile
+import com.junkfood.seal.util.PreferenceUtil.getBoolean
 import com.junkfood.seal.util.PreferenceUtil.getInt
+import com.junkfood.seal.util.PreferenceUtil.getString
+import com.junkfood.seal.util.PreferenceUtil.updateBoolean
 import com.junkfood.seal.util.PreferenceUtil.updateInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
 
 object UpgradeManager {
 
@@ -25,33 +31,70 @@ object UpgradeManager {
 
         val lastKnownVersionCode = LAST_KNOWN_VERSION.getInt(0)
 
-        if (lastKnownVersionCode == 0) {
-            // First install or upgrade from a version that didn't have UpgradeManager
-            Log.d(TAG, "First time running UpgradeManager. Current version: $currentVersionCode")
-            LAST_KNOWN_VERSION.updateInt(currentVersionCode)
-            return@withContext
-        }
-
-        if (currentVersionCode > lastKnownVersionCode) {
-            Log.d(TAG, "Upgrading from $lastKnownVersionCode to $currentVersionCode")
-            
-            // Run migrations based on version
-            runMigrations(lastKnownVersionCode, currentVersionCode)
-            
-            // Update last known version
+        if (lastKnownVersionCode == 0 || currentVersionCode > lastKnownVersionCode) {
+            Log.d(TAG, "Running app upgrade migrations from version $lastKnownVersionCode to $currentVersionCode")
+            runMigrations(context, lastKnownVersionCode, currentVersionCode)
             LAST_KNOWN_VERSION.updateInt(currentVersionCode)
         }
     }
 
-    private fun runMigrations(oldVersion: Int, newVersion: Int) {
-        Log.d(TAG, "Running migrations from $oldVersion to $newVersion...")
-        
-        // Example Hook: Clear temporary files and caches to avoid update conflicts
+    private suspend fun runMigrations(context: Context, oldVersion: Int, newVersion: Int) {
+        Log.d(TAG, "Executing upgrade cleanups and state resets...")
+
+        // 1. Clear temporary cache files, partial downloads, and stale lockfiles
         try {
-            val count = FileUtil.clearTempFiles(FileUtil.getExternalTempDir())
-            Log.d(TAG, "Cleared $count temporary files during upgrade.")
+            val tempDirs = listOfNotNull(
+                FileUtil.getExternalTempDir(),
+                context.cacheDir,
+                context.externalCacheDir,
+                File(context.noBackupFilesDir, "tmp")
+            )
+            for (dir in tempDirs) {
+                if (dir.exists() && dir.isDirectory) {
+                    dir.listFiles()?.forEach { file ->
+                        if (file.name.startsWith("sub_temp_") ||
+                            file.name.startsWith("sub_direct_") ||
+                            file.name.endsWith(".part") ||
+                            file.name.endsWith(".ytdl") ||
+                            file.name.endsWith(".tmp")
+                        ) {
+                            file.deleteRecursively()
+                        }
+                    }
+                }
+            }
+            FileUtil.clearTempFiles(FileUtil.getExternalTempDir())
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "Failed to clean temporary cache directories", e)
+        }
+
+        // 2. Sanitize Storage & SAF Preferences
+        try {
+            if (SDCARD_DOWNLOAD.getBoolean(false)) {
+                val safUri = SDCARD_URI.getString()
+                if (!PermissionManager.verifySafPermission(context, safUri)) {
+                    Log.w(TAG, "Revoked or invalid SAF URI detected on upgrade. Resetting SD card download setting.")
+                    SDCARD_DOWNLOAD.updateBoolean(false)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to sanitize SAF preferences", e)
+        }
+
+        // 3. Sync & Flush Stored Cookies
+        try {
+            NetworkOptionBuilder.getCookiesContentFromDatabase().getOrNull()?.let { content ->
+                FileUtil.writeContentToFile(content, context.getCookiesFile())
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to refresh cookies on upgrade", e)
+        }
+
+        // 4. Force yt-dlp binary update on upgrade to immediately apply latest extractors
+        try {
+            UpdateUtil.updateYtDlp()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to update yt-dlp binary on upgrade", e)
         }
     }
 }
