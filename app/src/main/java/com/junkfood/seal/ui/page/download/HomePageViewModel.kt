@@ -48,11 +48,14 @@ class HomePageViewModel(private val downloaderV2: DownloaderV2) : ViewModel() {
         }
 
     fun startDownloadVideo() {
-        val url = viewStateFlow.value.url
-        if (url.isBlank()) {
+        val rawUrl = viewStateFlow.value.url
+        if (rawUrl.isBlank()) {
             ToastUtil.makeToast(context.getString(R.string.url_empty))
             return
         }
+        val url = com.junkfood.seal.util.SocialMediaUrlNormalizer.extractAndNormalizeUrls(rawUrl, firstMatchOnly = true).firstOrNull()
+            ?: com.junkfood.seal.util.SocialMediaUrlNormalizer.normalizeUrl(rawUrl)
+
         if (PLAYLIST.getBoolean()) {
             viewModelScope.launch(Dispatchers.IO) { parsePlaylistInfo(url) }
             return

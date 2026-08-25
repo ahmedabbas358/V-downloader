@@ -101,14 +101,14 @@ object FormatSelectorBuilder {
      */
     fun buildResolutionSelector(resolution: Int): String {
         return when (resolution) {
-            1 -> "bv*[height<=2160]+ba/b[height<=2160]/bv*+ba/b"
-            2 -> "bv*[height<=1440]+ba/b[height<=1440]/bv*+ba/b"
-            3 -> "bv*[height<=1080]+ba/b[height<=1080]/bv*+ba/b"
-            4 -> "bv*[height<=720]+ba/b[height<=720]/bv*+ba/b"
-            5 -> "bv*[height<=480]+ba/b[height<=480]/bv*+ba/b"
-            6 -> "bv*[height<=360]+ba/b[height<=360]/bv*+ba/b"
-            7 -> "wv*+wa/w/b"
-            else -> "bv*+ba/b"
+            1 -> "bv*[height<=2160]+ba/b[height<=2160]/bv*+ba/b/best"
+            2 -> "bv*[height<=1440]+ba/b[height<=1440]/bv*+ba/b/best"
+            3 -> "bv*[height<=1080]+ba/b[height<=1080]/bv*+ba/b/best"
+            4 -> "bv*[height<=720]+ba/b[height<=720]/bv*+ba/b/best"
+            5 -> "bv*[height<=480]+ba/b[height<=480]/bv*+ba/b/best"
+            6 -> "bv*[height<=360]+ba/b[height<=360]/bv*+ba/b/best"
+            7 -> "wv*+wa/w/b/best"
+            else -> "bv*+ba/b/best"
         }
     }
 

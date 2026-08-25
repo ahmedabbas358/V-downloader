@@ -266,8 +266,8 @@ private fun UniversalExtractorView(
                 Button(
                     onClick = {
                         val trimmedUrl = urlInput.trim()
-                        val detectedUrls = com.junkfood.seal.util.findURLsFromString(trimmedUrl, firstMatchOnly = true)
-                        val targetUrl = detectedUrls.firstOrNull() ?: trimmedUrl
+                        val detectedUrls = com.junkfood.seal.util.SocialMediaUrlNormalizer.extractAndNormalizeUrls(trimmedUrl, firstMatchOnly = true)
+                        val targetUrl = detectedUrls.firstOrNull() ?: com.junkfood.seal.util.SocialMediaUrlNormalizer.normalizeUrl(trimmedUrl)
                         if (targetUrl.isNotBlank() && (Patterns.WEB_URL.matcher(targetUrl).matches() || targetUrl.startsWith("http://") || targetUrl.startsWith("https://"))) {
                             dialogViewModel.postAction(DownloadDialogViewModel.Action.ShowSheet(listOf(targetUrl)))
                             urlInput = ""

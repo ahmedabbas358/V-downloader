@@ -132,17 +132,12 @@ object DownloadTaskExecutor {
                     delay((1000L * retryCount).coerceAtMost(3000L))
                 }
 
-                val fetchRequest = DownloadCommandBuilder.buildInfoFetchRequest(
+                val executionRes = DownloadUtil.fetchVideoInfoFromUrl(
                     url = fetchUrl,
-                    preferences = task.preferences,
                     playlistIndex = playlistIndex,
-                    isFlatPlaylist = false,
+                    taskKey = task.id,
+                    preferences = task.preferences,
                 )
-
-                val executionRes = runCatching {
-                    val response = YoutubeDL.getInstance().execute(fetchRequest, task.id, null)
-                    jsonFormat.decodeFromString<VideoInfo>(response.out)
-                }
 
                 if (executionRes.isSuccess) {
                     result = executionRes

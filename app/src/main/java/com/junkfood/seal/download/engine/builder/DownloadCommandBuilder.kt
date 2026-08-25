@@ -38,10 +38,11 @@ object DownloadCommandBuilder {
         playlistIndex: Int? = null,
         isFlatPlaylist: Boolean = false,
     ): YoutubeDLRequest {
-        val request = YoutubeDLRequest(url)
+        val normalizedUrl = com.junkfood.seal.util.SocialMediaUrlNormalizer.normalizeUrl(url)
+        val request = YoutubeDLRequest(normalizedUrl)
         with(request) {
             addOption("-o", OutputTemplateBuilder.BASENAME)
-            val isPlaylistUrl = url.contains("list=", ignoreCase = true) || preferences.downloadPlaylist
+            val isPlaylistUrl = normalizedUrl.contains("list=", ignoreCase = true) || preferences.downloadPlaylist
             if (isFlatPlaylist) {
                 addOption("--flat-playlist")
                 addOption("--dump-single-json")
@@ -59,6 +60,9 @@ object DownloadCommandBuilder {
             if (preferences.restrictFilenames) {
                 addOption("--restrict-filenames")
             }
+
+            // Apply platform-specific resilience, browser headers & extractor args
+            NetworkOptionBuilder.applySocialMediaOptions(this, normalizedUrl, preferences.userAgentString)
 
             if (preferences.cookies) {
                 NetworkOptionBuilder.applyCookies(this, preferences.userAgentString)
@@ -85,7 +89,8 @@ object DownloadCommandBuilder {
         isFallback: Boolean = false,
         appContext: Context = context,
     ): YoutubeDLRequest {
-        val request = YoutubeDLRequest(url)
+        val normalizedUrl = com.junkfood.seal.util.SocialMediaUrlNormalizer.normalizeUrl(url)
+        val request = YoutubeDLRequest(normalizedUrl)
         val pathBuilder = StringBuilder()
         val outputBuilder = StringBuilder()
 
@@ -101,6 +106,9 @@ object DownloadCommandBuilder {
             if (preferences.skipDownload) {
                 addOption("--skip-download")
             }
+
+            // Platform-specific options, browser headers & extractor args
+            NetworkOptionBuilder.applySocialMediaOptions(this, normalizedUrl, preferences.userAgentString, appContext)
 
             // Network & Cookies
             if (preferences.cookies) {

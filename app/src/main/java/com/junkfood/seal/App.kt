@@ -106,6 +106,15 @@ class App : Application() {
                 }
                 UpgradeManager.checkAndRunMigrations(this@App)
                 UpdateUtil.deleteOutdatedApk()
+
+                // Keep yt-dlp binary up-to-date with latest Instagram/TikTok/YouTube extractor fixes
+                runCatching {
+                    val lastUpdateTime = PreferenceUtil.getLong(YT_DLP_UPDATE_TIME, 0L)
+                    val twelveHours = 12 * 3600 * 1000L
+                    if (System.currentTimeMillis() - lastUpdateTime > twelveHours) {
+                        UpdateUtil.updateYtDlp()
+                    }
+                }
             } catch (th: Throwable) {
                 withContext(Dispatchers.Main) { startCrashReportActivity(th) }
             }
@@ -125,7 +134,7 @@ class App : Application() {
     }
 
     private fun setupWorkManager() {
-        val updateRequest = PeriodicWorkRequestBuilder<YtDlpUpdateWorker>(3, TimeUnit.DAYS)
+        val updateRequest = PeriodicWorkRequestBuilder<YtDlpUpdateWorker>(1, TimeUnit.DAYS)
             .build()
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "YtDlpUpdateWork",

@@ -108,7 +108,10 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
 
     private fun sanitizeUrls(urlList: List<String>): List<String> =
         urlList
-            .map { it.trim() }
+            .flatMap { 
+                val extracted = com.junkfood.seal.util.SocialMediaUrlNormalizer.extractAndNormalizeUrls(it)
+                if (extracted.isNotEmpty()) extracted else listOf(com.junkfood.seal.util.SocialMediaUrlNormalizer.normalizeUrl(it.trim()))
+            }
             .filter { it.isNotBlank() }
             .distinct()
             .take(MAX_URLS_PER_BATCH)

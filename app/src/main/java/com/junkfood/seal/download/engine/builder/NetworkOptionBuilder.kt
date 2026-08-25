@@ -28,6 +28,9 @@ object NetworkOptionBuilder {
         const val PATH = "path"
     }
 
+    const val MODERN_BROWSER_USER_AGENT =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+
     /**
      * Applies cookie options to a yt-dlp request.
      */
@@ -36,9 +39,49 @@ object NetworkOptionBuilder {
         userAgentString: String = "",
         appContext: Context = context,
     ): YoutubeDLRequest = request.apply {
-        addOption("--cookies", appContext.getCookiesFile().absolutePath)
-        if (userAgentString.isNotEmpty()) {
-            addOption("--add-header", "User-Agent:$userAgentString")
+        val cookiesFile = appContext.getCookiesFile()
+        if (cookiesFile.exists() && cookiesFile.length() > 0) {
+            addOption("--cookies", cookiesFile.absolutePath)
+        }
+        val ua = userAgentString.ifBlank { MODERN_BROWSER_USER_AGENT }
+        addOption("--user-agent", ua)
+    }
+
+    /**
+     * Applies platform-specific extractor arguments to prevent bot detection and API failures
+     * for Instagram, Twitter/X, TikTok, and YouTube.
+     */
+    fun applySocialMediaOptions(
+        request: YoutubeDLRequest,
+        url: String,
+        userAgentString: String = "",
+        appContext: Context = context,
+    ): YoutubeDLRequest = request.apply {
+        val ua = userAgentString.ifBlank { MODERN_BROWSER_USER_AGENT }
+        addOption("--user-agent", ua)
+        addOption("--add-header", "Accept-Language: en-US,en;q=0.9,ar;q=0.8")
+        addOption("--add-header", "Sec-Fetch-Mode: navigate")
+
+        val lowerUrl = url.lowercase()
+        when {
+            lowerUrl.contains("x.com") || lowerUrl.contains("twitter.com") -> {
+                addOption("--extractor-args", "twitter:api=syndication")
+            }
+            lowerUrl.contains("instagram.com") || lowerUrl.contains("instagr.am") -> {
+                addOption("--extractor-args", "instagram:api=graphql")
+            }
+            lowerUrl.contains("tiktok.com") -> {
+                addOption("--extractor-args", "tiktok:app_version=35.1.3")
+            }
+            lowerUrl.contains("youtube.com") || lowerUrl.contains("youtu.be") -> {
+                addOption("--extractor-args", "youtube:player_client=android,web;player_skip=configs")
+            }
+        }
+
+        // Automatically attach cookies if available in app storage
+        val cookiesFile = appContext.getCookiesFile()
+        if (cookiesFile.exists() && cookiesFile.length() > 10) {
+            addOption("--cookies", cookiesFile.absolutePath)
         }
     }
 
@@ -82,10 +125,9 @@ object NetworkOptionBuilder {
         addOption("--retries", "10")
         addOption("--fragment-retries", "10")
         addOption("--file-access-retries", "5")
-        addOption("--socket-timeout", "20")
-        // NOTE: --extractor-args is NOT set globally here because forcing ios/mweb clients
-        // strips 1080p/4K DASH video streams and separate audio-only formats from YouTube.
+        addOption("--socket-timeout", "25")
         addOption("--no-check-certificates")
+        addOption("--geo-bypass")
 
         if (forceIpv4) {
             addOption("-4")

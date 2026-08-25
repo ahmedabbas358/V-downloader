@@ -87,13 +87,23 @@ fun WebViewPage(cookiesViewModel: CookiesViewModel, onDismissRequest: () -> Unit
     val websiteUrl = state.editingCookieProfile.url
     val webViewState = rememberWebViewState(websiteUrl)
 
+    val onDismiss = {
+        cookieManager.flush()
+        com.junkfood.seal.App.applicationScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            com.junkfood.seal.download.engine.builder.NetworkOptionBuilder.getCookiesContentFromDatabase().getOrNull()?.let { content ->
+                com.junkfood.seal.util.FileUtil.writeContentToFile(content, com.junkfood.seal.util.FileUtil.getCookiesFile())
+            }
+        }
+        onDismissRequest()
+    }
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
                 title = { Text(webViewState.pageTitle.toString(), maxLines = 1) },
                 navigationIcon = {
-                    IconButton(onClick = { onDismissRequest() }) {
+                    IconButton(onClick = { onDismiss() }) {
                         Icon(
                             imageVector = Icons.Outlined.Close,
                             stringResource(id = androidx.appcompat.R.string.abc_action_mode_done),
@@ -101,7 +111,7 @@ fun WebViewPage(cookiesViewModel: CookiesViewModel, onDismissRequest: () -> Unit
                     }
                 },
                 actions = {
-                    TextButton(onClick = onDismissRequest) {
+                    TextButton(onClick = onDismiss) {
                         Text(text = stringResource(id = R.string.abc_action_mode_done))
                     }
                 },
