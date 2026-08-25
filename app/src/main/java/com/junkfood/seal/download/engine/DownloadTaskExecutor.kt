@@ -191,28 +191,29 @@ object DownloadTaskExecutor {
         val isSubtitleTask = task.preferences.skipDownload && task.preferences.downloadSubtitle
         if (isSubtitleTask) {
             val basePath = OutputTemplateBuilder.resolveBaseDirectory(task.preferences, isAudioDownload = false)
-            val rawPlaylistTitle = fallbackPlaylistTitle
-                .ifEmpty { (task.type as? TypeInfo.Playlist)?.playlistTitle.orEmpty() }
-                .ifEmpty { videoInfo.playlist.orEmpty() }
-                .ifEmpty { task.preferences.newTitle }
-                .ifEmpty { "Playlist" }
-                .removePrefix("[Subtitles] ")
-                .removePrefix("[Subtitle] ")
-                .trim()
+            val isPlaylistSubtitle = (task.type is TypeInfo.Playlist && (task.type as TypeInfo.Playlist).playlistTitle.isNotBlank()) ||
+                task.preferences.downloadPlaylist ||
+                (playlistItem > 0 && fallbackPlaylistTitle.isNotBlank())
+
+            val rawPlaylistTitle = if (isPlaylistSubtitle) {
+                fallbackPlaylistTitle
+                    .ifEmpty { (task.type as? TypeInfo.Playlist)?.playlistTitle.orEmpty() }
+                    .ifEmpty { videoInfo.playlist.orEmpty() }
+                    .ifEmpty { "Playlist" }
+                    .removePrefix("[Subtitles] ")
+                    .removePrefix("[Subtitle] ")
+                    .trim()
+            } else {
+                ""
+            }
             val cleanPlaylistTitle = com.junkfood.seal.util.FileUtil.cleanFileName(rawPlaylistTitle).trim().ifBlank { "Playlist" }
 
-            // Only create a playlist subfolder when this is genuinely a multi-item playlist task
-            // (index > 1 means it's the 2nd+ item in a playlist sequence).
-            // Single video subtitle downloads go directly to the base directory.
-            val isPlaylistSubtitle = playlistItem > 1 ||
-                (task.type is TypeInfo.Playlist && (task.type as TypeInfo.Playlist).index > 1)
-            val hasRealPlaylistTitle = cleanPlaylistTitle.isNotBlank() &&
-                cleanPlaylistTitle != "Playlist" && cleanPlaylistTitle != "Video"
-            val targetDir = if (isPlaylistSubtitle && hasRealPlaylistTitle && task.preferences.commandDirectory.isBlank()) {
-                val subtitleFolderName = "[Subtitle] $cleanPlaylistTitle"
-                File(basePath, subtitleFolderName)
-            } else {
-                File(basePath)
+            val targetDir = when {
+                task.preferences.commandDirectory.isNotBlank() -> File(task.preferences.commandDirectory)
+                isPlaylistSubtitle && cleanPlaylistTitle.isNotBlank() && cleanPlaylistTitle != "Playlist" && cleanPlaylistTitle != "Video" -> {
+                    File(basePath, "[Subtitle] $cleanPlaylistTitle")
+                }
+                else -> File(basePath)
             }
             targetDir.mkdirs()
 

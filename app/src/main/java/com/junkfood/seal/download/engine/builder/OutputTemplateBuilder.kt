@@ -98,12 +98,13 @@ object OutputTemplateBuilder {
             .trim()
 
         if (isSubtitleOnly) {
-            val clean = if (rawPlaylistName.isNotEmpty() && rawPlaylistName != "Playlist") {
-                FileUtil.cleanFileName(rawPlaylistName)
-            } else {
-                "%(playlist_title,playlist)s"
-            }
-            return if (preferences.downloadPlaylist || playlistItem > 0 || rawPlaylistName.isNotEmpty()) {
+            val isPlaylist = preferences.downloadPlaylist || (playlistItem > 0 && rawPlaylistName.isNotEmpty() && rawPlaylistName != "Playlist")
+            return if (isPlaylist) {
+                val clean = if (rawPlaylistName.isNotEmpty() && rawPlaylistName != "Playlist") {
+                    FileUtil.cleanFileName(rawPlaylistName)
+                } else {
+                    "%(playlist_title,playlist)s"
+                }
                 "[Subtitle] $clean/"
             } else {
                 ""

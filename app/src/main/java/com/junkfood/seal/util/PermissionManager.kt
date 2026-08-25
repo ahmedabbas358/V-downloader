@@ -83,14 +83,57 @@ object PermissionManager {
     }
 
     /**
+     * Centralized way to open Notification Settings directly.
+     */
+    fun openNotificationSettings(context: Context) {
+        try {
+            val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                    putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+            } else {
+                Intent("android.settings.APP_NOTIFICATION_SETTINGS").apply {
+                    putExtra("app_package", context.packageName)
+                    putExtra("app_uid", context.applicationInfo.uid)
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+            }
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            openAppSettings(context)
+        }
+    }
+
+    /**
+     * Centralized way to open Battery Optimization Settings directly.
+     */
+    fun openBatteryOptimizationSettings(context: Context) {
+        val intent = createBatteryOptimizationIntent(context)
+        if (intent != null) {
+            try {
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                openAppSettings(context)
+            }
+        } else {
+            openAppSettings(context)
+        }
+    }
+
+    /**
      * Centralized way to open App Settings.
      */
     fun openAppSettings(context: Context) {
-        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-            data = Uri.parse("package:${context.packageName}")
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        try {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.parse("package:${context.packageName}")
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
-        context.startActivity(intent)
     }
 
     /**

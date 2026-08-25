@@ -535,6 +535,7 @@ private fun FeatureCard(icon: ImageVector, title: String, desc: String) {
 @Composable
 fun SmartPermissionsPage(onFinished: () -> Unit) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
     var notificationGranted by remember {
@@ -675,18 +676,7 @@ fun SmartPermissionsPage(onFinished: () -> Unit) {
                             if (notificationGranted) {
                                 FilterChip(
                                     selected = true,
-                                    onClick = {
-                                        try {
-                                            context.startActivity(
-                                                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                                                    putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                                }
-                                            )
-                                        } catch (e: Exception) {
-                                            PermissionManager.openAppSettings(context)
-                                        }
-                                    },
+                                    onClick = { PermissionManager.openNotificationSettings(context) },
                                     label = { Text(stringResource(R.string.permission_granted)) },
                                     leadingIcon = { Icon(Icons.Rounded.Check, null, modifier = Modifier.size(16.dp)) }
                                 )
@@ -696,16 +686,7 @@ fun SmartPermissionsPage(onFinished: () -> Unit) {
                                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                                             notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                                         } else {
-                                            try {
-                                                context.startActivity(
-                                                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                                                        putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                                    }
-                                                )
-                                            } catch (e: Exception) {
-                                                PermissionManager.openAppSettings(context)
-                                            }
+                                            PermissionManager.openNotificationSettings(context)
                                         }
                                     },
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
@@ -820,31 +801,13 @@ fun SmartPermissionsPage(onFinished: () -> Unit) {
                             if (batteryGranted) {
                                 FilterChip(
                                     selected = true,
-                                    onClick = {
-                                        val intent = PermissionManager.createBatteryOptimizationIntent(context)
-                                        if (intent != null) {
-                                            try {
-                                                context.startActivity(intent)
-                                            } catch (e: Exception) {
-                                                PermissionManager.openAppSettings(context)
-                                            }
-                                        }
-                                    },
+                                    onClick = { PermissionManager.openBatteryOptimizationSettings(context) },
                                     label = { Text(stringResource(R.string.permission_granted)) },
                                     leadingIcon = { Icon(Icons.Rounded.Check, null, modifier = Modifier.size(16.dp)) }
                                 )
                             } else {
                                 Button(
-                                    onClick = {
-                                        val intent = PermissionManager.createBatteryOptimizationIntent(context)
-                                        if (intent != null) {
-                                            try {
-                                                context.startActivity(intent)
-                                            } catch (e: Exception) {
-                                                PermissionManager.openAppSettings(context)
-                                            }
-                                        }
-                                    },
+                                    onClick = { PermissionManager.openBatteryOptimizationSettings(context) },
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                                 ) {
                                     Text(stringResource(R.string.permission_required))

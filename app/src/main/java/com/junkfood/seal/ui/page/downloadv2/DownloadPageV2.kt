@@ -331,7 +331,11 @@ private const val HeaderSpacingDp = 28
 
 sealed interface QueueUiItem {
     data class SingleTask(val item: Pair<Task, Task.State>) : QueueUiItem
-    data class PlaylistSubtitleBatch(val playlistTitle: String, val tasks: List<Pair<Task, Task.State>>) : QueueUiItem
+    data class PlaylistBatch(
+        val playlistTitle: String,
+        val batchType: PlaylistBatchType,
+        val tasks: List<Pair<Task, Task.State>>
+    ) : QueueUiItem
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -391,27 +395,39 @@ fun DownloadPageImplV2(
     val queueUiItems by remember(filteredMap) {
         derivedStateOf {
             val result = mutableListOf<QueueUiItem>()
-            val playlistSubtitleGroups = mutableMapOf<String, MutableList<Pair<Task, Task.State>>>()
+            val playlistGroups = mutableMapOf<Triple<String, String, PlaylistBatchType>, MutableList<Pair<Task, Task.State>>>()
             val nonBatchTasks = mutableListOf<Pair<Task, Task.State>>()
 
             filteredMap.forEach { pair ->
                 val task = pair.first
                 val isSubtitle = task.preferences.skipDownload && task.preferences.downloadSubtitle
+                val isAudio = task.preferences.extractAudio && !isSubtitle
                 val playlistInfo = task.type as? Task.TypeInfo.Playlist
                 val isPlaylist = playlistInfo != null || task.preferences.downloadPlaylist
-                if (isSubtitle && isPlaylist) {
-                    val groupKey = playlistInfo?.playlistTitle?.ifBlank { null }
-                        ?: playlistInfo?.playlistUrl?.ifBlank { null }
-                        ?: task.preferences.newTitle.ifBlank { "Playlist Subtitles" }
-                    playlistSubtitleGroups.getOrPut(groupKey) { mutableListOf() }.add(pair)
+                if (isPlaylist) {
+                    val batchType = when {
+                        isSubtitle -> PlaylistBatchType.SUBTITLE
+                        isAudio -> PlaylistBatchType.AUDIO
+                        else -> PlaylistBatchType.VIDEO
+                    }
+                    val rawTitle = playlistInfo?.playlistTitle?.ifBlank { null }
+                        ?: task.preferences.newTitle.ifBlank { "Playlist" }
+                    val playlistUrl = playlistInfo?.playlistUrl.orEmpty()
+                    val key = Triple(rawTitle, playlistUrl, batchType)
+                    playlistGroups.getOrPut(key) { mutableListOf() }.add(pair)
                 } else {
                     nonBatchTasks.add(pair)
                 }
             }
 
-            playlistSubtitleGroups.forEach { (title, tasks) ->
-                val sortedTasks = tasks.sortedBy { (it.first.type as? Task.TypeInfo.Playlist)?.index ?: 0 }
-                result.add(QueueUiItem.PlaylistSubtitleBatch(title, sortedTasks))
+            playlistGroups.forEach { (key, tasks) ->
+                val (title, _, type) = key
+                if (tasks.size > 1 || tasks.firstOrNull()?.first?.type is Task.TypeInfo.Playlist) {
+                    val sortedTasks = tasks.sortedBy { (it.first.type as? Task.TypeInfo.Playlist)?.index ?: 0 }
+                    result.add(QueueUiItem.PlaylistBatch(title, type, sortedTasks))
+                } else {
+                    tasks.forEach { nonBatchTasks.add(it) }
+                }
             }
 
             nonBatchTasks.forEach {
@@ -628,22 +644,23 @@ fun DownloadPageImplV2(
                         items = queueUiItems,
                         key = { _, queueItem ->
                             when (queueItem) {
-                                is QueueUiItem.PlaylistSubtitleBatch -> "batch_${queueItem.playlistTitle}_${queueItem.tasks.firstOrNull()?.first?.id}"
+                                is QueueUiItem.PlaylistBatch -> "batch_${queueItem.batchType}_${queueItem.playlistTitle}_${queueItem.tasks.firstOrNull()?.first?.id}"
                                 is QueueUiItem.SingleTask -> queueItem.item.first.id
                             }
                         },
                         span = { _, queueItem ->
                             when (queueItem) {
-                                is QueueUiItem.PlaylistSubtitleBatch -> GridItemSpan(maxLineSpan)
+                                is QueueUiItem.PlaylistBatch -> GridItemSpan(maxLineSpan)
                                 is QueueUiItem.SingleTask -> if (viewOptions.isGridView) GridItemSpan(1) else GridItemSpan(maxLineSpan)
                             }
                         }
                     ) { _, queueItem ->
                         when (queueItem) {
-                            is QueueUiItem.PlaylistSubtitleBatch -> {
-                                PlaylistSubtitleBatchCard(
+                            is QueueUiItem.PlaylistBatch -> {
+                                PlaylistBatchCard(
                                     modifier = Modifier.padding(bottom = 16.dp),
                                     playlistTitle = queueItem.playlistTitle,
+                                    batchType = queueItem.batchType,
                                     tasks = queueItem.tasks,
                                     onActionPost = onActionPost
                                 )
