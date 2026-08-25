@@ -15,6 +15,7 @@ import com.junkfood.seal.download.engine.subtitle.validation.SubtitleValidator
 import com.junkfood.seal.download.engine.subtitle.youtube.YoutubeClient
 import com.junkfood.seal.download.engine.subtitle.youtube.YoutubeClientStrategy
 import com.junkfood.seal.util.DownloadUtil.DownloadPreferences
+import com.junkfood.seal.util.FFmpegManager
 import com.junkfood.seal.util.FileUtil
 import com.junkfood.seal.util.PLAYLIST_NUMBERING
 import com.junkfood.seal.util.PreferenceUtil.getBoolean
@@ -148,6 +149,11 @@ object SubtitleDownloader {
                         // Client strategy
                         val extractorArgs = YoutubeClientStrategy.buildExtractorArgs(clientChain = clientChain)
                         addOption("--extractor-args", extractorArgs)
+
+                        // FFmpeg location for conversions
+                        FFmpegManager.getFFmpegExecutable(appContext)?.let { ffmpegFile ->
+                            addOption("--ffmpeg-location", ffmpegFile.absolutePath)
+                        }
 
                         // Network options
                         if (preferences.cookies) {
@@ -308,6 +314,10 @@ object SubtitleDownloader {
                     addOption("--sub-format", "best/vtt/srt/ass/lrc/srv3/srv2/srv1")
                     val extractorArgs = YoutubeClientStrategy.buildExtractorArgs(clientChain = listOf(YoutubeClient.ANDROID, YoutubeClient.DEFAULT, YoutubeClient.WEB))
                     addOption("--extractor-args", extractorArgs)
+
+                    FFmpegManager.getFFmpegExecutable(appContext)?.let { ffmpegFile ->
+                        addOption("--ffmpeg-location", ffmpegFile.absolutePath)
+                    }
 
                     if (preferences.cookies) {
                         NetworkOptionBuilder.applyCookies(this, preferences.userAgentString, appContext)

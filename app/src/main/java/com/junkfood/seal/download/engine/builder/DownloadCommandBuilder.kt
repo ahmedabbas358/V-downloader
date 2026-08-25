@@ -7,6 +7,7 @@ import com.junkfood.seal.util.CONVERT_M4A
 import com.junkfood.seal.util.CONVERT_MP3
 import com.junkfood.seal.util.CONVERT_OPUS
 import com.junkfood.seal.util.DownloadUtil.DownloadPreferences
+import com.junkfood.seal.util.FFmpegManager
 import com.junkfood.seal.util.FileUtil
 import com.junkfood.seal.util.FileUtil.getArchiveFile
 import com.junkfood.seal.util.FileUtil.getConfigFile
@@ -126,6 +127,11 @@ object DownloadCommandBuilder {
 
             if (preferences.useDownloadArchive) {
                 addOption("--download-archive", appContext.getArchiveFile().absolutePath)
+            }
+
+            // Attach on-device FFmpeg binary location for merging audio and embedding subtitles
+            FFmpegManager.getFFmpegExecutable(appContext)?.let { ffmpegFile ->
+                addOption("--ffmpeg-location", ffmpegFile.absolutePath)
             }
 
             if (preferences.rateLimit && preferences.maxDownloadRate.isNotBlank()) {
@@ -367,6 +373,9 @@ object DownloadCommandBuilder {
                 "--config-locations",
                 FileUtil.writeContentToFile(template.template, appContext.getConfigFile()).absolutePath,
             )
+            FFmpegManager.getFFmpegExecutable(appContext)?.let { ffmpegFile ->
+                addOption("--ffmpeg-location", ffmpegFile.absolutePath)
+            }
             if (preferences.cookies) {
                 NetworkOptionBuilder.applyCookies(this, preferences.userAgentString, appContext)
             }

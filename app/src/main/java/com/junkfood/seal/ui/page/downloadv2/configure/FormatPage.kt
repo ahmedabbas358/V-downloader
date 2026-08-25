@@ -152,10 +152,6 @@ fun FormatPage(
             emptySet()
         }
 
-    var showUpdateSubtitleDialog by remember { mutableStateOf(false) }
-
-    var diffSubtitleLanguages by remember { mutableStateOf(emptySet<String>()) }
-
     val isAudioSelected = audioOnly
     val isSubOnly = isSubtitleOnly
 
@@ -170,10 +166,6 @@ fun FormatPage(
         isClippingAvailable = !isAudioSelected && !isSubOnly && VIDEO_CLIP.getBoolean() && (videoInfo.duration ?: .0) >= 0,
     ) { config ->
         with(config) {
-            diffSubtitleLanguages =
-                (selectedSubtitles + selectedAutoCaptions)
-                    .run { this - this.filterWithRegex(subtitleLanguageRegex) }
-                    .toSet()
 
             val audioOnlyFormats = formatList.filter { it.isAudioOnly() }
             val videoFormats = formatList.filter { it.containsVideo() }
@@ -247,31 +239,8 @@ fun FormatPage(
                 downloader.enqueue(finalTask)
             }
 
-            if (diffSubtitleLanguages.isNotEmpty()) {
-                showUpdateSubtitleDialog = true
-            } else {
-                onNavigateBack()
-            }
+            onNavigateBack()
         }
-    }
-    if (showUpdateSubtitleDialog) {
-        UpdateSubtitleLanguageDialog(
-            modifier = Modifier,
-            languages = diffSubtitleLanguages,
-            onDismissRequest = {
-                showUpdateSubtitleDialog = false
-                onNavigateBack()
-            },
-            onConfirm = {
-                SUBTITLE_LANGUAGE.updateString(
-                    (diffSubtitleLanguages + subtitleLanguageRegex).joinToString(separator = ",") {
-                        it
-                    }
-                )
-                showUpdateSubtitleDialog = false
-                onNavigateBack()
-            },
-        )
     }
 }
 

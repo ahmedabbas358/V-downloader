@@ -146,8 +146,8 @@ import com.junkfood.seal.util.DownloadType.Audio
 import com.junkfood.seal.util.DownloadType.Command
 import com.junkfood.seal.util.DownloadType.Playlist
 import com.junkfood.seal.util.DownloadType.Video
-import com.junkfood.seal.util.DownloadType.entries
-import com.junkfood.seal.util.DownloadUtil
+import com.junkfood.seal.util.DOWNLOAD_PLAYLIST
+import com.junkfood.seal.util.EMBED_SUBTITLE
 import com.junkfood.seal.util.EXTRACT_AUDIO
 import com.junkfood.seal.util.FORMAT_SELECTION
 import com.junkfood.seal.util.PLAYLIST_NUMBERING
@@ -728,7 +728,7 @@ private fun ConfigurePage(
                     }
                 }
             }
-            val isPlaylistUrl = selectedType == Playlist || url.contains("list=", ignoreCase = true) || preferences.downloadPlaylist
+            val isPlaylistUrl = selectedType == Playlist || (url.contains("list=", ignoreCase = true) && !url.contains("watch?v=", ignoreCase = true))
             var expanded by remember { mutableStateOf(false) }
             ExpandableTitle(expanded = expanded, onClick = { expanded = !expanded }) {
                 AdditionalSettings(
@@ -761,7 +761,7 @@ private fun ConfigurePage(
                         downloadType = selectedType,
                     )
                 )
-                val isPlaylist = selectedType == Playlist || url.contains("list=", ignoreCase = true) || preferences.downloadPlaylist
+                val isPlaylist = selectedType == Playlist || (url.contains("list=", ignoreCase = true) && !url.contains("watch?v=", ignoreCase = true))
                 onActionPost(
                     Action.DownloadWithPreset(
                         urlList = listOf(url),
@@ -783,9 +783,9 @@ private fun ConfigurePage(
                         downloadType = selectedType,
                     )
                 )
-                val isPlaylistUrl = selectedType == Playlist || url.contains("list=", ignoreCase = true) || preferences.downloadPlaylist
+                val isPlaylist = selectedType == Playlist || (url.contains("list=", ignoreCase = true) && !url.contains("watch?v=", ignoreCase = true))
                 val updatedPrefs = preferences.copy(
-                    downloadPlaylist = isPlaylistUrl,
+                    downloadPlaylist = isPlaylist,
                     extractAudio = selectedType == Audio,
                     skipDownload = selectedType == DownloadType.Subtitle,
                     downloadSubtitle = if (selectedType == DownloadType.Subtitle) true else preferences.downloadSubtitle,
@@ -793,7 +793,7 @@ private fun ConfigurePage(
                     autoTranslatedSubtitles = if (selectedType == DownloadType.Subtitle) true else preferences.autoTranslatedSubtitles,
                 )
                 if (selectedType == DownloadType.Subtitle) {
-                    if (isPlaylistUrl) {
+                    if (isPlaylist) {
                         onActionPost(
                             Action.FetchPlaylistSubtitleFormats(
                                 firstVideoUrl = url,
@@ -810,7 +810,7 @@ private fun ConfigurePage(
                             )
                         )
                     }
-                } else if (isPlaylistUrl) {
+                } else if (isPlaylist) {
                     onActionPost(Action.FetchPlaylist(url = url, preferences = updatedPrefs))
                 } else {
                     onActionPost(
@@ -976,6 +976,17 @@ private fun AdditionalSettings(
                         },
                         label = stringResource(id = R.string.download_subtitles),
                     )
+                    if (downloadSubtitle) {
+                        VideoFilterChip(
+                            selected = embedSubtitle,
+                            enabled = true,
+                            onClick = {
+                                EMBED_SUBTITLE.updateBoolean(!embedSubtitle)
+                                onPreferenceUpdate()
+                            },
+                            label = stringResource(id = R.string.embed_subtitles),
+                        )
+                    }
                 }
 
                 // Auto captions & translated subtitles toggles

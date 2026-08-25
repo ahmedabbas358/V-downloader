@@ -104,11 +104,16 @@ object PermissionManager {
                 CapabilityStatus.DENIED
             }
         } else {
-            val isSafConfigured = SDCARD_DOWNLOAD.getBoolean(false) && verifySafPermission(context, SDCARD_URI.getString())
-            if (isSafConfigured) {
-                CapabilityStatus.GRANTED
+            // Android 11+ (API 30+) uses Scoped Storage to save directly into standard download folders.
+            // Custom SAF permission is only required when the user explicitly enables SD Card / Custom SAF storage.
+            if (SDCARD_DOWNLOAD.getBoolean(false)) {
+                if (verifySafPermission(context, SDCARD_URI.getString())) {
+                    CapabilityStatus.GRANTED
+                } else {
+                    CapabilityStatus.DENIED
+                }
             } else {
-                CapabilityStatus.DENIED
+                CapabilityStatus.GRANTED
             }
         }
     }

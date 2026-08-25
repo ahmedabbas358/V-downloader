@@ -73,9 +73,7 @@ object NetworkOptionBuilder {
             lowerUrl.contains("tiktok.com") -> {
                 addOption("--extractor-args", "tiktok:app_version=35.1.3")
             }
-            lowerUrl.contains("youtube.com") || lowerUrl.contains("youtu.be") -> {
-                addOption("--extractor-args", "youtube:player_client=android,web;player_skip=configs")
-            }
+            // NOTE: YouTube extractor args intentionally omitted to preserve all HD, 1080p, 1440p, and 4K streams.
         }
 
         // Automatically attach cookies if available in app storage
