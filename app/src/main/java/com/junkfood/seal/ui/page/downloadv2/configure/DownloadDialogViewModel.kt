@@ -154,9 +154,16 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
                                     !entryId.isNullOrEmpty() -> "https://www.youtube.com/watch?v=$entryId"
                                     else -> url
                                 }
+                                val isAudioOnly = preferences.extractAudio || com.junkfood.seal.util.PreferenceUtil.getDownloadType() == com.junkfood.seal.util.DownloadType.Audio
+                                val isSubOnly = (preferences.skipDownload && preferences.downloadSubtitle) || com.junkfood.seal.util.PreferenceUtil.getDownloadType() == com.junkfood.seal.util.DownloadType.Subtitle
+
                                 DownloadUtil.fetchVideoInfoFromUrl(firstVideoUrl, preferences = preferences).onSuccess { firstVideoInfo ->
                                     mSelectionStateFlow.update {
-                                        SelectionState.FormatSelection(info = firstVideoInfo)
+                                        SelectionState.FormatSelection(
+                                            info = firstVideoInfo,
+                                            audioOnly = isAudioOnly,
+                                            isSubtitleOnly = isSubOnly,
+                                        )
                                     }
                                 }.onFailure { th ->
                                     mSheetStateFlow.update {
@@ -166,8 +173,15 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
                             }
                         }
                         is VideoInfo -> {
+                            val isAudioOnly = preferences.extractAudio || com.junkfood.seal.util.PreferenceUtil.getDownloadType() == com.junkfood.seal.util.DownloadType.Audio
+                            val isSubOnly = (preferences.skipDownload && preferences.downloadSubtitle) || com.junkfood.seal.util.PreferenceUtil.getDownloadType() == com.junkfood.seal.util.DownloadType.Subtitle
+
                             mSelectionStateFlow.update {
-                                SelectionState.FormatSelection(info = info)
+                                SelectionState.FormatSelection(
+                                    info = info,
+                                    audioOnly = isAudioOnly,
+                                    isSubtitleOnly = isSubOnly,
+                                )
                             }
                         }
                     }

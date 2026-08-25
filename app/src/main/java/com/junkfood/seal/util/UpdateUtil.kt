@@ -90,7 +90,7 @@ object UpdateUtil {
             val stable = UPDATE_CHANNEL.getInt() == STABLE
             val latestRelease =
                 releaseList
-                    .filter { if (stable) it.getVersion() is Version.Stable else true }
+                    .filter { it.draft != true && !it.tagName.isNullOrBlank() && if (stable) it.getVersion() is Version.Stable else true }
                     .maxByOrNull { it.getVersion() } ?: throw Exception("null response")
             latestRelease
         }

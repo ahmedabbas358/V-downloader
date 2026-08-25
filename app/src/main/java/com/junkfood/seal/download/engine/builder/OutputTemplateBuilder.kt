@@ -15,7 +15,7 @@ import java.util.Locale
  * - Pure formatting functions for yt-dlp -o and -P arguments.
  * - Handles playlist numbering (e.g. "001 - Title").
  * - Handles chapter splitting and clip timestamp templates.
- * - Handles dedicated subdirectory organization for playlists and subtitles.
+ * - Handles dedicated subdirectory organization for playlists and subtitles with "[Subtitle] " prefix.
  */
 object OutputTemplateBuilder {
 
@@ -46,11 +46,12 @@ object OutputTemplateBuilder {
                 OUTPUT_TEMPLATE_SPLIT
             } else if (videoClips.isEmpty()) {
                 val template = outputTemplate.ifEmpty { OUTPUT_TEMPLATE_DEFAULT }
-                if ((downloadPlaylist || isFallback || playlistItem != 0) &&
-                    playlistNumbering &&
-                    playlistItem != 0
-                ) {
-                    val prefix = String.format(Locale.US, "%03d - ", playlistItem)
+                if ((downloadPlaylist || isFallback || playlistItem != 0) && playlistNumbering) {
+                    val prefix = if (playlistItem != 0) {
+                        String.format(Locale.US, "%03d - ", playlistItem)
+                    } else {
+                        "$PLAYLIST_INDEX_PADDED - "
+                    }
                     val fileNameStart = template.lastIndexOf('/').takeIf { it >= 0 }?.plus(1) ?: 0
                     template.replaceRange(fileNameStart, fileNameStart, prefix)
                 } else {
@@ -88,19 +89,34 @@ object OutputTemplateBuilder {
         fallbackPlaylistTitle: String = "",
         videoPlaylistTitle: String? = null,
     ): String {
-        if (playlistItem == 0 || preferences.commandDirectory.isNotBlank()) return ""
+        if (preferences.commandDirectory.isNotBlank()) return ""
 
         val isSubtitleOnly = preferences.skipDownload && preferences.downloadSubtitle
-        val playlistName = fallbackPlaylistTitle.ifEmpty { videoPlaylistTitle.orEmpty() }
+        val rawPlaylistName = fallbackPlaylistTitle.ifEmpty { videoPlaylistTitle.orEmpty() }
+            .removePrefix("[Subtitles] ")
+            .removePrefix("[Subtitle] ")
+            .trim()
+
+        if (isSubtitleOnly) {
+            val clean = if (rawPlaylistName.isNotEmpty() && rawPlaylistName != "Playlist") {
+                FileUtil.cleanFileName(rawPlaylistName)
+            } else {
+                "%(playlist_title,playlist)s"
+            }
+            return if (preferences.downloadPlaylist || playlistItem > 0 || rawPlaylistName.isNotEmpty()) {
+                "[Subtitle] $clean/"
+            } else {
+                ""
+            }
+        }
 
         return when {
-            isSubtitleOnly && playlistName.isNotEmpty() -> {
-                "${FileUtil.cleanFileName(playlistName)}/"
-            }
             preferences.subdirectoryPlaylistTitle -> {
-                if (fallbackPlaylistTitle.isNotEmpty()) {
-                    "${FileUtil.cleanFileName(fallbackPlaylistTitle)}/"
+                if (rawPlaylistName.isNotEmpty() && rawPlaylistName != "Playlist") {
+                    "${FileUtil.cleanFileName(rawPlaylistName)}/"
                 } else if (!videoPlaylistTitle.isNullOrEmpty()) {
+                    PLAYLIST_TITLE_SUBDIRECTORY_PREFIX
+                } else if (preferences.downloadPlaylist || playlistItem > 0) {
                     PLAYLIST_TITLE_SUBDIRECTORY_PREFIX
                 } else {
                     ""

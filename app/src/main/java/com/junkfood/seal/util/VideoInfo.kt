@@ -71,6 +71,8 @@ data class VideoInfo(
     @SerialName("requested_formats") val requestedFormats: List<Format>? = null,
     val filename: String? = null,
     @SerialName("_type") val type: String? = null,
+    val url: String? = null,
+    val entries: List<VideoInfo>? = null,
 ) : YoutubeDLInfo {
     val duration: Double?
         get() = _duration ?: durationString?.let {

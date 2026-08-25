@@ -48,8 +48,12 @@ object DownloadTaskExecutor {
     private val PATH_PATTERNS = listOf(
         // Standard download destination
         Regex("""^\[download\] Destination:\s*(.+)$"""),
+        // Subtitle output patterns
+        Regex("""^\[info\] Writing (?:video |automatic )?subtitles(?: \(all\))? to:?\s*["']?(.+?)["']?$""", RegexOption.IGNORE_CASE),
+        Regex("""^\[ffmpeg\] Converting subtitles.* to ["']?(.+?)["']?$""", RegexOption.IGNORE_CASE),
+        Regex("""^\[(?:Subtitle|info)\] Destination:\s*["']?(.+?)["']?$""", RegexOption.IGNORE_CASE),
         // Already downloaded
-        Regex("""^\[download\]\s+(.+\.(?:mp4|mkv|webm|m4a|mp3|opus|flac|wav|ogg|m4b|mka))\s+has already been downloaded""", RegexOption.IGNORE_CASE),
+        Regex("""^\[download\]\s+(.+\.(?:mp4|mkv|webm|m4a|mp3|opus|flac|wav|ogg|m4b|mka|srt|vtt|ass|lrc))\s+has already been downloaded""", RegexOption.IGNORE_CASE),
         // Merger output
         Regex("""^\[Merger\] Merging formats into "(.+)"$"""),
         // FFmpegVideoConverter, FFmpegExtractAudio, etc.

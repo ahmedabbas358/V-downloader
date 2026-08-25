@@ -242,6 +242,18 @@ private fun OpenVideoURLButton(modifier: Modifier = Modifier, onClick: () -> Uni
 }
 
 @Composable
+private fun RemoveMusicButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    ActionSheetPrimaryButton(
+        modifier = modifier,
+        containerColor = LocalFixedColorRoles.current.secondaryFixed,
+        contentColor = LocalFixedColorRoles.current.onSecondaryFixedVariant,
+        imageVector = androidx.compose.material.icons.Icons.Outlined.GraphicEq,
+        text = "عزل الصوت",
+        onClick = onClick,
+    )
+}
+
+@Composable
 private fun OpenThumbnailURLButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
     ActionSheetPrimaryButton(
         modifier = modifier,
@@ -364,6 +376,12 @@ fun LazyListScope.ActionButtons(
                 }
             }
             if (path != null && (FileUtil.isVideoFile(path) || FileUtil.isAudioFile(path))) {
+                item(key = "RemoveMusicButton") {
+                    RemoveMusicButton(modifier = Modifier.animateItem()) {
+                        onActionPost(task, UiAction.RemoveMusic(path))
+                        onDismissRequest()
+                    }
+                }
                 item(key = "TrimButton") {
                     TrimButton(modifier = Modifier.animateItem()) {
                         onActionPost(task, UiAction.TrimMedia(path))

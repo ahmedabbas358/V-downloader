@@ -91,7 +91,60 @@ object DownloadUtil {
         val result = runCatching {
             val response: YoutubeDLResponse =
                 YoutubeDL.getInstance().execute(request, taskKey, null)
-            jsonFormat.decodeFromString<VideoInfo>(response.out)
+            val rawOutput = response.out.trim()
+
+            // 1. Try decoding directly as single VideoInfo
+            val decodedInfo = runCatching {
+                jsonFormat.decodeFromString<VideoInfo>(rawOutput)
+            }.recoverCatching {
+                // If single parse failed, try first line (NDJSON)
+                val firstLine = rawOutput.lineSequence().firstOrNull { it.isNotBlank() } ?: rawOutput
+                jsonFormat.decodeFromString<VideoInfo>(firstLine)
+            }.getOrThrow()
+
+            // 2. If it's a playlist wrapper (common with Instagram Reels/Carousels/Posts), unwrap the first entry
+            val effectiveInfo = if (decodedInfo.formats.isNullOrEmpty() && !decodedInfo.entries.isNullOrEmpty()) {
+                val firstEntry = decodedInfo.entries.first()
+                firstEntry.copy(
+                    title = firstEntry.title.ifEmpty { decodedInfo.title },
+                    thumbnail = firstEntry.thumbnail ?: decodedInfo.thumbnail,
+                    webpageUrl = firstEntry.webpageUrl ?: decodedInfo.webpageUrl ?: url,
+                    originalUrl = firstEntry.originalUrl ?: decodedInfo.originalUrl ?: url,
+                    uploader = firstEntry.uploader ?: decodedInfo.uploader,
+                )
+            } else {
+                decodedInfo
+            }
+
+            // 3. Fallback format synthesizer: if formats list is still null/empty but direct stream URL or basic video fields exist
+            if (effectiveInfo.formats.isNullOrEmpty() && (!effectiveInfo.url.isNullOrEmpty() || !effectiveInfo.requestedFormats.isNullOrEmpty())) {
+                val fallbackFormats = mutableListOf<Format>()
+                effectiveInfo.requestedFormats?.let { fallbackFormats.addAll(it) }
+                if (fallbackFormats.isEmpty() && !effectiveInfo.url.isNullOrEmpty()) {
+                    fallbackFormats.add(
+                        Format(
+                            formatId = effectiveInfo.formatId ?: "default",
+                            formatNote = effectiveInfo.formatNote ?: "Source Video",
+                            ext = effectiveInfo.ext.ifBlank { "mp4" },
+                            url = effectiveInfo.url,
+                            vcodec = effectiveInfo.vcodec ?: "h264",
+                            acodec = effectiveInfo.acodec ?: "aac",
+                            width = effectiveInfo.width,
+                            height = effectiveInfo.height,
+                            fps = effectiveInfo.fps,
+                            fileSize = effectiveInfo.fileSize,
+                            fileSizeApprox = effectiveInfo.fileSizeApprox,
+                        )
+                    )
+                }
+                if (fallbackFormats.isNotEmpty()) {
+                    effectiveInfo.copy(formats = fallbackFormats)
+                } else {
+                    effectiveInfo
+                }
+            } else {
+                effectiveInfo
+            }
         }
 
         return result

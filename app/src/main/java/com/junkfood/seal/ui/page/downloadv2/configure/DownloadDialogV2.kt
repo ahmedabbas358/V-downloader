@@ -895,7 +895,7 @@ fun ConfigurePagePlaylistVariant(
                 )
             }
             var expanded by remember { mutableStateOf(false) }
-            ExpandableTitle(expanded = expanded, onClick = { expanded = true }) {
+            ExpandableTitle(expanded = expanded, onClick = { expanded = !expanded }) {
                 AdditionalSettings(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     isQuickDownload = false,
@@ -979,8 +979,12 @@ private fun AdditionalSettings(
                 }
 
                 // Auto captions & translated subtitles toggles
-                val isSubtitleMode = selectedType == DownloadType.Subtitle || (downloadSubtitle && (selectedType == Video || selectedType == Playlist))
-                if (isSubtitleMode) {
+                val showSubtitleChips = when (selectedType) {
+                    DownloadType.Subtitle -> true
+                    Video, Playlist -> downloadSubtitle
+                    else -> false
+                }
+                if (showSubtitleChips) {
                     VideoFilterChip(
                         selected = autoSubtitle,
                         enabled = true,
@@ -1002,7 +1006,7 @@ private fun AdditionalSettings(
                 }
 
                 // Playlist numbering & folder options
-                if (isPlaylist) {
+                if (isPlaylist || selectedType == Playlist) {
                     VideoFilterChip(
                         selected = playlistNumbering,
                         enabled = true,
@@ -1023,7 +1027,7 @@ private fun AdditionalSettings(
                     )
                 }
 
-                // Show "Create Thumbnail" ONLY for Video, Audio, Playlist (never for Subtitle)
+                // Show "Create Thumbnail" ONLY for Video, Audio, Playlist (never for Subtitle or Command)
                 if (selectedType != DownloadType.Subtitle && selectedType != Command) {
                     VideoFilterChip(
                         selected = createThumbnail,
@@ -1038,8 +1042,13 @@ private fun AdditionalSettings(
             }
 
             // Subtitle format selection (SRT, VTT, ASS, LRC) & Language Selector
-            val isSubtitleMode = selectedType == DownloadType.Subtitle || (downloadSubtitle && (selectedType == Video || selectedType == Playlist))
-            if (isSubtitleMode && selectedType != Command) {
+            // Only show in Preset mode (when not useFormatSelection) and when subtitle mode is active
+            val showSubtitleDetails = !useFormatSelection && when (selectedType) {
+                DownloadType.Subtitle -> true
+                Video, Playlist -> downloadSubtitle
+                else -> false
+            }
+            if (showSubtitleDetails && selectedType != Command) {
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Row(

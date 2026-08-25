@@ -1,14 +1,9 @@
 package com.junkfood.seal.ui.component
 
 import android.content.Intent
-import android.media.MediaPlayer
 import android.net.Uri
-import android.widget.VideoView
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.annotation.OptIn
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,7 +30,6 @@ import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,7 +45,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -67,12 +61,18 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.FileProvider
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
 import com.junkfood.seal.util.FileUtil
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import java.io.File
 import java.util.Locale
 
+@OptIn(UnstableApi::class)
 @Composable
 fun MediaPreviewDialog(
     file: File,
@@ -82,39 +82,64 @@ fun MediaPreviewDialog(
     val isVideo = remember(file) { FileUtil.isVideoFile(file) }
 
     var isPlaying by remember { mutableStateOf(false) }
-    var currentPositionMs by remember { mutableIntStateOf(0) }
-    var durationMs by remember { mutableIntStateOf(0) }
+    var currentPositionMs by remember { mutableLongStateOf(0L) }
+    var durationMs by remember { mutableLongStateOf(0L) }
     var isMuted by remember { mutableStateOf(false) }
     var isUserSeeking by remember { mutableStateOf(false) }
     var seekProgress by remember { mutableFloatStateOf(0f) }
+    var playbackError by remember { mutableStateOf<String?>(null) }
 
-    var videoViewRef by remember { mutableStateOf<VideoView?>(null) }
-    var mediaPlayerRef by remember { mutableStateOf<MediaPlayer?>(null) }
+    val exoPlayer = remember(file) {
+        ExoPlayer.Builder(context).build().apply {
+            if (file.exists()) {
+                val mediaItem = MediaItem.fromUri(Uri.fromFile(file))
+                setMediaItem(mediaItem)
+                prepare()
+                playWhenReady = true
+            }
+            addListener(object : Player.Listener {
+                override fun onIsPlayingChanged(playing: Boolean) {
+                    isPlaying = playing
+                }
+
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    if (playbackState == Player.STATE_READY) {
+                        durationMs = duration.coerceAtLeast(0L)
+                    } else if (playbackState == Player.STATE_ENDED) {
+                        isPlaying = false
+                        currentPositionMs = durationMs
+                    }
+                }
+
+                override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                    playbackError = error.message ?: "خطأ أثناء تشغيل الملف"
+                    isPlaying = false
+                }
+            })
+        }
+    }
 
     // Position updater loop
     LaunchedEffect(isPlaying, isUserSeeking) {
         while (isActive && isPlaying && !isUserSeeking) {
-            val pos = if (isVideo) {
-                videoViewRef?.currentPosition ?: 0
-            } else {
-                mediaPlayerRef?.currentPosition ?: 0
+            currentPositionMs = exoPlayer.currentPosition.coerceAtLeast(0L)
+            if (durationMs <= 0L && exoPlayer.duration > 0L) {
+                durationMs = exoPlayer.duration
             }
-            currentPositionMs = pos
             delay(250)
         }
     }
 
-    DisposableEffect(file) {
+    DisposableEffect(exoPlayer) {
         onDispose {
             try {
-                videoViewRef?.stopPlayback()
-                mediaPlayerRef?.stop()
-                mediaPlayerRef?.release()
+                exoPlayer.stop()
+                exoPlayer.release()
             } catch (_: Exception) {}
         }
     }
 
-    fun formatDuration(ms: Int): String {
+    fun formatDuration(ms: Long): String {
         val totalSecs = (ms / 1000).coerceAtLeast(0)
         val minutes = totalSecs / 60
         val seconds = totalSecs % 60
@@ -182,20 +207,9 @@ fun MediaPreviewDialog(
                     ) {
                         AndroidView(
                             factory = { ctx ->
-                                VideoView(ctx).apply {
-                                    videoViewRef = this
-                                    setVideoURI(Uri.fromFile(file))
-                                    setOnPreparedListener { mp ->
-                                        mediaPlayerRef = mp
-                                        durationMs = mp.duration
-                                        mp.isLooping = false
-                                        mp.start()
-                                        isPlaying = true
-                                    }
-                                    setOnCompletionListener {
-                                        isPlaying = false
-                                        currentPositionMs = durationMs
-                                    }
+                                PlayerView(ctx).apply {
+                                    player = exoPlayer
+                                    useController = false
                                 }
                             },
                             modifier = Modifier.fillMaxSize()
@@ -236,27 +250,6 @@ fun MediaPreviewDialog(
                                 color = MaterialTheme.colorScheme.primary
                             )
                         }
-
-                        // Audio Player initialization
-                        DisposableEffect(file) {
-                            val mp = MediaPlayer().apply {
-                                setDataSource(context, Uri.fromFile(file))
-                                prepare()
-                                durationMs = duration
-                                isLooping = false
-                                start()
-                                isPlaying = true
-                                setOnCompletionListener {
-                                    isPlaying = false
-                                    currentPositionMs = durationMs
-                                }
-                            }
-                            mediaPlayerRef = mp
-                            onDispose {
-                                mp.stop()
-                                mp.release()
-                            }
-                        }
                     }
                 }
 
@@ -264,7 +257,7 @@ fun MediaPreviewDialog(
 
                 // Timeline Scrubber & Duration
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    val currentProgress = if (durationMs > 0) {
+                    val currentProgress = if (durationMs > 0L) {
                         if (isUserSeeking) seekProgress else (currentPositionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
                     } else 0f
 
@@ -275,12 +268,8 @@ fun MediaPreviewDialog(
                             seekProgress = it
                         },
                         onValueChangeFinished = {
-                            val targetMs = (seekProgress * durationMs).toInt()
-                            if (isVideo) {
-                                videoViewRef?.seekTo(targetMs)
-                            } else {
-                                mediaPlayerRef?.seekTo(targetMs)
-                            }
+                            val targetMs = (seekProgress * durationMs).toLong()
+                            exoPlayer.seekTo(targetMs)
                             currentPositionMs = targetMs
                             isUserSeeking = false
                         },
@@ -297,7 +286,7 @@ fun MediaPreviewDialog(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = formatDuration(if (isUserSeeking) (seekProgress * durationMs).toInt() else currentPositionMs),
+                            text = formatDuration(if (isUserSeeking) (seekProgress * durationMs).toLong() else currentPositionMs),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -319,8 +308,8 @@ fun MediaPreviewDialog(
                 ) {
                     IconButton(
                         onClick = {
-                            val newPos = (currentPositionMs - 10000).coerceAtLeast(0)
-                            if (isVideo) videoViewRef?.seekTo(newPos) else mediaPlayerRef?.seekTo(newPos)
+                            val newPos = (currentPositionMs - 10000L).coerceAtLeast(0L)
+                            exoPlayer.seekTo(newPos)
                             currentPositionMs = newPos
                         }
                     ) {
@@ -331,12 +320,13 @@ fun MediaPreviewDialog(
 
                     FilledIconButton(
                         onClick = {
-                            if (isPlaying) {
-                                if (isVideo) videoViewRef?.pause() else mediaPlayerRef?.pause()
-                                isPlaying = false
+                            if (exoPlayer.isPlaying) {
+                                exoPlayer.pause()
                             } else {
-                                if (isVideo) videoViewRef?.start() else mediaPlayerRef?.start()
-                                isPlaying = true
+                                if (exoPlayer.playbackState == Player.STATE_ENDED) {
+                                    exoPlayer.seekTo(0L)
+                                }
+                                exoPlayer.play()
                             }
                         },
                         modifier = Modifier.size(56.dp),
@@ -356,8 +346,8 @@ fun MediaPreviewDialog(
 
                     IconButton(
                         onClick = {
-                            val newPos = (currentPositionMs + 10000).coerceAtMost(durationMs)
-                            if (isVideo) videoViewRef?.seekTo(newPos) else mediaPlayerRef?.seekTo(newPos)
+                            val newPos = (currentPositionMs + 10000L).coerceAtMost(durationMs)
+                            exoPlayer.seekTo(newPos)
                             currentPositionMs = newPos
                         }
                     ) {
@@ -369,8 +359,7 @@ fun MediaPreviewDialog(
                     IconButton(
                         onClick = {
                             isMuted = !isMuted
-                            val volume = if (isMuted) 0f else 1f
-                            mediaPlayerRef?.setVolume(volume, volume)
+                            exoPlayer.volume = if (isMuted) 0f else 1f
                         }
                     ) {
                         Icon(
@@ -390,7 +379,7 @@ fun MediaPreviewDialog(
                     OutlinedButton(
                         onClick = {
                             try {
-                                val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+                                val uri = FileProvider.getUriForFile(context, FileUtil.getFileProvider(), file)
                                 val intent = Intent(Intent.ACTION_VIEW).apply {
                                     setDataAndType(uri, if (isVideo) "video/*" else "audio/*")
                                     flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK
@@ -409,7 +398,7 @@ fun MediaPreviewDialog(
                     Button(
                         onClick = {
                             try {
-                                val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+                                val uri = FileProvider.getUriForFile(context, FileUtil.getFileProvider(), file)
                                 val intent = Intent(Intent.ACTION_SEND).apply {
                                     type = if (isVideo) "video/*" else "audio/*"
                                     putExtra(Intent.EXTRA_STREAM, uri)

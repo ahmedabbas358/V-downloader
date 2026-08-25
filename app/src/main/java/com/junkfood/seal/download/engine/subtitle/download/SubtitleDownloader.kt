@@ -412,7 +412,7 @@ object SubtitleDownloader {
                 .trim()
                 .ifBlank { "Video_${videoId.ifBlank { "subtitle" }}" }
 
-            val shouldNumber = includePlaylistNumbering && playlistIndex > 0
+            val shouldNumber = (includePlaylistNumbering || com.junkfood.seal.util.PreferenceUtil.getBoolean(com.junkfood.seal.util.PLAYLIST_NUMBERING, true)) && playlistIndex > 0
             val indexPrefix = if (shouldNumber && !Regex("""^\d{2,4}\s*-\s*""").containsMatchIn(cleanTitle)) {
                 "%03d - ".format(Locale.US, playlistIndex)
             } else {

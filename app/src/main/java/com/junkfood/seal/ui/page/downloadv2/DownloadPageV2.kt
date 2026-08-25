@@ -247,6 +247,8 @@ sealed interface UiAction {
     data class PreviewMedia(val filePath: String) : UiAction
 
     data class TrimMedia(val filePath: String) : UiAction
+
+    data class RemoveMusic(val filePath: String) : UiAction
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -354,6 +356,7 @@ fun DownloadPageImplV2(
     var adjustingSubtitleFile by remember { mutableStateOf<java.io.File?>(null) }
     var previewMediaFile by remember { mutableStateOf<java.io.File?>(null) }
     var trimMediaFile by remember { mutableStateOf<java.io.File?>(null) }
+    var removeMusicFile by remember { mutableStateOf<java.io.File?>(null) }
     val isSelectionMode = selectedTasks.isNotEmpty()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -830,6 +833,7 @@ fun DownloadPageImplV2(
                         is UiAction.AdjustSubtitle -> adjustingSubtitleFile = java.io.File(a.filePath)
                         is UiAction.PreviewMedia -> previewMediaFile = java.io.File(a.filePath)
                         is UiAction.TrimMedia -> trimMediaFile = java.io.File(a.filePath)
+                        is UiAction.RemoveMusic -> removeMusicFile = java.io.File(a.filePath)
                         else -> onActionPost(t, a)
                     }
                 },
@@ -855,6 +859,13 @@ fun DownloadPageImplV2(
         com.junkfood.seal.ui.component.MediaTrimmerDialog(
             file = trimMediaFile!!,
             onDismissRequest = { trimMediaFile = null }
+        )
+    }
+
+    if (removeMusicFile != null) {
+        com.junkfood.seal.ui.component.RemoveMusicDialog(
+            file = removeMusicFile!!,
+            onDismissRequest = { removeMusicFile = null }
         )
     }
 }

@@ -672,7 +672,18 @@ fun SmartPermissionsPage(onFinished: () -> Unit) {
                             if (notificationGranted) {
                                 FilterChip(
                                     selected = true,
-                                    onClick = {},
+                                    onClick = {
+                                        try {
+                                            context.startActivity(
+                                                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                                    putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                                }
+                                            )
+                                        } catch (e: Exception) {
+                                            PermissionManager.openAppSettings(context)
+                                        }
+                                    },
                                     label = { Text(stringResource(R.string.permission_granted)) },
                                     leadingIcon = { Icon(Icons.Rounded.Check, null, modifier = Modifier.size(16.dp)) }
                                 )
@@ -806,7 +817,16 @@ fun SmartPermissionsPage(onFinished: () -> Unit) {
                             if (batteryGranted) {
                                 FilterChip(
                                     selected = true,
-                                    onClick = {},
+                                    onClick = {
+                                        val intent = PermissionManager.createBatteryOptimizationIntent(context)
+                                        if (intent != null) {
+                                            try {
+                                                context.startActivity(intent)
+                                            } catch (e: Exception) {
+                                                PermissionManager.openAppSettings(context)
+                                            }
+                                        }
+                                    },
                                     label = { Text(stringResource(R.string.permission_granted)) },
                                     leadingIcon = { Icon(Icons.Rounded.Check, null, modifier = Modifier.size(16.dp)) }
                                 )

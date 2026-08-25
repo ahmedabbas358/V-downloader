@@ -25,19 +25,21 @@ object PermissionManager {
      * Centralized check for notification permissions.
      */
     fun checkNotificationCapability(context: Context): CapabilityStatus {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
-                CapabilityStatus.GRANTED
-            } else {
-                CapabilityStatus.DENIED
-            }
-        } else {
-            if (NotificationManagerCompat.from(context).areNotificationsEnabled()) {
-                CapabilityStatus.GRANTED
-            } else {
-                CapabilityStatus.DENIED
+        val areNotificationsEnabled = NotificationManagerCompat.from(context).areNotificationsEnabled()
+        if (!areNotificationsEnabled) {
+            return CapabilityStatus.DENIED
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val isRuntimeGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            if (!isRuntimeGranted) {
+                return CapabilityStatus.DENIED
             }
         }
+        val isPrefEnabled = NOTIFICATION.getBoolean(true)
+        if (!isPrefEnabled) {
+            return CapabilityStatus.DENIED
+        }
+        return CapabilityStatus.GRANTED
     }
 
     /**
@@ -102,14 +104,11 @@ object PermissionManager {
                 CapabilityStatus.DENIED
             }
         } else {
-            if (SDCARD_DOWNLOAD.getBoolean(false)) {
-                if (verifySafPermission(context, SDCARD_URI.getString())) {
-                    CapabilityStatus.GRANTED
-                } else {
-                    CapabilityStatus.DENIED
-                }
-            } else {
+            val isSafConfigured = SDCARD_DOWNLOAD.getBoolean(false) && verifySafPermission(context, SDCARD_URI.getString())
+            if (isSafConfigured) {
                 CapabilityStatus.GRANTED
+            } else {
+                CapabilityStatus.DENIED
             }
         }
     }

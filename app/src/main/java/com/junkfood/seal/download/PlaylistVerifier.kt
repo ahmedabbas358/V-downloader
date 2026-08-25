@@ -192,6 +192,7 @@ object PlaylistVerifier {
                 val itemUrl = when {
                     rawUrl.startsWith("http", ignoreCase = true) -> rawUrl
                     !entry.id.isNullOrEmpty() -> "https://www.youtube.com/watch?v=${entry.id}"
+                    rawUrl.startsWith("/") -> "https://www.youtube.com$rawUrl"
                     else -> ""
                 }
                 val videoId = entry.id.orEmpty().ifBlank {
@@ -362,13 +363,18 @@ object PlaylistVerifier {
         val isAudioOnly = missingItems.firstOrNull()?.preferences?.run { extractAudio && !skipDownload } == true
 
         missingItems.forEach { item ->
-            if (item.state == com.junkfood.seal.download.engine.playlist.AuditState.DOWNLOADED || 
-                item.state == com.junkfood.seal.download.engine.playlist.AuditState.UNKNOWN) {
+            if (item.state == com.junkfood.seal.download.engine.playlist.AuditState.DOWNLOADED) {
                 return@forEach
             }
 
             val baseTitle = item.title
-            val itemUrl = item.url.ifEmpty { item.playlistUrl }
+            val itemUrl = when {
+                item.url.isNotBlank() && item.url.startsWith("http", ignoreCase = true) -> item.url
+                item.videoId.isNotBlank() -> "https://www.youtube.com/watch?v=${item.videoId}"
+                item.playlistUrl.isNotBlank() -> item.playlistUrl
+                else -> ""
+            }
+            if (itemUrl.isBlank()) return@forEach
 
             val itemPrefs = item.preferences.copy(
                 downloadPlaylist = false,
@@ -394,15 +400,6 @@ object PlaylistVerifier {
                 uploader = item.playlistTitle,
                 thumbnailUrl = null,
                 isSubOnly = isSubOnly
-            )
-            val videoInfo = VideoInfo(
-                id = FileCollisionResolver.extractVideoId(itemUrl, fallbackId = "item_${item.index}"),
-                title = numberedTitle,
-                webpageUrl = itemUrl,
-                originalUrl = itemUrl,
-                uploader = item.playlistTitle,
-                extractor = "Youtube",
-                extractorKey = "Youtube"
             )
             val task = Task(
                 url = itemUrl,

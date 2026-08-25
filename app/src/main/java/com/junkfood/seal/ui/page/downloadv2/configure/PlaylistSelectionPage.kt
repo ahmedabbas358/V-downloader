@@ -161,18 +161,41 @@ fun PlaylistSelectionPage(
                         autoTranslatedSubtitles = if (type == DownloadType.Subtitle) true else preferences.autoTranslatedSubtitles,
                     )
                     
-                    val updatedTasks = taskList.map { it.copy(task = it.task.copy(preferences = updatedPreferences)) }
-                    
-                    if (useFormatSelection || type == DownloadType.Subtitle) {
-                        val firstUrl = updatedTasks.firstOrNull()?.task?.url
-                        if (firstUrl != null) {
-                            onActionPost(
-                                com.junkfood.seal.ui.page.downloadv2.configure.DownloadDialogViewModel.Action.FetchPlaylistSubtitleFormats(
-                                    firstVideoUrl = firstUrl,
-                                    preferences = updatedPreferences,
-                                    playlistTasks = updatedTasks
+                    val isSubOnly = type == DownloadType.Subtitle
+                    val updatedTasks = taskList.map { 
+                        val oldState = it.state
+                        val oldViewState = oldState.viewState
+                        it.copy(
+                            task = it.task.copy(preferences = updatedPreferences),
+                            state = oldState.copy(
+                                viewState = oldViewState.copy(
+                                    isSubOnly = isSubOnly,
+                                    title = if (isSubOnly && !oldViewState.title.startsWith("[Subtitle]")) "[Subtitle] ${oldViewState.title}" else oldViewState.title
                                 )
                             )
+                        )
+                    }
+                    
+                    if (useFormatSelection) {
+                        val firstUrl = updatedTasks.firstOrNull()?.task?.url
+                        if (firstUrl != null) {
+                            if (type == DownloadType.Subtitle) {
+                                onActionPost(
+                                    com.junkfood.seal.ui.page.downloadv2.configure.DownloadDialogViewModel.Action.FetchPlaylistSubtitleFormats(
+                                        firstVideoUrl = firstUrl,
+                                        preferences = updatedPreferences,
+                                        playlistTasks = updatedTasks
+                                    )
+                                )
+                            } else {
+                                onActionPost(
+                                    com.junkfood.seal.ui.page.downloadv2.configure.DownloadDialogViewModel.Action.FetchFormats(
+                                        url = firstUrl,
+                                        audioOnly = type == Audio,
+                                        preferences = updatedPreferences
+                                    )
+                                )
+                            }
                         }
                         showConfigurationSheet = false
                         onBack()
