@@ -146,7 +146,8 @@ import com.junkfood.seal.util.DownloadType.Audio
 import com.junkfood.seal.util.DownloadType.Command
 import com.junkfood.seal.util.DownloadType.Playlist
 import com.junkfood.seal.util.DownloadType.Video
-import com.junkfood.seal.util.DOWNLOAD_PLAYLIST
+import com.junkfood.seal.util.DownloadType.entries
+import com.junkfood.seal.util.DownloadUtil
 import com.junkfood.seal.util.EMBED_SUBTITLE
 import com.junkfood.seal.util.EXTRACT_AUDIO
 import com.junkfood.seal.util.FORMAT_SELECTION
