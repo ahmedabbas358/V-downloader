@@ -16,6 +16,7 @@ import com.junkfood.seal.download.engine.subtitle.youtube.YoutubeClient
 import com.junkfood.seal.download.engine.subtitle.youtube.YoutubeClientStrategy
 import com.junkfood.seal.util.DownloadUtil.DownloadPreferences
 import com.junkfood.seal.util.FileUtil
+import com.junkfood.seal.util.PLAYLIST_NUMBERING
 import com.junkfood.seal.util.PreferenceUtil.getBoolean
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
@@ -412,7 +413,7 @@ object SubtitleDownloader {
                 .trim()
                 .ifBlank { "Video_${videoId.ifBlank { "subtitle" }}" }
 
-            val shouldNumber = (includePlaylistNumbering || com.junkfood.seal.util.PreferenceUtil.getBoolean(com.junkfood.seal.util.PLAYLIST_NUMBERING, true)) && playlistIndex > 0
+            val shouldNumber = (includePlaylistNumbering || PLAYLIST_NUMBERING.getBoolean(true)) && playlistIndex > 0
             val indexPrefix = if (shouldNumber && !Regex("""^\d{2,4}\s*-\s*""").containsMatchIn(cleanTitle)) {
                 "%03d - ".format(Locale.US, playlistIndex)
             } else {

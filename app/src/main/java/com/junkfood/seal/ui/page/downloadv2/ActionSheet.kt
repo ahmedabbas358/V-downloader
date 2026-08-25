@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.ContentCut
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.FileDownload
+import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.KeyboardDoubleArrowUp
 import androidx.compose.material.icons.outlined.Link
@@ -247,7 +248,7 @@ private fun RemoveMusicButton(modifier: Modifier = Modifier, onClick: () -> Unit
         modifier = modifier,
         containerColor = LocalFixedColorRoles.current.secondaryFixed,
         contentColor = LocalFixedColorRoles.current.onSecondaryFixedVariant,
-        imageVector = androidx.compose.material.icons.Icons.Outlined.GraphicEq,
+        imageVector = Icons.Outlined.GraphicEq,
         text = "عزل الصوت",
         onClick = onClick,
     )

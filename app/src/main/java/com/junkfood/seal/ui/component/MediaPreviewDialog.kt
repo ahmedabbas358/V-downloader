@@ -67,6 +67,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.junkfood.seal.util.FileUtil
+import com.junkfood.seal.util.FileUtil.getFileProvider
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import java.io.File
@@ -379,7 +380,7 @@ fun MediaPreviewDialog(
                     OutlinedButton(
                         onClick = {
                             try {
-                                val uri = FileProvider.getUriForFile(context, FileUtil.getFileProvider(), file)
+                                val uri = FileProvider.getUriForFile(context, context.getFileProvider(), file)
                                 val intent = Intent(Intent.ACTION_VIEW).apply {
                                     setDataAndType(uri, if (isVideo) "video/*" else "audio/*")
                                     flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK
@@ -398,7 +399,7 @@ fun MediaPreviewDialog(
                     Button(
                         onClick = {
                             try {
-                                val uri = FileProvider.getUriForFile(context, FileUtil.getFileProvider(), file)
+                                val uri = FileProvider.getUriForFile(context, context.getFileProvider(), file)
                                 val intent = Intent(Intent.ACTION_SEND).apply {
                                     type = if (isVideo) "video/*" else "audio/*"
                                     putExtra(Intent.EXTRA_STREAM, uri)
