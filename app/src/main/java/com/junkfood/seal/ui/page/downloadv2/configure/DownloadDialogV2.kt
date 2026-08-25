@@ -1017,8 +1017,9 @@ private fun AdditionalSettings(
                     )
                 }
 
-                // Playlist numbering & folder options
-                if (isPlaylist || selectedType == Playlist) {
+                // Playlist numbering & folder options — ONLY for actual playlists
+                // Hidden for single video downloads to avoid confusing the user
+                if (isPlaylist && selectedType == Playlist) {
                     VideoFilterChip(
                         selected = playlistNumbering,
                         enabled = true,

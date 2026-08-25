@@ -556,7 +556,11 @@ fun SmartPermissionsPage(onFinished: () -> Unit) {
     androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                refreshPermissions()
+                // Add a small delay to allow system permission state to propagate
+                scope.launch {
+                    kotlinx.coroutines.delay(150)
+                    refreshPermissions()
+                }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)

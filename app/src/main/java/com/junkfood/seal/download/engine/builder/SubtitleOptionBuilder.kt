@@ -101,9 +101,11 @@ object SubtitleOptionBuilder {
         autoSubtitle: Boolean = true,
         autoTranslatedSubtitles: Boolean = true,
     ): SubtitleOptions {
+        // Respect user's auto-subtitle and auto-translated preferences
+        val shouldWriteAutoSubs = autoSubtitle || autoTranslatedSubtitles
         return SubtitleOptions(
             writeSubs = true,
-            writeAutoSubs = true,
+            writeAutoSubs = shouldWriteAutoSubs,
             subLangs = buildSubLangsOption(subtitleLanguage),
             subFormat = SUB_FORMAT_PREFERENCE,
             convertSubs = getConvertSubsValue(convertSubtitle),
@@ -128,9 +130,11 @@ object SubtitleOptionBuilder {
         autoTranslatedSubtitles: Boolean = true,
         embedSubtitle: Boolean = false,
     ): SubtitleOptions {
+        // Respect user's auto-subtitle and auto-translated preferences
+        val shouldWriteAutoSubs = autoSubtitle || autoTranslatedSubtitles
         return SubtitleOptions(
             writeSubs = true,
-            writeAutoSubs = true,
+            writeAutoSubs = shouldWriteAutoSubs,
             subLangs = buildSubLangsOption(subtitleLanguage),
             subFormat = SUB_FORMAT_PREFERENCE,
             convertSubs = getConvertSubsValue(convertSubtitle),

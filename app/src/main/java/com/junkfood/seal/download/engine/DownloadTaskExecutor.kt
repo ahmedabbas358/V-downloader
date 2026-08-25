@@ -201,8 +201,14 @@ object DownloadTaskExecutor {
                 .trim()
             val cleanPlaylistTitle = com.junkfood.seal.util.FileUtil.cleanFileName(rawPlaylistTitle).trim().ifBlank { "Playlist" }
 
-            val isPlaylistSubtitle = (playlistItem != 0) || (task.type is TypeInfo.Playlist) || (task.preferences.downloadPlaylist && cleanPlaylistTitle.isNotEmpty() && cleanPlaylistTitle != "Playlist")
-            val targetDir = if (isPlaylistSubtitle && task.preferences.commandDirectory.isBlank()) {
+            // Only create a playlist subfolder when this is genuinely a multi-item playlist task
+            // (index > 1 means it's the 2nd+ item in a playlist sequence).
+            // Single video subtitle downloads go directly to the base directory.
+            val isPlaylistSubtitle = playlistItem > 1 ||
+                (task.type is TypeInfo.Playlist && (task.type as TypeInfo.Playlist).index > 1)
+            val hasRealPlaylistTitle = cleanPlaylistTitle.isNotBlank() &&
+                cleanPlaylistTitle != "Playlist" && cleanPlaylistTitle != "Video"
+            val targetDir = if (isPlaylistSubtitle && hasRealPlaylistTitle && task.preferences.commandDirectory.isBlank()) {
                 val subtitleFolderName = "[Subtitle] $cleanPlaylistTitle"
                 File(basePath, subtitleFolderName)
             } else {

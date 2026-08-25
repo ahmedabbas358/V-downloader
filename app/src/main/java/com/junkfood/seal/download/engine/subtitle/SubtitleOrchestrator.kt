@@ -41,6 +41,12 @@ class SubtitleOrchestrator(
         val videoId = videoInfo?.id ?: YoutubeCompatibility.extractVideoId(url) ?: "video"
         val resolvedTitle = videoInfo?.title ?: preferences.newTitle
 
+        // Anti-ban pacing for playlist subtitle items (index > 0 means it's a playlist item)
+        if (playlistIndex > 0) {
+            val delay = com.junkfood.seal.download.engine.subtitle.resilience.RequestCoordinator.getPacingDelayMs(false)
+            kotlinx.coroutines.delay(delay)
+        }
+
         // 1. Stage: Discovery
         onProgress(SubtitleProgress.Discovering("Discovering available subtitles..."))
         val discoveryRes = youtubeProvider.discover(url, preferences, videoInfo)
