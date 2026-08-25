@@ -38,7 +38,6 @@ import androidx.compose.material.icons.outlined.Cookie
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.FlashOn
 import androidx.compose.material.icons.outlined.FolderSpecial
-import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.PlaylistPlay
