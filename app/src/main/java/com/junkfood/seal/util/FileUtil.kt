@@ -31,13 +31,13 @@ private const val PRIVATE_DIRECTORY_SUFFIX = ".V-Downloader"
 object FileUtil {
     private const val TAG = "FileUtil"
 
-    fun isVideoFile(file: File): Boolean = file.name.contains(Regex(VIDEO_REGEX))
-    fun isAudioFile(file: File): Boolean = file.name.contains(Regex(AUDIO_REGEX))
-    fun isSubtitleFile(file: File): Boolean = file.name.contains(Regex(SUBTITLE_REGEX))
+    fun isVideoFile(file: File): Boolean = isVideoFile(file.name)
+    fun isAudioFile(file: File): Boolean = isAudioFile(file.name)
+    fun isSubtitleFile(file: File): Boolean = isSubtitleFile(file.name)
 
-    fun isVideoFile(path: String): Boolean = path.contains(Regex(VIDEO_REGEX))
-    fun isAudioFile(path: String): Boolean = path.contains(Regex(AUDIO_REGEX))
-    fun isSubtitleFile(path: String): Boolean = path.contains(Regex(SUBTITLE_REGEX))
+    fun isVideoFile(path: String?): Boolean = !path.isNullOrEmpty() && path.contains(Regex(VIDEO_REGEX))
+    fun isAudioFile(path: String?): Boolean = !path.isNullOrEmpty() && path.contains(Regex(AUDIO_REGEX))
+    fun isSubtitleFile(path: String?): Boolean = !path.isNullOrEmpty() && path.contains(Regex(SUBTITLE_REGEX))
 
     fun createUriForFile(file: File): Uri? {
         if (!file.exists()) return null
@@ -89,7 +89,7 @@ object FileUtil {
         }
     }
 
-    inline fun openFile(path: String, onFailureCallback: (Throwable) -> Unit) {
+    fun openFile(path: String, onFailureCallback: (Throwable) -> Unit) {
         try {
             val intent = createIntentForOpeningFile(path)
             if (intent != null) {
@@ -417,17 +417,5 @@ object FileUtil {
         } catch (e: Exception) {
             Log.e(TAG, "Failed to scan file to media library", e)
         }
-    }
-
-    fun isVideoFile(path: String?): Boolean {
-        if (path == null) return false
-        val videoExtensions = listOf("mp4", "mkv", "webm", "avi", "mov", "flv", "wmv", "3gp", "ts", "m4v")
-        return videoExtensions.any { path.endsWith(it, ignoreCase = true) }
-    }
-
-    fun isAudioFile(path: String?): Boolean {
-        if (path == null) return false
-        val audioExtensions = listOf("mp3", "wav", "aac", "flac", "ogg", "m4a", "wma", "opus", "alac")
-        return audioExtensions.any { path.endsWith(it, ignoreCase = true) }
     }
 }
