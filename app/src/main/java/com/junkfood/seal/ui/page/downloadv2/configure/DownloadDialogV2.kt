@@ -128,6 +128,7 @@ import com.junkfood.seal.ui.page.downloadv2.configure.DownloadDialogViewModel.Sh
 import com.junkfood.seal.ui.page.downloadv2.configure.DownloadDialogViewModel.SheetState.Loading
 import com.junkfood.seal.ui.page.settings.command.CommandTemplateDialog
 import com.junkfood.seal.ui.page.settings.format.AudioQuickSettingsDialog
+import com.junkfood.seal.ui.page.settings.format.SubtitleQuickSettingsDialog
 import com.junkfood.seal.ui.page.settings.format.VideoQuickSettingsDialog
 import com.junkfood.seal.ui.page.settings.network.CookiesQuickSettingsDialog
 import com.junkfood.seal.ui.theme.SealTheme
@@ -137,7 +138,11 @@ import com.junkfood.seal.util.AUDIO_FORMAT
 import com.junkfood.seal.util.AUDIO_QUALITY
 import com.junkfood.seal.util.AUTO_SUBTITLE
 import com.junkfood.seal.util.AUTO_TRANSLATED_SUBTITLES
+import com.junkfood.seal.util.CONVERT_ASS
+import com.junkfood.seal.util.CONVERT_LRC
+import com.junkfood.seal.util.CONVERT_SRT
 import com.junkfood.seal.util.CONVERT_SUBTITLE
+import com.junkfood.seal.util.CONVERT_VTT
 import com.junkfood.seal.util.COOKIES
 import com.junkfood.seal.util.CUSTOM_COMMAND
 import com.junkfood.seal.util.DatabaseUtil
@@ -257,14 +262,20 @@ fun DownloadDialog(
     }
 
     if (showSubtitlePresetDialog) {
-        SubtitleLanguagePickerDialog(
-            initialLanguage = preferences.subtitleLanguage,
-            onDismissRequest = { showSubtitlePresetDialog = false },
-            onConfirm = { newLang ->
-                SUBTITLE_LANGUAGE.updateString(newLang)
+        var lang by remember(preferences) { mutableStateOf(preferences.subtitleLanguage) }
+        var format by remember(preferences) { mutableIntStateOf(preferences.convertSubtitle) }
+
+        SubtitleQuickSettingsDialog(
+            subtitleLanguage = lang,
+            convertSubtitle = format,
+            onLanguageSelect = { lang = it },
+            onFormatSelect = { format = it },
+            onSave = {
+                SUBTITLE_LANGUAGE.updateString(lang)
+                CONVERT_SUBTITLE.updateInt(format)
                 onPreferencesUpdate(DownloadUtil.DownloadPreferences.createFromPreferences())
-                showSubtitlePresetDialog = false
-            }
+            },
+            onDismissRequest = { showSubtitlePresetDialog = false },
         )
     }
 
@@ -1075,10 +1086,10 @@ private fun AdditionalSettings(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     val formats = listOf(
-                        Pair("SRT", 2),
-                        Pair("VTT", 3),
-                        Pair("ASS", 1),
-                        Pair("LRC", 0)
+                        Pair("SRT", CONVERT_SRT),
+                        Pair("VTT", CONVERT_VTT),
+                        Pair("ASS", CONVERT_ASS),
+                        Pair("LRC", CONVERT_LRC)
                     )
                     formats.forEach { (name, code) ->
                         FilterChip(

@@ -114,6 +114,7 @@ object OutputTemplateBuilder {
             .replace(Regex("^#\\d+\\s*"), "")
             .trim()
 
+        val isSubtitleOnly = preferences.skipDownload && preferences.downloadSubtitle
         val cleanPlaylistName = FileUtil.cleanFileName(rawPlaylistName).trim()
             .ifBlank {
                 val listIdMatch = Regex("""[?&]list=([a-zA-Z0-9_-]+)""").find(taskUrl)
@@ -121,7 +122,8 @@ object OutputTemplateBuilder {
                 if (!listId.isNullOrBlank()) "Playlist_$listId" else "Playlist"
             }
 
-        return File(basePath, cleanPlaylistName)
+        val folderName = if (isSubtitleOnly) "[Subtitles] $cleanPlaylistName" else cleanPlaylistName
+        return File(basePath, folderName)
     }
 
     /**

@@ -980,3 +980,73 @@ fun VideoResolutionChip(
         },
     )
 }
+
+@Composable
+fun SubtitleQuickSettingsDialog(
+    subtitleLanguage: String,
+    convertSubtitle: Int,
+    onLanguageSelect: (String) -> Unit,
+    onFormatSelect: (Int) -> Unit,
+    onSave: () -> Unit = {},
+    onDismissRequest: () -> Unit = {},
+) {
+    var language by remember { mutableStateOf(subtitleLanguage.ifBlank { "ar" }) }
+    var format by remember { mutableIntStateOf(convertSubtitle) }
+
+    SealDialog(
+        onDismissRequest = onDismissRequest,
+        icon = { Icon(Icons.Outlined.Subtitles, null) },
+        title = { Text(text = stringResource(id = R.string.edit_preset)) },
+        dismissButton = {
+            OutlinedButton(onClick = onDismissRequest) { Text(stringResource(R.string.cancel)) }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onLanguageSelect(language)
+                    onFormatSelect(format)
+                    onSave()
+                    onDismissRequest()
+                }
+            ) {
+                Text(text = stringResource(R.string.save))
+            }
+        },
+        text = {
+            Column {
+                LazyColumn {
+                    item { DialogSubtitle(text = stringResource(R.string.subtitle_language)) }
+                    item {
+                        OutlinedTextField(
+                            value = language,
+                            onValueChange = { language = it },
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                            singleLine = true,
+                            label = { Text(stringResource(R.string.subtitle_language)) }
+                        )
+                    }
+                    item { DialogSubtitle(text = stringResource(R.string.convert_subtitle)) }
+                    val formatOptions = listOf(
+                        Triple(NOT_CONVERT, stringResource(R.string.not_convert), "Original"),
+                        Triple(CONVERT_SRT, "SRT", "SubRip"),
+                        Triple(CONVERT_VTT, "VTT", "WebVTT"),
+                        Triple(CONVERT_ASS, "ASS", "Advanced SubStation Alpha"),
+                        Triple(CONVERT_LRC, "LRC", "Lyrics")
+                    )
+                    for ((code, title, desc) in formatOptions) {
+                        item {
+                            DialogSingleChoiceItemVariant(
+                                title = title,
+                                desc = desc,
+                                selected = format == code,
+                            ) {
+                                format = code
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    )
+}
+
