@@ -24,6 +24,7 @@ import androidx.compose.material.icons.outlined.HighQuality
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.SettingsSuggest
+import androidx.compose.material.icons.outlined.Subtitles
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.VideoFile
 import androidx.compose.material.icons.outlined.VideoSettings
@@ -78,8 +79,11 @@ import com.junkfood.seal.util.AUDIO_CONVERSION_FORMAT
 import com.junkfood.seal.util.AUDIO_CONVERT
 import com.junkfood.seal.util.AUDIO_FORMAT
 import com.junkfood.seal.util.AUDIO_QUALITY
+import com.junkfood.seal.util.CONVERT_ASS
+import com.junkfood.seal.util.CONVERT_LRC
 import com.junkfood.seal.util.CONVERT_M4A
 import com.junkfood.seal.util.CONVERT_MP3
+import com.junkfood.seal.util.CONVERT_SRT
 import com.junkfood.seal.util.CONVERT_SUBTITLE
 import com.junkfood.seal.util.CONVERT_VTT
 import com.junkfood.seal.util.DEFAULT
@@ -1013,6 +1017,14 @@ fun SubtitleQuickSettingsDialog(
             }
         },
         text = {
+            val notConvertLabel = stringResource(R.string.not_convert)
+            val formatOptions = listOf(
+                Triple(NOT_CONVERT, notConvertLabel, "Original"),
+                Triple(CONVERT_SRT, "SRT", "SubRip"),
+                Triple(CONVERT_VTT, "VTT", "WebVTT"),
+                Triple(CONVERT_ASS, "ASS", "Advanced SubStation Alpha"),
+                Triple(CONVERT_LRC, "LRC", "Lyrics")
+            )
             Column {
                 LazyColumn {
                     item { DialogSubtitle(text = stringResource(R.string.subtitle_language)) }
@@ -1026,13 +1038,6 @@ fun SubtitleQuickSettingsDialog(
                         )
                     }
                     item { DialogSubtitle(text = stringResource(R.string.convert_subtitle)) }
-                    val formatOptions = listOf(
-                        Triple(NOT_CONVERT, stringResource(R.string.not_convert), "Original"),
-                        Triple(CONVERT_SRT, "SRT", "SubRip"),
-                        Triple(CONVERT_VTT, "VTT", "WebVTT"),
-                        Triple(CONVERT_ASS, "ASS", "Advanced SubStation Alpha"),
-                        Triple(CONVERT_LRC, "LRC", "Lyrics")
-                    )
                     for ((code, title, desc) in formatOptions) {
                         item {
                             DialogSingleChoiceItemVariant(

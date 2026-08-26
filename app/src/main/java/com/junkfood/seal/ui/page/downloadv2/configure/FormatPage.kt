@@ -430,13 +430,13 @@ private fun FormatPageImpl(
         if (autoCaptionMap.isNotEmpty() || manualSubtitleMap.isNotEmpty()) {
             val userPref = com.junkfood.seal.util.SUBTITLE_LANGUAGE.getString().trim().takeIf { it.isNotEmpty() && it != "all" } ?: "ar"
             if (!combined.containsKey(userPref)) {
-                combined[userPref] = listOf(SubtitleFormat(ext = "srt", name = if (userPref.startsWith("ar")) "العربية (Arabic)" else userPref))
+                combined[userPref] = listOf(SubtitleFormat(ext = "srt", url = "", name = if (userPref.startsWith("ar")) "العربية (Arabic)" else userPref))
             }
             if (!combined.containsKey("ar")) {
-                combined["ar"] = listOf(SubtitleFormat(ext = "srt", name = "العربية (Arabic)"))
+                combined["ar"] = listOf(SubtitleFormat(ext = "srt", url = "", name = "العربية (Arabic)"))
             }
             if (!combined.containsKey("en")) {
-                combined["en"] = listOf(SubtitleFormat(ext = "srt", name = "English"))
+                combined["en"] = listOf(SubtitleFormat(ext = "srt", url = "", name = "English"))
             }
         }
         combined
