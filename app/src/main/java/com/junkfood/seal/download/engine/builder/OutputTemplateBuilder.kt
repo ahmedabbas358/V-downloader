@@ -98,11 +98,8 @@ object OutputTemplateBuilder {
 
         val basePath = resolveBaseDirectory(preferences, isAudioDownload)
 
-        // Strict playlist verification: ONLY create subdirectories for genuine playlist batches.
-        // A genuine playlist item MUST have playlistItem > 0. A non-zero fallbackPlaylistTitle
-        // alone (which can appear even on single video downloads from mixes/albums) is NOT enough.
-        val isPlaylist = playlistItem > 0 &&
-                (fallbackPlaylistTitle.isNotBlank() && !fallbackPlaylistTitle.equals("NA", ignoreCase = true))
+        val isPlaylist = playlistItem > 0 || preferences.downloadPlaylist ||
+                (fallbackPlaylistTitle.isNotBlank() && !fallbackPlaylistTitle.equals("NA", ignoreCase = true) && !fallbackPlaylistTitle.equals(videoInfo?.title, ignoreCase = true))
 
         if (!isPlaylist) {
             return File(basePath)
@@ -112,7 +109,6 @@ object OutputTemplateBuilder {
             .ifBlank { videoPlaylistTitle.orEmpty() }
             .ifBlank { videoInfo?.playlistTitle.orEmpty() }
             .ifBlank { videoInfo?.playlist.orEmpty() }
-            .ifBlank { preferences.newTitle }
             .removePrefix("[Subtitles] ")
             .removePrefix("[Subtitle] ")
             .replace(Regex("^#\\d+\\s*"), "")

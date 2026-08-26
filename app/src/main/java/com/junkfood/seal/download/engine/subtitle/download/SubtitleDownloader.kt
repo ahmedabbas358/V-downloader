@@ -134,15 +134,6 @@ object SubtitleDownloader {
                 return@runCatching validFiles
             }
 
-            // Check if any matching subtitle file already exists in destination
-            val alreadyOnDisk = findExistingSubtitleFiles(destinationDir, cleanBaseTitle, videoId, targetFormat)
-            if (alreadyOnDisk.isNotEmpty() && validFiles.isEmpty()) {
-                validFiles.addAll(alreadyOnDisk)
-                tempWorkDir.deleteRecursively()
-                onProgress(SubtitleProgress.Completed(validFiles.size))
-                return@runCatching validFiles
-            }
-
             try {
                 // 1. Attempt ultra-fast Direct CDN HTTP Stream Download if direct URLs are available
                 var directDownloadSucceeded = false
@@ -487,10 +478,9 @@ object SubtitleDownloader {
             val nameLower = f.name.lowercase(Locale.US)
             val ext = f.extension.lowercase(Locale.US)
             val isSubExt = ext == "srt" || ext == "vtt" || ext == "ass" || ext == "lrc" || ext == targetFormat.extension
-            isSubExt && (
-                (videoIdLower.isNotBlank() && nameLower.contains(videoIdLower)) ||
-                (cleanTitleLower.length >= 3 && nameLower.contains(cleanTitleLower.take(30)))
-            ) && SubtitleValidator.validateFile(f).isSuccess
+            val matchesVideo = (videoIdLower.length >= 4 && nameLower.contains(videoIdLower)) ||
+                    (cleanTitleLower.length >= 6 && nameLower.startsWith(cleanTitleLower))
+            isSubExt && matchesVideo && SubtitleValidator.validateFile(f).isSuccess
         } ?: emptyList()
     }
 

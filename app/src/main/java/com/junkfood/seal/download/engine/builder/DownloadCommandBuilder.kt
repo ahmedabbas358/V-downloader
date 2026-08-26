@@ -387,10 +387,11 @@ object DownloadCommandBuilder {
         if (options.subFormat.isNotEmpty()) request.addOption("--sub-format", options.subFormat)
         if (options.embedSubs) {
             request.addOption("--embed-subs")
-            // NOTE: no-keep-subs removed -- it deletes external .srt/.vtt even when embedding fails.
         }
-        if (options.convertSubs.isNotEmpty() && !options.embedSubs) {
+        if (options.convertSubs.isNotEmpty()) {
             request.addOption("--convert-subs", options.convertSubs)
+        } else if (options.embedSubs) {
+            request.addOption("--convert-subs", "srt")
         }
         request.addOption("--ignore-errors")
     }

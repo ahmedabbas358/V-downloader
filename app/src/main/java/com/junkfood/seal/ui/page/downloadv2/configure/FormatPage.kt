@@ -754,7 +754,9 @@ private fun FormatPageImpl(
                 }
             }
 
-            if (audioOnlyFormats.isNotEmpty() && !isSubtitleOnly) {
+            val showAudioSection = audioOnlyFormats.isNotEmpty() && !isSubtitleOnly && (audioOnly || mergeAudioStream)
+
+            if (showAudioSection) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -841,7 +843,7 @@ private fun FormatPageImpl(
                 }
             }
 
-            if (audioOnlyFormats.isNotEmpty() && videoFormats.isNotEmpty() && !isSubtitleOnly && !audioOnly)
+            if (showAudioSection && videoFormats.isNotEmpty() && !isSubtitleOnly && !audioOnly)
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     PreferenceInfo(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
