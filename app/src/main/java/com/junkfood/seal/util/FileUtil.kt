@@ -18,6 +18,10 @@ import com.junkfood.seal.R
 import java.io.File
 import okhttp3.internal.closeQuietly
 
+import android.content.ContentUris
+import android.provider.MediaStore
+import java.io.FileNotFoundException
+
 const val VIDEO_REGEX = "(?i)\\.(mp4|mkv|webm|mov|avi|flv|m4v|ts|3gp)$"
 const val AUDIO_REGEX = "(?i)\\.(mp3|aac|opus|m4a|ogg|flac|wav|wma|mka|m4b)$"
 const val THUMBNAIL_REGEX = "(?i)\\.(jpg|jpeg|png|webp)$"
@@ -25,9 +29,58 @@ const val SUBTITLE_REGEX = "(?i)\\.(lrc|vtt|srt|ass|json3|srv\\d?|ttml|sub|ssa)$
 private const val PRIVATE_DIRECTORY_SUFFIX = ".V-Downloader"
 
 object FileUtil {
+    private const val TAG = "FileUtil"
+
     fun isVideoFile(file: File): Boolean = file.name.contains(Regex(VIDEO_REGEX))
     fun isAudioFile(file: File): Boolean = file.name.contains(Regex(AUDIO_REGEX))
     fun isSubtitleFile(file: File): Boolean = file.name.contains(Regex(SUBTITLE_REGEX))
+
+    fun isVideoFile(path: String): Boolean = path.contains(Regex(VIDEO_REGEX))
+    fun isAudioFile(path: String): Boolean = path.contains(Regex(AUDIO_REGEX))
+    fun isSubtitleFile(path: String): Boolean = path.contains(Regex(SUBTITLE_REGEX))
+
+    fun createUriForFile(file: File): Uri? {
+        if (!file.exists()) return null
+
+        // 1. Try FileProvider first (most standard and compatible with modern Android)
+        try {
+            return FileProvider.getUriForFile(context, context.getFileProvider(), file)
+        } catch (e: Exception) {
+            Log.w(TAG, "FileProvider getUriForFile failed for ${file.absolutePath}: ${e.message}")
+        }
+
+        // 2. Query MediaStore for scanned media content URI
+        try {
+            val projection = arrayOf(MediaStore.MediaColumns._ID)
+            val queryUri = when {
+                isVideoFile(file) -> MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                isAudioFile(file) -> MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+                else -> MediaStore.Files.getContentUri("external")
+            }
+            context.contentResolver.query(
+                queryUri,
+                projection,
+                "${MediaStore.MediaColumns.DATA} = ?",
+                arrayOf(file.absolutePath),
+                null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID))
+                    return ContentUris.withAppendedId(queryUri, id)
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "MediaStore lookup failed for ${file.absolutePath}: ${e.message}")
+        }
+
+        // 3. Fallback to file:// URI
+        return try {
+            Uri.fromFile(file)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     fun openFileFromResult(downloadResult: Result<List<String>>) {
         val filePaths = downloadResult.getOrNull()
         if (filePaths.isNullOrEmpty()) return
@@ -36,13 +89,23 @@ object FileUtil {
         }
     }
 
-    inline fun openFile(path: String, onFailureCallback: (Throwable) -> Unit) =
-        path
-            .runCatching {
-                createIntentForOpeningFile(this)?.run { context.startActivity(this) }
-                    ?: throw Exception()
+    inline fun openFile(path: String, onFailureCallback: (Throwable) -> Unit) {
+        try {
+            val intent = createIntentForOpeningFile(path)
+            if (intent != null) {
+                if (intent.data?.scheme == "file") {
+                    val builder = android.os.StrictMode.VmPolicy.Builder()
+                    android.os.StrictMode.setVmPolicy(builder.build())
+                }
+                context.startActivity(intent)
+            } else {
+                throw FileNotFoundException("File does not exist: $path")
             }
-            .onFailure { onFailureCallback(it) }
+        } catch (t: Throwable) {
+            Log.e(TAG, "Failed to open file: $path", t)
+            onFailureCallback(t)
+        }
+    }
 
     fun openDirectory(path: String, onFailureCallback: (Throwable) -> Unit = {}) {
         path.runCatching {
@@ -117,21 +180,16 @@ object FileUtil {
     private fun createIntentForFile(path: String?): Intent? {
         if (path.isNullOrBlank()) return null
         val file = File(path)
-        val uri = try {
-            if (path.startsWith("content://")) {
-                Uri.parse(path)
-            } else if (file.exists()) {
-                FileProvider.getUriForFile(context, context.getFileProvider(), file)
-            } else {
-                null
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to resolve URI for $path", e)
+        val uri = if (path.startsWith("content://")) {
+            Uri.parse(path)
+        } else if (file.exists()) {
+            createUriForFile(file)
+        } else {
             null
         } ?: return null
 
         return Intent().apply {
-            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK
             data = uri
         }
     }
@@ -139,24 +197,19 @@ object FileUtil {
     fun createIntentForOpeningFile(path: String?): Intent? {
         if (path.isNullOrBlank()) return null
         val file = File(path)
-        val uri = try {
-            if (path.startsWith("content://")) {
-                Uri.parse(path)
-            } else if (file.exists()) {
-                FileProvider.getUriForFile(context, context.getFileProvider(), file)
-            } else {
-                null
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to resolve URI for opening $path", e)
+        val uri = if (path.startsWith("content://")) {
+            Uri.parse(path)
+        } else if (file.exists()) {
+            createUriForFile(file)
+        } else {
             null
         } ?: return null
 
         val extension = file.extension.ifEmpty { MimeTypeMap.getFileExtensionFromUrl(path) }
         val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.lowercase(Locale.US))
             ?: when {
-                path.contains(Regex(AUDIO_REGEX)) -> "audio/*"
-                path.contains(Regex(SUBTITLE_REGEX)) -> "text/plain"
+                isAudioFile(file) -> "audio/*"
+                isSubtitleFile(file) -> "text/plain"
                 else -> "video/*"
             }
 
@@ -172,10 +225,14 @@ object FileUtil {
             action = Intent.ACTION_SEND
             val extension = MimeTypeMap.getFileExtensionFromUrl(path.orEmpty())
             val mimeType = data?.let { context.contentResolver.getType(it) }
-                ?: MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.lowercase())
-                ?: "media/*"
+                ?: MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.lowercase(Locale.US))
+                ?: when {
+                    isAudioFile(File(path.orEmpty())) -> "audio/*"
+                    isSubtitleFile(File(path.orEmpty())) -> "text/plain"
+                    else -> "video/*"
+                }
+            setDataAndType(data, mimeType)
             putExtra(Intent.EXTRA_STREAM, data)
-            setDataAndType(this.data, mimeType)
             clipData = ClipData(null, arrayOf(mimeType), ClipData.Item(data))
         }
 

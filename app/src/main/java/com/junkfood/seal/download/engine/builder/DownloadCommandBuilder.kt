@@ -140,17 +140,18 @@ object DownloadCommandBuilder {
 
             // Playlist / single video setup
             addOption("--no-playlist")
-            val playlistPrefix = OutputTemplateBuilder.buildPlaylistSubdirectoryPrefix(
+
+            // Target download directory (handles playlist subdirectories named after the playlist)
+            val targetDir = OutputTemplateBuilder.resolveTargetDirectory(
                 preferences = preferences,
+                isAudioDownload = isAudioDownload,
                 playlistItem = playlistItem,
                 fallbackPlaylistTitle = fallbackPlaylistTitle,
-                videoPlaylistTitle = videoInfo.playlist
+                videoPlaylistTitle = videoInfo.playlist,
+                videoInfo = videoInfo,
+                taskUrl = playlistUrl
             )
-            outputBuilder.append(playlistPrefix)
-
-            // Base download directory
-            val basePath = OutputTemplateBuilder.resolveBaseDirectory(preferences, isAudioDownload)
-            pathBuilder.append(basePath)
+            pathBuilder.append(targetDir.absolutePath)
 
             if (preferences.subdirectoryExtractor) {
                 pathBuilder.append("/${videoInfo.extractorKey}")

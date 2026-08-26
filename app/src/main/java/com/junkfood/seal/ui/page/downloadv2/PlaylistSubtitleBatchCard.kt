@@ -345,11 +345,24 @@ fun PlaylistSubtitleBatchCard(
                     // Open folder button
                     FilledTonalIconButton(
                         onClick = {
-                            val basePath = OutputTemplateBuilder.resolveBaseDirectory(tasks.first().first.preferences, false)
-                            val cleanFolder = FileUtil.cleanFileName(cleanPlaylistTitle).ifBlank { "Playlist" }
-                            val subtitleFolder = File(basePath, "[Subtitle] $cleanFolder")
-                            val normalFolder = File(basePath, cleanFolder)
-                            val dirToOpen = if (subtitleFolder.exists()) subtitleFolder else if (normalFolder.exists()) normalFolder else subtitleFolder
+                            val firstTask = tasks.firstOrNull()?.first
+                            val firstState = tasks.firstOrNull()?.second
+                            val dirToOpen = if (firstTask != null) {
+                                OutputTemplateBuilder.resolveTargetDirectory(
+                                    preferences = firstTask.preferences,
+                                    isAudioDownload = false,
+                                    playlistItem = (firstTask.type as? com.junkfood.seal.download.Task.TypeInfo.Playlist)?.index ?: 1,
+                                    fallbackPlaylistTitle = cleanPlaylistTitle,
+                                    videoPlaylistTitle = firstState?.videoInfo?.playlist,
+                                    videoInfo = firstState?.videoInfo,
+                                    taskUrl = firstTask.url
+                                )
+                            } else {
+                                val basePath = OutputTemplateBuilder.resolveBaseDirectory(tasks.first().first.preferences, false)
+                                val cleanFolder = FileUtil.cleanFileName(cleanPlaylistTitle).ifBlank { "Playlist" }
+                                File(basePath, cleanFolder)
+                            }
+                            if (!dirToOpen.exists()) dirToOpen.mkdirs()
                             FileUtil.openDirectory(dirToOpen.absolutePath)
                         },
                         modifier = Modifier.size(34.dp)

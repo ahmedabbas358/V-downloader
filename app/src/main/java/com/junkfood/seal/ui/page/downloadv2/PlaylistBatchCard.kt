@@ -380,22 +380,25 @@ fun PlaylistBatchCard(
                     FilledTonalIconButton(
                         onClick = {
                             val firstTask = tasks.firstOrNull()?.first
+                            val firstState = tasks.firstOrNull()?.second
                             val isAudio = batchType == PlaylistBatchType.AUDIO
                             val isSub = batchType == PlaylistBatchType.SUBTITLE
-                            val basePath = if (firstTask != null) {
-                                OutputTemplateBuilder.resolveBaseDirectory(firstTask.preferences, isAudio)
+                            val dirToOpen = if (firstTask != null) {
+                                OutputTemplateBuilder.resolveTargetDirectory(
+                                    preferences = firstTask.preferences,
+                                    isAudioDownload = isAudio,
+                                    playlistItem = (firstTask.type as? com.junkfood.seal.download.Task.TypeInfo.Playlist)?.index ?: 1,
+                                    fallbackPlaylistTitle = cleanPlaylistTitle,
+                                    videoPlaylistTitle = firstState?.videoInfo?.playlist,
+                                    videoInfo = firstState?.videoInfo,
+                                    taskUrl = firstTask.url
+                                )
                             } else {
-                                if (isAudio) com.junkfood.seal.App.audioDownloadDir else com.junkfood.seal.App.videoDownloadDir
+                                val basePath = if (isAudio) com.junkfood.seal.App.audioDownloadDir else com.junkfood.seal.App.videoDownloadDir
+                                val cleanFolder = FileUtil.cleanFileName(cleanPlaylistTitle).ifBlank { "Playlist" }
+                                File(basePath, cleanFolder)
                             }
-                            val cleanFolder = FileUtil.cleanFileName(cleanPlaylistTitle).ifBlank { "Playlist" }
-                            val subFolder = File(basePath, "[Subtitle] $cleanFolder")
-                            val normalFolder = File(basePath, cleanFolder)
-                            val dirToOpen = when {
-                                isSub && subFolder.exists() -> subFolder
-                                normalFolder.exists() -> normalFolder
-                                isSub -> subFolder
-                                else -> File(basePath)
-                            }
+                            if (!dirToOpen.exists()) dirToOpen.mkdirs()
                             FileUtil.openDirectory(dirToOpen.absolutePath)
                         },
                         modifier = Modifier.size(34.dp)

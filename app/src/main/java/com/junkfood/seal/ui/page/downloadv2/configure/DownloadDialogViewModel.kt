@@ -265,7 +265,8 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
 
         val job = viewModelScope.launch(Dispatchers.IO, start = CoroutineStart.LAZY) {
             try {
-                val effectiveTasks = if (playlistTasks.size <= 1 && isPlaylistUrl) {
+                val hasEmptyTitles = playlistTasks.any { (it.task.type as? Task.TypeInfo.Playlist)?.playlistTitle.isNullOrBlank() }
+                val effectiveTasks = if ((playlistTasks.size <= 1 || hasEmptyTitles) && isPlaylistUrl) {
                     val playlistInfoRes = DownloadUtil.getPlaylistOrVideoInfo(url, preferences)
                     val playlistResult = playlistInfoRes.getOrNull()
                     if (playlistResult is PlaylistResult && !playlistResult.entries.isNullOrEmpty()) {

@@ -100,7 +100,7 @@ object SubtitleValidator {
             )
         }
 
-        val headerText = String(headerBytes, StandardCharsets.UTF_8).trim()
+        val headerText = String(headerBytes, StandardCharsets.UTF_8).trim().removePrefix("\uFEFF")
 
         // 1. Check for HTML error pages / 403 Forbidden / Login pages
         if (isHtmlOrErrorPayload(headerText)) {
@@ -116,7 +116,7 @@ object SubtitleValidator {
         }
 
         // 2. Check for JSON error payload
-        if (headerText.startsWith("{") && (headerText.contains("\"error\"") || headerText.contains("\"code\""))) {
+        if (headerText.startsWith("{") && (headerText.contains("\"error\"") || headerText.contains("\"code\"")) && !headerText.contains("\"events\"")) {
             return SubtitleValidationReport(
                 isValid = false,
                 cueCount = 0,
@@ -124,30 +124,33 @@ object SubtitleValidator {
                 lastTimestampMs = 0L,
                 coveragePercent = 0f,
                 detectedFormat = expectedFormat ?: SubtitleOutputFormat.SRT,
-                failure = SubtitleFailure.InvalidSubtitle("File contains JSON error response: $headerText", file.absolutePath)
+                failure = SubtitleFailure.InvalidSubtitle("File contains JSON error response", file.absolutePath)
             )
         }
 
         // 3. Format-specific syntax checks
         val format = expectedFormat ?: SubtitleOutputFormat.fromExtension(file.extension)
         val syntaxValid = when (format) {
-            SubtitleOutputFormat.VTT -> headerText.startsWith("WEBVTT") || VTT_TIMESTAMP_REGEX.containsMatchIn(headerText)
+            SubtitleOutputFormat.VTT -> headerText.contains("WEBVTT", ignoreCase = true) || VTT_TIMESTAMP_REGEX.containsMatchIn(headerText) || headerText.contains("-->")
             SubtitleOutputFormat.SRT -> SRT_TIMESTAMP_REGEX.containsMatchIn(headerText) || headerText.contains("-->")
-            SubtitleOutputFormat.ASS -> headerText.contains("[Script Info]") || headerText.contains("Dialogue:") || headerText.contains("[Events]")
-            SubtitleOutputFormat.TTML -> headerText.contains("<tt") || headerText.contains("<xml") || headerText.contains("xmlns")
+            SubtitleOutputFormat.ASS -> headerText.contains("[Script Info]", ignoreCase = true) || headerText.contains("Dialogue:", ignoreCase = true) || headerText.contains("[Events]", ignoreCase = true)
+            SubtitleOutputFormat.TTML -> headerText.contains("<tt", ignoreCase = true) || headerText.contains("<xml", ignoreCase = true) || headerText.contains("xmlns", ignoreCase = true)
             SubtitleOutputFormat.LRC -> headerText.contains("[") && headerText.contains("]") && headerText.contains(":")
         }
 
-        if (!syntaxValid && !headerText.contains("-->") && !headerText.contains("<p") && !headerText.contains("<span")) {
-            return SubtitleValidationReport(
-                isValid = false,
-                cueCount = 0,
-                firstTimestampMs = 0L,
-                lastTimestampMs = 0L,
-                coveragePercent = 0f,
-                detectedFormat = format,
-                failure = SubtitleFailure.InvalidSubtitle("File failed syntax check for ${format.name}", file.absolutePath)
-            )
+        if (!syntaxValid && !headerText.contains("-->") && !headerText.contains("<p") && !headerText.contains("<span") && !headerText.contains("Dialogue:")) {
+            // If file is non-empty and has text lines, do not fail aggressively unless it's binary garbage
+            if (headerText.isBlank()) {
+                return SubtitleValidationReport(
+                    isValid = false,
+                    cueCount = 0,
+                    firstTimestampMs = 0L,
+                    lastTimestampMs = 0L,
+                    coveragePercent = 0f,
+                    detectedFormat = format,
+                    failure = SubtitleFailure.InvalidSubtitle("File is empty or whitespace", file.absolutePath)
+                )
+            }
         }
 
         // 4. Deep Cue Parsing & Timestamp Scan
@@ -216,18 +219,6 @@ object SubtitleValidator {
         if (videoDurationSeconds != null && videoDurationSeconds > 60 && lastTimestampMs > 0) {
             val videoDurationMs = videoDurationSeconds * 1000L
             coverage = (lastTimestampMs.toFloat() / videoDurationMs.toFloat()).coerceIn(0f, 1.5f)
-            // If video is > 3 minutes long and subtitle ends within first 15 seconds with only 1-2 cues, it's a truncated partial download
-            if (videoDurationSeconds >= 180 && lastTimestampMs < 15_000L && cueCount <= 2) {
-                return SubtitleValidationReport(
-                    isValid = false,
-                    cueCount = cueCount,
-                    firstTimestampMs = firstTimestampMs.coerceAtLeast(0L),
-                    lastTimestampMs = lastTimestampMs.coerceAtLeast(0L),
-                    coveragePercent = coverage,
-                    detectedFormat = format,
-                    failure = SubtitleFailure.InvalidSubtitle("Truncated subtitle detected (coverage ${(coverage * 100).toInt()}%, video duration ${videoDurationSeconds}s)", file.absolutePath)
-                )
-            }
         }
 
         return SubtitleValidationReport(

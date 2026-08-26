@@ -109,16 +109,53 @@ object PermissionManager {
      * Centralized way to open Battery Optimization Settings directly.
      */
     fun openBatteryOptimizationSettings(context: Context) {
-        val intent = createBatteryOptimizationIntent(context)
-        if (intent != null) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             try {
-                context.startActivity(intent)
-            } catch (e: Exception) {
-                openAppSettings(context)
-            }
-        } else {
-            openAppSettings(context)
+                val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+                if (pm != null && !pm.isIgnoringBatteryOptimizations(context.packageName)) {
+                    val reqIntent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = Uri.parse("package:${context.packageName}")
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    context.startActivity(reqIntent)
+                    return
+                }
+            } catch (_: Exception) {}
+
+            try {
+                val listIntent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(listIntent)
+                return
+            } catch (_: Exception) {}
         }
+        openAppSettings(context)
+    }
+
+    /**
+     * Centralized way to open Storage Permission Settings directly for the app.
+     */
+    fun openStoragePermissionSettings(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(intent)
+                return
+            } catch (_: Exception) {
+                try {
+                    val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    context.startActivity(intent)
+                    return
+                } catch (_: Exception) {}
+            }
+        }
+        openAppSettings(context)
     }
 
     /**
@@ -137,27 +174,42 @@ object PermissionManager {
     }
 
     /**
-     * Centralized check for storage / media permissions.
+     * Centralized check for storage / media permissions with accurate system verification.
      */
     fun checkStorageCapability(context: Context): CapabilityStatus {
-        return if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
-            if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
-                CapabilityStatus.GRANTED
-            } else {
-                CapabilityStatus.DENIED
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // Check All Files Access
+            if (android.os.Environment.isExternalStorageManager()) {
+                return CapabilityStatus.GRANTED
             }
-        } else {
-            // Android 11+ (API 30+) uses Scoped Storage to save directly into standard download folders.
-            // Custom SAF permission is only required when the user explicitly enables SD Card / Custom SAF storage.
-            if (SDCARD_DOWNLOAD.getBoolean(false)) {
-                if (verifySafPermission(context, SDCARD_URI.getString())) {
-                    CapabilityStatus.GRANTED
-                } else {
-                    CapabilityStatus.DENIED
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                // Check Media Permissions on Android 13+
+                val hasVideo = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_VIDEO) == PackageManager.PERMISSION_GRANTED
+                val hasAudio = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED
+                if (hasVideo && hasAudio) {
+                    return CapabilityStatus.GRANTED
                 }
             } else {
-                CapabilityStatus.GRANTED
+                // Check Read Storage on Android 11-12
+                val hasRead = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+                if (hasRead) {
+                    return CapabilityStatus.GRANTED
+                }
             }
+
+            // Check SAF permission if user configured custom SD card
+            if (SDCARD_DOWNLOAD.getBoolean(false)) {
+                if (verifySafPermission(context, SDCARD_URI.getString())) {
+                    return CapabilityStatus.GRANTED
+                }
+            }
+
+            return CapabilityStatus.DENIED
+        } else {
+            // Android <= 10 (API <= 29)
+            val hasWrite = ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+            return if (hasWrite) CapabilityStatus.GRANTED else CapabilityStatus.DENIED
         }
     }
 
@@ -165,10 +217,23 @@ object PermissionManager {
      * Gets the list of storage permissions needed based on Android SDK level.
      */
     fun getRequiredStoragePermissions(): Array<String> {
-        return if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
-            arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE)
-        } else {
-            emptyArray()
+        return when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> {
+                arrayOf(
+                    Manifest.permission.READ_MEDIA_VIDEO,
+                    Manifest.permission.READ_MEDIA_AUDIO,
+                    Manifest.permission.READ_MEDIA_IMAGES,
+                )
+            }
+            Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q -> {
+                arrayOf(
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                    Manifest.permission.READ_EXTERNAL_STORAGE,
+                )
+            }
+            else -> {
+                arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+            }
         }
     }
 

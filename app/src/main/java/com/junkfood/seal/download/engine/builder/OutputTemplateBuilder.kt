@@ -3,6 +3,8 @@ package com.junkfood.seal.download.engine.builder
 import com.junkfood.seal.App
 import com.junkfood.seal.util.DownloadUtil.DownloadPreferences
 import com.junkfood.seal.util.FileUtil
+import com.junkfood.seal.util.VideoInfo
+import java.io.File
 import java.util.Locale
 
 /**
@@ -15,7 +17,7 @@ import java.util.Locale
  * - Pure formatting functions for yt-dlp -o and -P arguments.
  * - Handles playlist numbering (e.g. "001 - Title").
  * - Handles chapter splitting and clip timestamp templates.
- * - Handles dedicated subdirectory organization for playlists and subtitles with "[Subtitle] " prefix.
+ * - Handles dedicated subdirectory organization for playlists and subtitles named after the playlist.
  */
 object OutputTemplateBuilder {
 
@@ -30,7 +32,6 @@ object OutputTemplateBuilder {
     const val OUTPUT_TEMPLATE_CHAPTERS =
         "chapter:$BASENAME/%(section_number)d - %(section_title).200B$EXTENSION"
     const val OUTPUT_TEMPLATE_SPLIT = "$BASENAME/$OUTPUT_TEMPLATE_DEFAULT"
-    const val PLAYLIST_TITLE_SUBDIRECTORY_PREFIX = "%(playlist_title,playlist,uploader,id).200B/"
     const val PLAYLIST_INDEX_PADDED = "%(playlist_index,playlist_autonumber)03d"
 
     /**
@@ -81,7 +82,57 @@ object OutputTemplateBuilder {
     }
 
     /**
-     * Builds the directory prefix for playlists (if subdirectory setting enabled).
+     * Resolves the target directory for a download task, accurately creating a dedicated
+     * folder named after the playlist for Video, Audio, and Subtitle downloads.
+     */
+    fun resolveTargetDirectory(
+        preferences: DownloadPreferences,
+        isAudioDownload: Boolean,
+        playlistItem: Int = 0,
+        fallbackPlaylistTitle: String = "",
+        videoPlaylistTitle: String? = null,
+        videoInfo: VideoInfo? = null,
+        taskUrl: String = "",
+    ): File {
+        if (preferences.commandDirectory.isNotBlank()) {
+            return File(preferences.commandDirectory)
+        }
+
+        val basePath = resolveBaseDirectory(preferences, isAudioDownload)
+        val isPlaylist = preferences.downloadPlaylist ||
+                playlistItem > 0 ||
+                fallbackPlaylistTitle.isNotBlank() ||
+                !videoPlaylistTitle.isNullOrBlank() ||
+                videoInfo?.playlist?.isNotBlank() == true ||
+                videoInfo?.playlistTitle?.isNotBlank() == true ||
+                taskUrl.contains("list=", ignoreCase = true)
+
+        if (!isPlaylist) {
+            return File(basePath)
+        }
+
+        val rawPlaylistName = fallbackPlaylistTitle
+            .ifBlank { videoPlaylistTitle.orEmpty() }
+            .ifBlank { videoInfo?.playlistTitle.orEmpty() }
+            .ifBlank { videoInfo?.playlist.orEmpty() }
+            .ifBlank { preferences.newTitle }
+            .removePrefix("[Subtitles] ")
+            .removePrefix("[Subtitle] ")
+            .replace(Regex("^#\\d+\\s*"), "")
+            .trim()
+
+        val cleanPlaylistName = FileUtil.cleanFileName(rawPlaylistName).trim()
+            .ifBlank {
+                val listIdMatch = Regex("""[?&]list=([a-zA-Z0-9_-]+)""").find(taskUrl)
+                val listId = listIdMatch?.groupValues?.get(1)
+                if (!listId.isNullOrBlank()) "Playlist_$listId" else "Playlist"
+            }
+
+        return File(basePath, cleanPlaylistName)
+    }
+
+    /**
+     * Legacy helper kept for backward compatibility if needed.
      */
     fun buildPlaylistSubdirectoryPrefix(
         preferences: DownloadPreferences,
@@ -89,41 +140,6 @@ object OutputTemplateBuilder {
         fallbackPlaylistTitle: String = "",
         videoPlaylistTitle: String? = null,
     ): String {
-        if (preferences.commandDirectory.isNotBlank()) return ""
-
-        val isSubtitleOnly = preferences.skipDownload && preferences.downloadSubtitle
-        val rawPlaylistName = fallbackPlaylistTitle.ifEmpty { videoPlaylistTitle.orEmpty() }
-            .removePrefix("[Subtitles] ")
-            .removePrefix("[Subtitle] ")
-            .trim()
-
-        if (isSubtitleOnly) {
-            val isPlaylist = preferences.downloadPlaylist || (playlistItem > 0 && rawPlaylistName.isNotEmpty() && rawPlaylistName != "Playlist")
-            return if (isPlaylist) {
-                val clean = if (rawPlaylistName.isNotEmpty() && rawPlaylistName != "Playlist") {
-                    FileUtil.cleanFileName(rawPlaylistName)
-                } else {
-                    "%(playlist_title,playlist)s"
-                }
-                "[Subtitle] $clean/"
-            } else {
-                ""
-            }
-        }
-
-        return when {
-            preferences.subdirectoryPlaylistTitle -> {
-                if (rawPlaylistName.isNotEmpty() && rawPlaylistName != "Playlist") {
-                    "${FileUtil.cleanFileName(rawPlaylistName)}/"
-                } else if (!videoPlaylistTitle.isNullOrEmpty()) {
-                    PLAYLIST_TITLE_SUBDIRECTORY_PREFIX
-                } else if (preferences.downloadPlaylist || playlistItem > 0) {
-                    PLAYLIST_TITLE_SUBDIRECTORY_PREFIX
-                } else {
-                    ""
-                }
-            }
-            else -> ""
-        }
+        return ""
     }
 }

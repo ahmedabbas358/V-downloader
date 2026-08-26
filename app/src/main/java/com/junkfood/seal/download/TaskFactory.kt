@@ -27,6 +27,7 @@ object TaskFactory {
         selectedAutoCaptions: List<String>,
         skipDownload: Boolean = false,
         subtitleFormat: Int = com.junkfood.seal.util.CONVERT_SUBTITLE.getInt(),
+        embedSubtitle: Boolean = com.junkfood.seal.util.EMBED_SUBTITLE.getBoolean(),
     ): TaskWithState {
         val fileSize = if (skipDownload) 0.0 else {
             formatList.fold(.0) { acc, format ->
@@ -61,8 +62,8 @@ object TaskFactory {
             else -> ""
         }
 
-        val subtitleLanguage =
-            (selectedSubtitles + selectedAutoCaptions).joinToString(separator = ",")
+        val chosenSubs = (selectedSubtitles + selectedAutoCaptions).distinct().filter { it.isNotBlank() }
+        val subtitleLanguage = chosenSubs.joinToString(separator = ",")
         val hasSelectedSubs = subtitleLanguage.isNotEmpty()
 
         val preferences =
@@ -78,6 +79,7 @@ object TaskFactory {
                         skipDownload = skipDownload,
                         downloadSubtitle = downloadSubtitle || skipDownload || hasSelectedSubs,
                         convertSubtitle = subtitleFormat,
+                        embedSubtitle = if (skipDownload || isAudioOnlySelected) false else (if (hasSelectedSubs) embedSubtitle else this.embedSubtitle),
                         autoSubtitle = if (hasSelectedSubs) true else (autoSubtitle || skipDownload),
                         autoTranslatedSubtitles = if (hasSelectedSubs) true else autoTranslatedSubtitles,
                         subtitleLanguage = if (hasSelectedSubs) subtitleLanguage else this.subtitleLanguage,

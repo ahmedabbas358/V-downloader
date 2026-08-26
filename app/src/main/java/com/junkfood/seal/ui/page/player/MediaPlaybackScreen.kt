@@ -45,7 +45,11 @@ fun MediaPlaybackScreen(
                 }
                 else -> {
                     val file = File(videoPath)
-                    if (file.exists()) Uri.fromFile(file) else Uri.parse(videoPath)
+                    if (file.exists()) {
+                        com.junkfood.seal.util.FileUtil.createUriForFile(file) ?: Uri.fromFile(file)
+                    } else {
+                        Uri.parse(videoPath)
+                    }
                 }
             }
             val mediaItem = MediaItem.fromUri(uri)

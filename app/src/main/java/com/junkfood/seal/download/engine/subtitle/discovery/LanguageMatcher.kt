@@ -88,6 +88,49 @@ object LanguageMatcher {
     }
 
     /**
+     * Matches raw subtitle codes (e.g. from VideoInfo.subtitles.keys or automaticCaptions.keys)
+     * against a user language pattern (e.g. "ar.*,en.*,.*-orig", "ar,en", "العربية").
+     */
+    fun matchLanguageCodes(availableCodes: Collection<String>, query: String): Set<String> {
+        if (availableCodes.isEmpty() || query.isBlank()) return emptySet()
+        val queries = query.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+        val matched = mutableSetOf<String>()
+
+        for (rawCode in availableCodes) {
+            val normCode = normalizeLangCode(rawCode)
+            val baseCode = getBaseLanguageCode(rawCode)
+
+            for (q in queries) {
+                val normQ = normalizeLangCode(q)
+                val baseQ = getBaseLanguageCode(normQ)
+
+                // 1. Direct equality or base match
+                if (normCode == normQ || baseCode == baseQ || rawCode.equals(q, ignoreCase = true)) {
+                    matched.add(rawCode)
+                    break
+                }
+
+                // 2. Prefix match (e.g. "ar" matches "ar-SA", "ar-EG", "ar-ar", "ar-orig")
+                if (rawCode.startsWith("$normQ-", ignoreCase = true) || rawCode.startsWith("$baseQ-", ignoreCase = true)) {
+                    matched.add(rawCode)
+                    break
+                }
+
+                // 3. Regex / wildcard match
+                if (q.contains('*') || q.contains('.')) {
+                    val regexPattern = if (q.contains('*') && !q.contains(".*")) q.replace("*", ".*") else q
+                    val regex = runCatching { Regex("(?i)^$regexPattern$") }.getOrNull()
+                    if (regex != null && (regex.matches(rawCode) || regex.matches(normCode))) {
+                        matched.add(rawCode)
+                        break
+                    }
+                }
+            }
+        }
+        return matched
+    }
+
+    /**
      * Matches requested languages against available tracks in inventory.
      *
      * @param requestedLangs Comma-separated or single language query (e.g., "ar", "ar,en", "all")

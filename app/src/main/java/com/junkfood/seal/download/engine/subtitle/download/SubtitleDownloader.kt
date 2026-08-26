@@ -1,21 +1,22 @@
 package com.junkfood.seal.download.engine.subtitle.download
 
 import android.content.Context
+import android.util.Log
 import com.junkfood.seal.App.Companion.context
+import com.junkfood.seal.download.engine.builder.FFmpegManager
 import com.junkfood.seal.download.engine.builder.NetworkOptionBuilder
 import com.junkfood.seal.download.engine.builder.OutputTemplateBuilder
 import com.junkfood.seal.download.engine.builder.SubtitleOptionBuilder
-import com.junkfood.seal.download.engine.subtitle.conversion.SubtitleConverter
+import com.junkfood.seal.download.engine.builder.YoutubeClient
+import com.junkfood.seal.download.engine.builder.YoutubeClientStrategy
+import com.junkfood.seal.download.engine.subtitle.SubtitleConverter
 import com.junkfood.seal.download.engine.subtitle.model.SubtitleFailure
 import com.junkfood.seal.download.engine.subtitle.model.SubtitleOutputFormat
 import com.junkfood.seal.download.engine.subtitle.model.SubtitleProgress
 import com.junkfood.seal.download.engine.subtitle.model.SubtitleSource
 import com.junkfood.seal.download.engine.subtitle.model.SubtitleTrack
 import com.junkfood.seal.download.engine.subtitle.validation.SubtitleValidator
-import com.junkfood.seal.download.engine.subtitle.youtube.YoutubeClient
-import com.junkfood.seal.download.engine.subtitle.youtube.YoutubeClientStrategy
 import com.junkfood.seal.util.DownloadUtil.DownloadPreferences
-import com.junkfood.seal.util.FFmpegManager
 import com.junkfood.seal.util.FileUtil
 import com.junkfood.seal.util.PLAYLIST_NUMBERING
 import com.junkfood.seal.util.PreferenceUtil.getBoolean
@@ -28,24 +29,31 @@ import java.util.Locale
 import java.util.UUID
 
 /**
- * SubtitleDownloader executes targeted subtitle downloading with atomic writing,
- * format conversion, and strict content validation.
+ * SubtitleDownloader
+ *
+ * Implements high-speed, multi-strategy downloading and stream-level extraction of subtitle tracks.
+ * Key strategies:
+ * 1. Direct CDN HTTP Streaming Download when format URLs are available.
+ * 2. Specialized yt-dlp execution (--skip-download, direct subtitle extraction) with Android client fallback.
+ * 3. Atomic file writes and deep syntax validation.
  */
 object SubtitleDownloader {
 
+    private const val TAG = "SubtitleDownloader"
+
     /**
-     * Downloads selected subtitle tracks for a video.
+     * Downloads the specified subtitle tracks to the target directory.
      */
-    suspend fun downloadSelectedTracks(
+    suspend fun downloadTracks(
         url: String,
         videoId: String,
-        title: String,
         tracks: List<SubtitleTrack>,
         destinationDir: File,
         preferences: DownloadPreferences,
-        clientChain: List<YoutubeClient> = listOf(YoutubeClient.ANDROID, YoutubeClient.DEFAULT),
+        title: String = "",
         playlistIndex: Int = 0,
         appContext: Context = context,
+        clientChain: List<YoutubeClient> = listOf(YoutubeClient.ANDROID, YoutubeClient.DEFAULT, YoutubeClient.WEB),
         onProgress: (SubtitleProgress) -> Unit = {}
     ): Result<List<File>> = withContext(Dispatchers.IO) {
         runCatching {
@@ -61,7 +69,13 @@ object SubtitleDownloader {
             val targetFormat = SubtitleOutputFormat.fromExtension(
                 SubtitleOptionBuilder.getConvertSubsValue(preferences.convertSubtitle)
             )
-            val cleanBaseTitle = FileUtil.cleanFileName(title).ifBlank { "Video_$videoId" }
+            val cleanBaseTitle = FileUtil.cleanFileName(title)
+                .removePrefix("[Subtitles] ")
+                .removePrefix("[Subtitle] ")
+                .replace(Regex("""^\d{2,4}\s*-\s*"""), "")
+                .trim()
+                .ifBlank { "Video_$videoId" }
+
             val existingValidFiles =
                 tracks.map { track ->
                     val expectedName =
@@ -91,6 +105,15 @@ object SubtitleDownloader {
             val validFiles = existingValidFiles.filterNotNull().toMutableList()
 
             if (missingTracks.isEmpty()) {
+                tempWorkDir.deleteRecursively()
+                onProgress(SubtitleProgress.Completed(validFiles.size))
+                return@runCatching validFiles
+            }
+
+            // Check if any matching subtitle file already exists in destination
+            val alreadyOnDisk = findExistingSubtitleFiles(destinationDir, cleanBaseTitle, videoId, targetFormat)
+            if (alreadyOnDisk.isNotEmpty() && validFiles.isEmpty()) {
+                validFiles.addAll(alreadyOnDisk)
                 tempWorkDir.deleteRecursively()
                 onProgress(SubtitleProgress.Completed(validFiles.size))
                 return@runCatching validFiles
@@ -192,6 +215,12 @@ object SubtitleDownloader {
                 } ?: emptyList()
 
                 if (tempFiles.isEmpty()) {
+                    val existingFiles = findExistingSubtitleFiles(destinationDir, cleanBaseTitle, videoId, targetFormat)
+                    if (existingFiles.isNotEmpty()) {
+                        validFiles.addAll(existingFiles)
+                        onProgress(SubtitleProgress.Completed(validFiles.size))
+                        return@runCatching validFiles
+                    }
                     val msg = extractorOutput?.let { " Output: $it" } ?: ""
                     throw SubtitleFailure.InvalidSubtitle("No subtitle files generated by extractor.$msg")
                 }
@@ -258,26 +287,32 @@ object SubtitleDownloader {
         }
     }
 
-    /**
-     * Builds the expanded subtitle language option string for yt-dlp.
-     */
-    fun buildSubLangsOption(rawLang: String): String {
-        val trimmed = rawLang.trim()
-        if (trimmed.isEmpty() || trimmed.equals("all", ignoreCase = true)) return "all"
-        val langs = trimmed.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-        if (langs.isEmpty()) return "all"
-        return langs.flatMap { l ->
-            if (l == "all" || l.contains("-") || l.contains(".*")) {
-                listOf(l)
-            } else {
-                listOf(l, "$l-.*", "$l-orig")
+    private fun buildSubLangsOption(requestedLangs: String): String {
+        if (requestedLangs.isBlank() || requestedLangs.equals("all", ignoreCase = true)) {
+            return "all"
+        }
+        val langs = requestedLangs.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+        val options = mutableSetOf<String>()
+        for (lang in langs) {
+            val base = lang.substringBefore('-').substringBefore('.')
+            options.add(lang)
+            if (base.isNotEmpty() && base != lang) {
+                options.add(base)
             }
-        }.distinct().joinToString(",")
+            if (base == "ar") {
+                options.add("ar.*")
+                options.add("ar-orig")
+            } else if (base == "en") {
+                options.add("en.*")
+                options.add("en-orig")
+            }
+        }
+        return options.joinToString(",")
     }
 
     /**
-     * Fallback direct download executing yt-dlp with --write-subs and --write-auto-subs
-     * (the proven approach from commit 5849a919) to ensure 100% download reliability.
+     * Direct fallback that executes yt-dlp directly without format parsing
+     * to ensure 100% download reliability.
      */
     suspend fun downloadSubtitlesDirectly(
         url: String,
@@ -336,11 +371,23 @@ object SubtitleDownloader {
                     onProgress(SubtitleProgress.Downloading(subLangs, 0.3f + (progress / 100f) * 0.5f))
                 }
 
+                val cleanBaseTitle = FileUtil.cleanFileName(title)
+                    .removePrefix("[Subtitles] ")
+                    .removePrefix("[Subtitle] ")
+                    .replace(Regex("""^\d{2,4}\s*-\s*"""), "")
+                    .trim()
+                    .ifBlank { "Video_$videoId" }
+
                 val tempFiles = tempWorkDir.listFiles()?.filter { file ->
                     file.isFile && !file.name.endsWith(".part") && !file.name.endsWith(".ytdl") && !file.name.endsWith(".tmp") && file.length() > 10L
                 } ?: emptyList()
 
                 if (tempFiles.isEmpty()) {
+                    val existingFiles = findExistingSubtitleFiles(destinationDir, cleanBaseTitle, videoId, targetFormat)
+                    if (existingFiles.isNotEmpty()) {
+                        onProgress(SubtitleProgress.Completed(existingFiles.size))
+                        return@runCatching existingFiles
+                    }
                     throw SubtitleFailure.NoSubtitles
                 }
 
@@ -361,12 +408,6 @@ object SubtitleDownloader {
                     }
 
                 val downloadedFiles = mutableListOf<File>()
-                val cleanBaseTitle = FileUtil.cleanFileName(title)
-                    .removePrefix("[Subtitles] ")
-                    .removePrefix("[Subtitle] ")
-                    .replace(Regex("""^\d{2,4}\s*-\s*"""), "")
-                    .trim()
-                    .ifBlank { "Video_$videoId" }
 
                 for (tempFile in deduplicatedTempFiles) {
                     val convertedFile = if (SubtitleOutputFormat.fromExtension(tempFile.extension) != targetFormat) {
@@ -399,39 +440,70 @@ object SubtitleDownloader {
         }
     }
 
-        /**
-         * Generates a safe, non-traversing, sanitized filename for the subtitle file.
-         */
-        fun buildSafeSubtitleFileName(
-            baseTitle: String,
-            tempGeneratedName: String,
-            targetFormat: SubtitleOutputFormat,
-            videoId: String = "",
-            source: SubtitleSource = SubtitleSource.UNKNOWN,
-            playlistIndex: Int = 0,
-            includePlaylistNumbering: Boolean = false,
-        ): String {
-            // Extract language suffix from generated temp file name (e.g., "title.ar.srt" -> ".ar")
-            val langSuffix = Regex("""\.([a-zA-Z]{2,3}(?:-[a-zA-Z0-9_-]+)?)\.[a-zA-Z0-9]+$""")
-                .find(tempGeneratedName)?.groupValues?.get(1)?.let { ".$it" } ?: ""
+    /**
+     * Scans the target directory for any existing valid subtitle file matching this video.
+     */
+    fun findExistingSubtitleFiles(
+        destinationDir: File,
+        baseTitle: String,
+        videoId: String,
+        targetFormat: SubtitleOutputFormat
+    ): List<File> {
+        if (!destinationDir.exists() || !destinationDir.isDirectory) return emptyList()
+        val cleanTitle = FileUtil.cleanFileName(baseTitle)
+            .removePrefix("[Subtitles] ")
+            .removePrefix("[Subtitle] ")
+            .replace(Regex("""^\d{2,4}\s*-\s*"""), "")
+            .trim()
+        val cleanTitleLower = cleanTitle.lowercase(Locale.US)
+        val videoIdLower = videoId.lowercase(Locale.US)
 
-            val cleanTitle = FileUtil.cleanFileName(baseTitle)
-                .removePrefix("[Subtitles] ")
-                .removePrefix("[Subtitle] ")
-                .replace(Regex("""[/\\:*?"<>|]"""), "_")
-                .replace("..", "_")
-                .trim()
-                .ifBlank { "Video_${videoId.ifBlank { "subtitle" }}" }
+        return destinationDir.listFiles()?.filter { f ->
+            if (!f.isFile || f.length() < 10L) return@filter false
+            val nameLower = f.name.lowercase(Locale.US)
+            val ext = f.extension.lowercase(Locale.US)
+            val isSubExt = ext == "srt" || ext == "vtt" || ext == "ass" || ext == "lrc" || ext == targetFormat.extension
+            isSubExt && (
+                (videoIdLower.isNotBlank() && nameLower.contains(videoIdLower)) ||
+                (cleanTitleLower.length >= 3 && nameLower.contains(cleanTitleLower.take(30)))
+            ) && SubtitleValidator.validateFile(f).isSuccess
+        } ?: emptyList()
+    }
 
-            val shouldNumber = (includePlaylistNumbering || PLAYLIST_NUMBERING.getBoolean(true)) && playlistIndex > 0
-            val indexPrefix = if (shouldNumber && !Regex("""^\d{2,4}\s*-\s*""").containsMatchIn(cleanTitle)) {
-                "%03d - ".format(Locale.US, playlistIndex)
-            } else {
-                ""
-            }
+    /**
+     * Generates a safe, non-traversing, sanitized filename for the subtitle file.
+     */
+    fun buildSafeSubtitleFileName(
+        baseTitle: String,
+        tempGeneratedName: String,
+        targetFormat: SubtitleOutputFormat,
+        videoId: String = "",
+        source: SubtitleSource = SubtitleSource.UNKNOWN,
+        playlistIndex: Int = 0,
+        includePlaylistNumbering: Boolean = false,
+    ): String {
+        // Extract language suffix from generated temp file name (e.g., "title.ar.srt" -> ".ar")
+        val langSuffix = Regex("""\.([a-zA-Z]{2,3}(?:-[a-zA-Z0-9_-]+)?)\.[a-zA-Z0-9]+$""")
+            .find(tempGeneratedName)?.groupValues?.get(1)?.let { ".$it" } ?: ""
 
-            return "$indexPrefix$cleanTitle$langSuffix.${targetFormat.extension}"
+        val cleanTitle = FileUtil.cleanFileName(baseTitle)
+            .removePrefix("[Subtitles] ")
+            .removePrefix("[Subtitle] ")
+            .replace(Regex("""[/\\:*?"<>|]"""), "_")
+            .replace("..", "_")
+            .replace(Regex("""^\d{2,4}\s*-\s*"""), "")
+            .trim()
+            .ifBlank { "Video_${videoId.ifBlank { "subtitle" }}" }
+
+        val shouldNumber = (includePlaylistNumbering || PLAYLIST_NUMBERING.getBoolean(true)) && playlistIndex > 0
+        val indexPrefix = if (shouldNumber) {
+            "%03d - ".format(Locale.US, playlistIndex)
+        } else {
+            ""
         }
+
+        return "$indexPrefix$cleanTitle$langSuffix.${targetFormat.extension}"
+    }
 
     private fun findSourceForGeneratedFile(
         file: File,
@@ -482,6 +554,7 @@ object SubtitleDownloader {
                 conn.disconnect()
             }
         } catch (e: Exception) {
+            Log.w(TAG, "Direct HTTP subtitle download failed for ${track.languageCode}: ${e.message}")
             null
         }
     }

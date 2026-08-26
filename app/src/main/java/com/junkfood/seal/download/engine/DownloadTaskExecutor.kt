@@ -190,31 +190,15 @@ object DownloadTaskExecutor {
         // ── Subtitle-only path ──────────────────────────────────────────────────
         val isSubtitleTask = task.preferences.skipDownload && task.preferences.downloadSubtitle
         if (isSubtitleTask) {
-            val basePath = OutputTemplateBuilder.resolveBaseDirectory(task.preferences, isAudioDownload = false)
-            val isPlaylistSubtitle = (task.type is TypeInfo.Playlist && (task.type as TypeInfo.Playlist).playlistTitle.isNotBlank()) ||
-                task.preferences.downloadPlaylist ||
-                (playlistItem > 0 && fallbackPlaylistTitle.isNotBlank())
-
-            val rawPlaylistTitle = if (isPlaylistSubtitle) {
-                fallbackPlaylistTitle
-                    .ifEmpty { (task.type as? TypeInfo.Playlist)?.playlistTitle.orEmpty() }
-                    .ifEmpty { videoInfo.playlist.orEmpty() }
-                    .ifEmpty { "Playlist" }
-                    .removePrefix("[Subtitles] ")
-                    .removePrefix("[Subtitle] ")
-                    .trim()
-            } else {
-                ""
-            }
-            val cleanPlaylistTitle = com.junkfood.seal.util.FileUtil.cleanFileName(rawPlaylistTitle).trim().ifBlank { "Playlist" }
-
-            val targetDir = when {
-                task.preferences.commandDirectory.isNotBlank() -> File(task.preferences.commandDirectory)
-                isPlaylistSubtitle && cleanPlaylistTitle.isNotBlank() && cleanPlaylistTitle != "Playlist" && cleanPlaylistTitle != "Video" -> {
-                    File(basePath, "[Subtitle] $cleanPlaylistTitle")
-                }
-                else -> File(basePath)
-            }
+            val targetDir = OutputTemplateBuilder.resolveTargetDirectory(
+                preferences = task.preferences,
+                isAudioDownload = false,
+                playlistItem = playlistItem,
+                fallbackPlaylistTitle = fallbackPlaylistTitle,
+                videoPlaylistTitle = videoInfo.playlist,
+                videoInfo = videoInfo,
+                taskUrl = task.url
+            )
             targetDir.mkdirs()
 
             val subtitleRes = SubtitleManager.downloadSubtitles(

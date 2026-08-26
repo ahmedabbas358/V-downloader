@@ -738,18 +738,21 @@ fun SmartPermissionsPage(onFinished: () -> Unit) {
                             if (storageGranted) {
                                 FilterChip(
                                     selected = true,
-                                    onClick = { safDirectoryLauncher.launch(null) },
+                                    onClick = { PermissionManager.openStoragePermissionSettings(context) },
                                     label = { Text(stringResource(R.string.permission_granted)) },
                                     leadingIcon = { Icon(Icons.Rounded.Check, null, modifier = Modifier.size(16.dp)) }
                                 )
                             } else {
                                 Button(
                                     onClick = {
-                                        val perms = PermissionManager.getRequiredStoragePermissions()
-                                        if (perms.isNotEmpty()) {
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                            val perms = PermissionManager.getRequiredStoragePermissions()
                                             storageLauncher.launch(perms)
+                                        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                            PermissionManager.openStoragePermissionSettings(context)
                                         } else {
-                                            safDirectoryLauncher.launch(null)
+                                            val perms = PermissionManager.getRequiredStoragePermissions()
+                                            storageLauncher.launch(perms)
                                         }
                                     },
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)

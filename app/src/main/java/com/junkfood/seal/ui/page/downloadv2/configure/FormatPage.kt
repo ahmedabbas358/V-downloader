@@ -127,6 +127,7 @@ private data class FormatConfig(
     val selectedAutoCaptions: List<String> = emptyList(),
     val skipDownload: Boolean = false,
     val subtitleFormat: Int = com.junkfood.seal.util.CONVERT_SUBTITLE.getInt(),
+    val embedSubtitle: Boolean = com.junkfood.seal.util.EMBED_SUBTITLE.getBoolean(),
 )
 
 @Composable
@@ -142,15 +143,10 @@ fun FormatPage(
     if (videoInfo.formats.isNullOrEmpty() && !isSubtitleOnly) return
     val mergeAudioStream = MERGE_MULTI_AUDIO_STREAM.getBoolean()
     val subtitleLanguageRegex = SUBTITLE_LANGUAGE.getString()
-    val downloadSubtitle = SUBTITLE.getBoolean()
     val initialSelectedSubtitles =
-        if (downloadSubtitle) {
-            videoInfo
-                .run { subtitles.keys + automaticCaptions.keys }
-                .filterWithRegex(subtitleLanguageRegex)
-        } else {
-            emptySet()
-        }
+        videoInfo
+            .run { subtitles.keys + automaticCaptions.keys }
+            .filterWithRegex(subtitleLanguageRegex)
 
     val isAudioSelected = audioOnly
     val isSubOnly = isSubtitleOnly
@@ -195,7 +191,18 @@ fun FormatPage(
 
                 playlistTasks.forEach { taskWithState ->
                     val isSubOnly = skipDownload || isSubtitleOnly || taskWithState.task.preferences.skipDownload
+                    val currentPlaylistType = taskWithState.task.type as? com.junkfood.seal.download.Task.TypeInfo.Playlist
+                    val resolvedTitle = currentPlaylistType?.playlistTitle?.ifBlank { null }
+                        ?: videoInfo.playlist?.ifBlank { null }
+                        ?: videoInfo.playlistTitle?.ifBlank { null }
+                        ?: ""
+                    val updatedType = if (currentPlaylistType != null) {
+                        currentPlaylistType.copy(playlistTitle = if (currentPlaylistType.playlistTitle.isBlank()) resolvedTitle else currentPlaylistType.playlistTitle)
+                    } else {
+                        taskWithState.task.type
+                    }
                     val updatedTask = taskWithState.task.copy(
+                        type = updatedType,
                         preferences = taskWithState.task.preferences.copy(
                             skipDownload = isSubOnly,
                             formatIdString = if (isSubOnly) "" else playlistFormatId,
@@ -203,6 +210,7 @@ fun FormatPage(
                             mergeAudioStream = if (isSubOnly) false else mergeAudioStreamPlaylist,
                             downloadSubtitle = if (isSubOnly) true else (hasSelectedSubs || taskWithState.task.preferences.downloadSubtitle),
                             convertSubtitle = subtitleFormat,
+                            embedSubtitle = if (isSubOnly || isAudioOnlyPlaylist) false else embedSubtitle,
                             autoSubtitle = true,
                             autoTranslatedSubtitles = true,
                             subtitleLanguage = if (subLangString.isNotEmpty()) subLangString else taskWithState.task.preferences.subtitleLanguage,
@@ -224,6 +232,7 @@ fun FormatPage(
                     selectedAutoCaptions = selectedAutoCaptions,
                     skipDownload = skipDownload,
                     subtitleFormat = subtitleFormat,
+                    embedSubtitle = embedSubtitle,
                 )
                 val finalTask = if (isAudioSelected && !skipDownload) {
                     createdTaskWithState.copy(
@@ -450,10 +459,18 @@ private fun FormatPageImpl(
     val isFabExpanded by remember { derivedStateOf { lazyGridState.firstVisibleItemIndex > 0 } }
 
     val selectedSubtitles = remember {
-        mutableStateListOf<String>().apply { addAll(selectedSubtitleCodes) }
+        mutableStateListOf<String>().apply {
+            addAll(selectedSubtitleCodes.filter { manualSubtitleMap.containsKey(it) })
+        }
     }
 
-    val selectedAutoCaptions = remember { mutableStateListOf<String>() }
+    val selectedAutoCaptions = remember {
+        mutableStateListOf<String>().apply {
+            addAll(selectedSubtitleCodes.filter { !manualSubtitleMap.containsKey(it) && automaticCaptionMap.containsKey(it) })
+        }
+    }
+
+    var embedSubtitleState by remember { mutableStateOf(com.junkfood.seal.util.EMBED_SUBTITLE.getBoolean()) }
 
     val isAnyDialogShown = showSubtitleSelectionDialog || showVideoClipDialog || showRenameDialog
 
@@ -497,6 +514,7 @@ private fun FormatPageImpl(
                                 selectedAutoCaptions = selectedAutoCaptions,
                                 skipDownload = isSubtitleOnly,
                                 subtitleFormat = subtitleFormat,
+                                embedSubtitle = embedSubtitleState,
                             )
                         )
                     },
@@ -654,6 +672,23 @@ private fun FormatPageImpl(
                             }
                         }
                         
+                        if (!isSubtitleOnly && !audioOnly) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                            ) {
+                                Text(
+                                    text = stringResource(id = R.string.embed_subtitles),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                androidx.compose.material3.Switch(
+                                    checked = embedSubtitleState,
+                                    onCheckedChange = { embedSubtitleState = it },
+                                )
+                            }
+                        }
+
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -1187,8 +1222,7 @@ private fun ClickableTextAction(
 }
 
 fun <T : Collection<String>> T.filterWithRegex(subtitleLanguageRegex: String): Set<String> {
-    val regexGroup = subtitleLanguageRegex.split(',')
-    return filter { language -> regexGroup.any { Regex(it).matchEntire(language) != null } }.toSet()
+    return com.junkfood.seal.download.engine.subtitle.discovery.LanguageMatcher.matchLanguageCodes(this, subtitleLanguageRegex)
 }
 
 @OptIn(ExperimentalLayoutApi::class)

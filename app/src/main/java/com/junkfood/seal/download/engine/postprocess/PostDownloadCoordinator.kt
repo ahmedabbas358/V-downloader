@@ -115,6 +115,14 @@ object PostDownloadCoordinator {
                 Log.w(TAG, "No subtitle paths discovered, falling back to directory scan")
                 fallbackDirectoryScan(fileName, downloadPath, isSubtitleOnly = true, videoId = videoInfo.id)
             }
+            if (finalPaths.isEmpty()) {
+                val lastResort = findMostRecentSubtitleFile(downloadPath, windowMinutes = 15)
+                    ?: File(downloadPath).parentFile?.let { findMostRecentSubtitleFile(it.absolutePath, windowMinutes = 15) }
+                if (lastResort != null) {
+                    Log.w(TAG, "Last-resort subtitle file found: $lastResort")
+                    finalPaths = listOf(lastResort)
+                }
+            }
         } else {
             // Media download: use yt-dlp-reported media paths (not subtitles)
             val reportedMedia = mediaPaths.filter { MEDIA_REGEX.containsMatchIn(it) }
@@ -128,10 +136,11 @@ object PostDownloadCoordinator {
             }
         }
 
-        // 5. Hard validation — throw if absolutely nothing was found for media downloads
+        // 5. Hard validation — look for recent media files if not found
         if (!isSubtitleOnly && finalPaths.isEmpty()) {
             // Last-resort: look for any recently modified media file in the download dir
-            val lastResort = findMostRecentMediaFile(downloadPath, windowMinutes = 10)
+            val lastResort = findMostRecentMediaFile(downloadPath, windowMinutes = 15)
+                ?: File(downloadPath).parentFile?.let { findMostRecentMediaFile(it.absolutePath, windowMinutes = 15) }
             if (lastResort != null) {
                 Log.w(TAG, "Last-resort file found: $lastResort")
                 finalPaths = listOf(lastResort)
@@ -157,7 +166,7 @@ object PostDownloadCoordinator {
             )
         }
 
-        val processedPaths = existingFinalPaths
+        val processedPaths = if (isSubtitleOnly && existingFinalPaths.isEmpty() && finalPaths.isNotEmpty()) finalPaths else existingFinalPaths
 
         // 7. Database History Insertion
         if (preferences.privateMode) {
@@ -220,6 +229,22 @@ object PostDownloadCoordinator {
                 MEDIA_REGEX.containsMatchIn(f.name) &&
                 !TEMP_FILE_REGEX.containsMatchIn(f.name) &&
                 f.length() > 512L &&
+                f.lastModified() >= cutoff
+            }
+            .maxByOrNull { it.lastModified() }
+            ?.absolutePath
+    }
+
+    private fun findMostRecentSubtitleFile(downloadPath: String, windowMinutes: Int): String? {
+        val dir = File(downloadPath)
+        if (!dir.exists()) return null
+        val cutoff = System.currentTimeMillis() - (windowMinutes * 60_000L)
+        return dir.walkTopDown()
+            .filter { f ->
+                f.isFile &&
+                SUBTITLE_REGEX.containsMatchIn(f.name) &&
+                !TEMP_FILE_REGEX.containsMatchIn(f.name) &&
+                f.length() > 5L &&
                 f.lastModified() >= cutoff
             }
             .maxByOrNull { it.lastModified() }
