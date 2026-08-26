@@ -43,6 +43,8 @@ data class VideoInfo(
     val extractor: String? = null,
     @SerialName("extractor_key") val extractorKey: String = "",
     val playlist: String? = null,
+    @SerialName("playlist_title") val playlistTitle: String? = null,
+    @SerialName("playlist_id") val playlistId: String? = null,
     @SerialName("playlist_index") val playlistIndex: Int? = null,
     @SerialName("display_id") val displayId: String? = null,
     val fulltitle: String? = null,
