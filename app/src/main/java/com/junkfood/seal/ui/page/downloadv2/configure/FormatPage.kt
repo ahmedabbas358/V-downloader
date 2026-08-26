@@ -466,7 +466,7 @@ private fun FormatPageImpl(
 
     val selectedAutoCaptions = remember {
         mutableStateListOf<String>().apply {
-            addAll(selectedSubtitleCodes.filter { !manualSubtitleMap.containsKey(it) && automaticCaptionMap.containsKey(it) })
+            addAll(selectedSubtitleCodes.filter { !manualSubtitleMap.containsKey(it) && autoCaptionMap.containsKey(it) })
         }
     }
 

@@ -3,13 +3,13 @@ package com.junkfood.seal.download.engine.subtitle.download
 import android.content.Context
 import android.util.Log
 import com.junkfood.seal.App.Companion.context
-import com.junkfood.seal.download.engine.builder.FFmpegManager
+import com.junkfood.seal.util.FFmpegManager
 import com.junkfood.seal.download.engine.builder.NetworkOptionBuilder
 import com.junkfood.seal.download.engine.builder.OutputTemplateBuilder
 import com.junkfood.seal.download.engine.builder.SubtitleOptionBuilder
-import com.junkfood.seal.download.engine.builder.YoutubeClient
-import com.junkfood.seal.download.engine.builder.YoutubeClientStrategy
-import com.junkfood.seal.download.engine.subtitle.SubtitleConverter
+import com.junkfood.seal.download.engine.subtitle.youtube.YoutubeClient
+import com.junkfood.seal.download.engine.subtitle.youtube.YoutubeClientStrategy
+import com.junkfood.seal.download.engine.subtitle.conversion.SubtitleConverter
 import com.junkfood.seal.download.engine.subtitle.model.SubtitleFailure
 import com.junkfood.seal.download.engine.subtitle.model.SubtitleOutputFormat
 import com.junkfood.seal.download.engine.subtitle.model.SubtitleProgress
@@ -34,12 +34,36 @@ import java.util.UUID
  * Implements high-speed, multi-strategy downloading and stream-level extraction of subtitle tracks.
  * Key strategies:
  * 1. Direct CDN HTTP Streaming Download when format URLs are available.
- * 2. Specialized yt-dlp execution (--skip-download, direct subtitle extraction) with Android client fallback.
+ * 2. Specialized yt-dlp execution (--skip-download, direct subtitle extraction) with client fallbacks.
  * 3. Atomic file writes and deep syntax validation.
  */
 object SubtitleDownloader {
 
     private const val TAG = "SubtitleDownloader"
+
+    suspend fun downloadSelectedTracks(
+        url: String,
+        videoId: String,
+        title: String = "",
+        tracks: List<SubtitleTrack>,
+        destinationDir: File,
+        preferences: DownloadPreferences,
+        clientChain: List<YoutubeClient> = listOf(YoutubeClient.ANDROID, YoutubeClient.DEFAULT, YoutubeClient.WEB),
+        playlistIndex: Int = 0,
+        appContext: Context = context,
+        onProgress: (SubtitleProgress) -> Unit = {}
+    ): Result<List<File>> = downloadTracks(
+        url = url,
+        videoId = videoId,
+        tracks = tracks,
+        destinationDir = destinationDir,
+        preferences = preferences,
+        title = title,
+        playlistIndex = playlistIndex,
+        appContext = appContext,
+        clientChain = clientChain,
+        onProgress = onProgress
+    )
 
     /**
      * Downloads the specified subtitle tracks to the target directory.

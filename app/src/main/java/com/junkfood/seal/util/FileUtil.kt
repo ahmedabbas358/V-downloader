@@ -430,6 +430,4 @@ object FileUtil {
         val audioExtensions = listOf("mp3", "wav", "aac", "flac", "ogg", "m4a", "wma", "opus", "alac")
         return audioExtensions.any { path.endsWith(it, ignoreCase = true) }
     }
-
-    private const val TAG = "FileUtil"
 }

@@ -112,7 +112,7 @@ class YouTubeSubtitleProvider : SubtitleProvider {
         val jobId = "download_sub_$videoId"
         val resolvedTitle = videoTitle.ifBlank { preferences.newTitle.ifBlank { "Video_$videoId" } }
 
-        val recoveryResult = SubtitleRecoveryManager.executeWithRecovery(
+        val recoveryResult: Result<List<File>> = SubtitleRecoveryManager.executeWithRecovery<List<File>>(
             jobId = jobId,
             videoId = videoId,
             operationName = "DownloadSubtitles"
