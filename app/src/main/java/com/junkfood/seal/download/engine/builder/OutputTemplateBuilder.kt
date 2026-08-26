@@ -47,12 +47,9 @@ object OutputTemplateBuilder {
                 OUTPUT_TEMPLATE_SPLIT
             } else if (videoClips.isEmpty()) {
                 val template = outputTemplate.ifEmpty { OUTPUT_TEMPLATE_DEFAULT }
-                if ((downloadPlaylist || isFallback || playlistItem != 0) && playlistNumbering) {
-                    val prefix = if (playlistItem != 0) {
-                        String.format(Locale.US, "%03d - ", playlistItem)
-                    } else {
-                        "$PLAYLIST_INDEX_PADDED - "
-                    }
+                // Only apply playlist numbering to actual playlist items (playlistItem > 0)
+                if (playlistItem > 0 && (playlistNumbering || isFallback)) {
+                    val prefix = String.format(Locale.US, "%03d - ", playlistItem)
                     val fileNameStart = template.lastIndexOf('/').takeIf { it >= 0 }?.plus(1) ?: 0
                     template.replaceRange(fileNameStart, fileNameStart, prefix)
                 } else {
@@ -84,6 +81,7 @@ object OutputTemplateBuilder {
     /**
      * Resolves the target directory for a download task, accurately creating a dedicated
      * folder named after the playlist for Video, Audio, and Subtitle downloads.
+     * Standalone single videos are NEVER placed into playlist subdirectories.
      */
     fun resolveTargetDirectory(
         preferences: DownloadPreferences,
@@ -99,13 +97,11 @@ object OutputTemplateBuilder {
         }
 
         val basePath = resolveBaseDirectory(preferences, isAudioDownload)
-        val isPlaylist = preferences.downloadPlaylist ||
-                playlistItem > 0 ||
-                fallbackPlaylistTitle.isNotBlank() ||
-                !videoPlaylistTitle.isNullOrBlank() ||
-                videoInfo?.playlist?.isNotBlank() == true ||
-                videoInfo?.playlistTitle?.isNotBlank() == true ||
-                taskUrl.contains("list=", ignoreCase = true)
+
+        // Strict playlist verification: Only create subdirectories for genuine playlist batches
+        val isPlaylist = (playlistItem > 0 && fallbackPlaylistTitle.isNotBlank()) ||
+                (preferences.downloadPlaylist && playlistItem > 0) ||
+                (fallbackPlaylistTitle.isNotBlank() && !fallbackPlaylistTitle.equals("NA", ignoreCase = true))
 
         if (!isPlaylist) {
             return File(basePath)

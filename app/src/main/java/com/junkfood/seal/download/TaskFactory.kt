@@ -78,12 +78,12 @@ object TaskFactory {
                         mergeAudioStream = if (skipDownload) false else mergeAudioStream,
                         extractAudio = if (skipDownload || videoFormats.isNotEmpty()) false else (extractAudio || isAudioOnlySelected),
                         skipDownload = skipDownload,
-                        downloadSubtitle = downloadSubtitle || skipDownload || hasSelectedSubs,
+                        downloadSubtitle = downloadSubtitle || skipDownload || hasSelectedSubs || embedSubtitle,
                         convertSubtitle = subtitleFormat,
-                        embedSubtitle = if (skipDownload || isAudioOnlySelected) false else (if (hasSelectedSubs) embedSubtitle else this.embedSubtitle),
-                        autoSubtitle = if (hasSelectedSubs) true else (autoSubtitle || skipDownload),
+                        embedSubtitle = if (skipDownload || isAudioOnlySelected) false else (embedSubtitle || this.embedSubtitle),
+                        autoSubtitle = if (hasSelectedSubs) true else (autoSubtitle || skipDownload || embedSubtitle),
                         autoTranslatedSubtitles = if (hasSelectedSubs) true else autoTranslatedSubtitles,
-                        subtitleLanguage = if (hasSelectedSubs) subtitleLanguage else this.subtitleLanguage,
+                        subtitleLanguage = if (hasSelectedSubs) subtitleLanguage else this.subtitleLanguage.ifEmpty { "ar.*,en.*,.*-orig" },
                     )
                 }
 

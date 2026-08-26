@@ -37,19 +37,20 @@ object FFmpegManager {
             File(appContext.filesDir, "packages/ffmpeg/usr/bin/ffmpeg"),
             File(appContext.filesDir, "bin/ffmpeg"),
             File(appContext.filesDir, "ffmpeg"),
-            File(appContext.applicationInfo.nativeLibraryDir, "libffmpeg.so")
         )
 
         for (candidate in candidates) {
-            if (candidate.exists() && candidate.isFile) {
+            if (candidate.exists() && candidate.isFile && candidate.name == "ffmpeg") {
                 if (!candidate.canExecute()) {
                     candidate.setExecutable(true, false)
                 }
-                return candidate
+                if (candidate.canExecute()) {
+                    return candidate
+                }
             }
         }
 
-        // Deep search within packages and app storage directories
+        // Deep search within packages and app storage directories for exact "ffmpeg" binary
         val searchDirs = listOfNotNull(
             File(appContext.noBackupFilesDir, "youtubedl-android"),
             File(appContext.noBackupFilesDir, "packages"),
@@ -57,19 +58,20 @@ object FFmpegManager {
             File(appContext.filesDir, "youtubedl-android"),
             File(appContext.filesDir, "packages"),
             appContext.filesDir,
-            File(appContext.applicationInfo.nativeLibraryDir)
         )
 
         for (dir in searchDirs) {
             if (dir.exists()) {
                 val found = dir.walkTopDown().maxDepth(5).firstOrNull {
-                    (it.name == "ffmpeg" || it.name == "libffmpeg.so") && it.isFile
+                    it.name == "ffmpeg" && it.isFile
                 }
                 if (found != null) {
                     if (!found.canExecute()) {
                         found.setExecutable(true, false)
                     }
-                    return found
+                    if (found.canExecute()) {
+                        return found
+                    }
                 }
             }
         }

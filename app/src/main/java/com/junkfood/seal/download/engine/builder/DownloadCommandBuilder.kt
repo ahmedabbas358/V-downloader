@@ -140,14 +140,13 @@ object DownloadCommandBuilder {
 
             // Playlist / single video setup
             addOption("--no-playlist")
-
             // Target download directory (handles playlist subdirectories named after the playlist)
             val targetDir = OutputTemplateBuilder.resolveTargetDirectory(
                 preferences = preferences,
                 isAudioDownload = isAudioDownload,
                 playlistItem = playlistItem,
                 fallbackPlaylistTitle = fallbackPlaylistTitle,
-                videoPlaylistTitle = videoInfo.playlist,
+                videoPlaylistTitle = if (playlistItem > 0) videoInfo.playlist else null,
                 videoInfo = videoInfo,
                 taskUrl = playlistUrl
             )
@@ -189,22 +188,16 @@ object DownloadCommandBuilder {
                 preferences.videoClips.forEach {
                     addOption(
                         "--download-sections",
-                        "*%d-%d".format(locale = Locale.US, it.start, it.end),
+                        "*${it.start.toInt()}-${it.end.toInt()}",
                     )
                 }
             }
 
-            if (preferences.newTitle.isNotEmpty()) {
-                addCommands(listOf("--replace-in-metadata", "title", ".+", preferences.newTitle))
+            if (preferences.debug) {
+                addOption("-v")
             }
 
-            // Output template
-            val output = OutputTemplateBuilder.buildOutputTemplate(
-                preferences = preferences,
-                playlistItem = playlistItem,
-                isFallback = isFallback
-            )
-            addOption("-o", outputBuilder.append(output).toString())
+            addOption("-o", preferences.newTitle.ifEmpty { OutputTemplateBuilder.buildOutputTemplate(preferences, playlistItem, isFallback) })
         }
 
         return request
@@ -247,7 +240,7 @@ object DownloadCommandBuilder {
             // Subtitle options
             if (downloadSubtitle || embedSubtitle) {
                 val subOpts = SubtitleOptionBuilder.buildForMediaWithSubtitles(
-                    subtitleLanguage = subtitleLanguage,
+                    subtitleLanguage = subtitleLanguage.ifEmpty { "ar.*,en.*,.*-orig" },
                     convertSubtitle = convertSubtitle,
                     autoSubtitle = autoSubtitle,
                     autoTranslatedSubtitles = autoTranslatedSubtitles,
@@ -257,7 +250,7 @@ object DownloadCommandBuilder {
             }
 
             // Container format
-            if (mergeToMkv || embedSubtitle) {
+            if (mergeToMkv) {
                 addOption("--remux-video", "mkv")
                 addOption("--merge-output-format", "mkv")
             } else {
@@ -396,10 +389,8 @@ object DownloadCommandBuilder {
             request.addOption("--embed-subs")
             // NOTE: no-keep-subs removed -- it deletes external .srt/.vtt even when embedding fails.
         }
-        if (options.convertSubs.isNotEmpty()) {
+        if (options.convertSubs.isNotEmpty() && !options.embedSubs) {
             request.addOption("--convert-subs", options.convertSubs)
-        } else if (options.embedSubs) {
-            request.addOption("--convert-subs", "srt")
         }
         request.addOption("--ignore-errors")
     }
