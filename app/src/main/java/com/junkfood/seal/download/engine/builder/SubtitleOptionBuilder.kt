@@ -132,13 +132,28 @@ object SubtitleOptionBuilder {
     ): SubtitleOptions {
         // Respect user's auto-subtitle and auto-translated preferences
         val shouldWriteAutoSubs = autoSubtitle || autoTranslatedSubtitles
-        return SubtitleOptions(
-            writeSubs = true,
-            writeAutoSubs = shouldWriteAutoSubs,
-            subLangs = buildSubLangsOption(subtitleLanguage),
-            subFormat = SUB_FORMAT_PREFERENCE,
-            convertSubs = getConvertSubsValue(convertSubtitle),
-            embedSubs = embedSubtitle,
-        )
+        return if (embedSubtitle) {
+            // When embedding, do NOT pass --sub-format or --convert-subs.
+            // yt-dlp + ffmpeg will automatically pick the right codec for the container:
+            //   MP4 → mov_text, MKV → ass/srt. Forcing srt breaks MP4 embedding.
+            SubtitleOptions(
+                writeSubs = true,
+                writeAutoSubs = shouldWriteAutoSubs,
+                subLangs = buildSubLangsOption(subtitleLanguage),
+                subFormat = "",      // empty = let yt-dlp choose
+                convertSubs = "",   // empty = no conversion, embedding handles it
+                embedSubs = true,
+            )
+        } else {
+            // External subtitle file: apply user's preferred format
+            SubtitleOptions(
+                writeSubs = true,
+                writeAutoSubs = shouldWriteAutoSubs,
+                subLangs = buildSubLangsOption(subtitleLanguage),
+                subFormat = SUB_FORMAT_PREFERENCE,
+                convertSubs = getConvertSubsValue(convertSubtitle),
+                embedSubs = false,
+            )
+        }
     }
 }

@@ -98,9 +98,10 @@ object OutputTemplateBuilder {
 
         val basePath = resolveBaseDirectory(preferences, isAudioDownload)
 
-        // Strict playlist verification: Only create subdirectories for genuine playlist batches
-        val isPlaylist = (playlistItem > 0 && fallbackPlaylistTitle.isNotBlank()) ||
-                (preferences.downloadPlaylist && playlistItem > 0) ||
+        // Strict playlist verification: ONLY create subdirectories for genuine playlist batches.
+        // A genuine playlist item MUST have playlistItem > 0. A non-zero fallbackPlaylistTitle
+        // alone (which can appear even on single video downloads from mixes/albums) is NOT enough.
+        val isPlaylist = playlistItem > 0 &&
                 (fallbackPlaylistTitle.isNotBlank() && !fallbackPlaylistTitle.equals("NA", ignoreCase = true))
 
         if (!isPlaylist) {

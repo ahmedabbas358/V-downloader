@@ -195,7 +195,7 @@ object DownloadTaskExecutor {
                 isAudioDownload = false,
                 playlistItem = playlistItem,
                 fallbackPlaylistTitle = fallbackPlaylistTitle,
-                videoPlaylistTitle = videoInfo.playlist,
+                videoPlaylistTitle = if (playlistItem > 0) videoInfo.playlist else null,
                 videoInfo = videoInfo,
                 taskUrl = task.url
             )
