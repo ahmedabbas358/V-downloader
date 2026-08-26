@@ -98,6 +98,9 @@ object DownloadTaskExecutor {
         task: Task,
         appContext: Context = context,
     ): Result<VideoInfo> = withContext(Dispatchers.IO) {
+        if (!com.junkfood.seal.util.UpgradeManager.isPythonRuntimeIntact(appContext)) {
+            com.junkfood.seal.util.UpgradeManager.ensureNativeEnvironment(appContext)
+        }
         val taskInfo = task.type
         val isPlaylist = taskInfo is TypeInfo.Playlist && !taskInfo.isFallback
         val fetchUrl = task.url
@@ -176,6 +179,9 @@ object DownloadTaskExecutor {
         onProgressUpdate: (Float, String) -> Unit,
         appContext: Context = context,
     ): Result<List<String>> = withContext(Dispatchers.IO) {
+        if (!com.junkfood.seal.util.UpgradeManager.isPythonRuntimeIntact(appContext)) {
+            com.junkfood.seal.util.UpgradeManager.ensureNativeEnvironment(appContext)
+        }
         val playlistItem = (task.type as? TypeInfo.Playlist)?.index ?: 0
         val sourcePlaylistUrl = if (playlistItem != 0) {
             (task.type as? TypeInfo.Playlist)?.playlistUrl ?: ""

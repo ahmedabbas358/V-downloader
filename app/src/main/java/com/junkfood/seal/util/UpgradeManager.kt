@@ -13,6 +13,7 @@ import com.junkfood.seal.util.PreferenceUtil.getString
 import com.junkfood.seal.util.PreferenceUtil.updateBoolean
 import com.junkfood.seal.util.PreferenceUtil.updateLong
 import com.junkfood.seal.util.PreferenceUtil.updateString
+import com.yausername.aria2c.Aria2c
 import com.yausername.ffmpeg.FFmpeg
 import com.yausername.youtubedl_android.YoutubeDL
 import kotlinx.coroutines.Dispatchers
@@ -24,10 +25,116 @@ object UpgradeManager {
     private const val TAG = "UpgradeManager"
     const val LAST_KNOWN_VERSION = "last_known_version_code"
 
-    // Temp/lock/partial-download file extensions to delete on upgrade
-    private val STALE_EXTENSIONS = setOf(".part", ".ytdl", ".tmp", ".aria2", ".cache")
-    // Temp file prefixes created by our subtitle engine
+    // Stale temporary/download artifacts to purge on upgrade (safe to delete)
+    private val STALE_EXTENSIONS = setOf(".part", ".ytdl", ".tmp", ".aria2")
     private val STALE_PREFIXES = setOf("sub_temp_", "sub_direct_")
+
+    /**
+     * Checks if the Python runtime and its essential support libraries (including libandroid-support.so)
+     * are properly extracted on disk.
+     */
+    fun isPythonRuntimeIntact(context: Context): Boolean {
+        return try {
+            val pythonLibDir = File(context.noBackupFilesDir, "youtubedl-android/packages/python/usr/lib")
+            val libSupport = File(pythonLibDir, "libandroid-support.so")
+            pythonLibDir.exists() && pythonLibDir.isDirectory && (libSupport.exists() || (pythonLibDir.listFiles()?.isNotEmpty() == true))
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Ensures all native binaries (Python, yt-dlp, FFmpeg, Aria2c) are extracted and ready.
+     * If the runtime is missing or was corrupted by a previous faulty update, it performs
+     * a clean, self-healing re-extraction.
+     */
+    fun ensureNativeEnvironment(context: Context) {
+        val runtimeIntact = isPythonRuntimeIntact(context)
+        if (!runtimeIntact) {
+            Log.w(TAG, "Native Python environment or libandroid-support.so is missing/corrupted. Repairing...")
+            repairNativeEnvironment(context)
+        } else {
+            // Normal initialization
+            initNativeLibrariesSafely(context)
+        }
+    }
+
+    /**
+     * Forces clean re-extraction of native packages by clearing cached package metadata
+     * and resetting library state.
+     */
+    private fun repairNativeEnvironment(context: Context) {
+        try {
+            // 1. Clear youtubedl-android shared preferences so it re-extracts packages
+            val sharedPrefsDir = File(context.applicationInfo.dataDir, "shared_prefs")
+            if (sharedPrefsDir.exists()) {
+                sharedPrefsDir.listFiles()?.forEach { file ->
+                    val name = file.name
+                    if (name.contains("youtubedl", ignoreCase = true) || name.contains("yausername", ignoreCase = true)) {
+                        val prefName = name.removeSuffix(".xml")
+                        context.getSharedPreferences(prefName, Context.MODE_PRIVATE).edit().clear().commit()
+                        file.delete()
+                    }
+                }
+            }
+
+            // 2. Delete broken packages directory
+            val packagesDir = File(context.noBackupFilesDir, "youtubedl-android/packages")
+            if (packagesDir.exists()) {
+                packagesDir.deleteRecursively()
+            }
+
+            // 3. Reset in-memory initialized flags via reflection
+            resetInitializedFlags()
+
+            // 4. Clean re-init
+            initNativeLibrariesSafely(context)
+
+            Log.i(TAG, "Native environment repair completed. Runtime intact: ${isPythonRuntimeIntact(context)}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed during native environment repair", e)
+        }
+    }
+
+    private fun initNativeLibrariesSafely(context: Context) {
+        try {
+            YoutubeDL.init(context)
+            Log.i(TAG, "YoutubeDL initialized")
+        } catch (e: Exception) {
+            Log.e(TAG, "YoutubeDL.init failed", e)
+        }
+        try {
+            FFmpeg.init(context)
+            Log.i(TAG, "FFmpeg initialized")
+        } catch (e: Exception) {
+            Log.e(TAG, "FFmpeg.init failed", e)
+        }
+        try {
+            Aria2c.init(context)
+            Log.i(TAG, "Aria2c initialized")
+        } catch (e: Exception) {
+            Log.e(TAG, "Aria2c.init failed", e)
+        }
+    }
+
+    private fun resetInitializedFlags() {
+        listOf(
+            YoutubeDL::class.java,
+            FFmpeg::class.java,
+            Aria2c::class.java
+        ).forEach { clazz ->
+            runCatching {
+                val field = clazz.getDeclaredField("initialized")
+                field.isAccessible = true
+                try {
+                    field.set(null, false)
+                } catch (_: Exception) {
+                    val instance = clazz.getField("INSTANCE").get(null)
+                    field.set(instance, false)
+                }
+            }
+        }
+    }
 
     suspend fun checkAndRunMigrations(context: Context) = withContext(Dispatchers.IO) {
         val currentVersionCode = try {
@@ -53,78 +160,38 @@ object UpgradeManager {
     private suspend fun runMigrations(context: Context, oldVersion: Long, newVersion: Long) {
         Log.i(TAG, "Running upgrade cleanups and resets ($oldVersion → $newVersion)...")
 
-        // 1. Purge stale partial downloads and temp lock files from app cache dirs
+        // 1. Purge stale partial downloads and temporary files
         try {
-            val internalCacheDirs = listOfNotNull(
+            val cacheDirs = listOfNotNull(
                 context.cacheDir,
                 context.externalCacheDir,
-                context.filesDir,
-                context.noBackupFilesDir,
-                File(context.cacheDir, "yt-dlp"),
-                File(context.filesDir, ".cache"),
-                File(context.noBackupFilesDir, ".cache"),
+                File(context.filesDir, "tmp"),
                 File(context.noBackupFilesDir, "tmp"),
             )
-            for (dir in internalCacheDirs) {
+            for (dir in cacheDirs) {
                 purgeStaleFiles(dir)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to clean internal cache stale files", e)
         }
 
-        // 2. Purge stale files from external temp dir (safe — wrapped in try/catch)
+        // 2. Purge stale files from external temp dir
         try {
             val externalTempDir = FileUtil.getExternalTempDir()
             purgeStaleFiles(externalTempDir)
-            externalTempDir.listFiles()?.forEach { it.deleteRecursively() }
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to clean external temp dir (possibly no storage permission)", e)
+            Log.w(TAG, "Failed to clean external temp dir", e)
         }
 
-        // 3. Nuke yt-dlp extractor cache to force fresh player.js / cipher re-fetch
+        // 3. Clear yt-dlp extractor internal cache (forces fresh cipher / player.js)
         try {
             File(context.cacheDir, "yt-dlp").deleteRecursively()
             File(context.filesDir, ".cache").deleteRecursively()
-            File(context.noBackupFilesDir, ".cache").deleteRecursively()
         } catch (e: Exception) {
             Log.w(TAG, "Failed to clear yt-dlp extractor cache", e)
         }
 
-        // 4. CRITICAL: Delete stale youtubedl-android Python package trees so they are
-        //    re-extracted cleanly from the new APK. This fixes binary corruption and
-        //    version mismatches that cause failures when updating over an old installation.
-        try {
-            val ytdlPackageDirs = listOfNotNull(
-                File(context.filesDir, "youtubedl-android"),
-                File(context.noBackupFilesDir, "youtubedl-android"),
-                File(context.filesDir, "packages"),
-                File(context.noBackupFilesDir, "packages"),
-            )
-            for (dir in ytdlPackageDirs) {
-                if (dir.exists()) {
-                    Log.i(TAG, "Deleting stale package dir for re-extraction: ${dir.absolutePath}")
-                    dir.deleteRecursively()
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to delete stale youtubedl-android package dirs", e)
-        }
-
-        // 5. Re-extract yt-dlp and FFmpeg binaries cleanly from the new APK assets
-        try {
-            YoutubeDL.getInstance().init(context)
-            Log.i(TAG, "YoutubeDL re-initialized successfully")
-        } catch (e: Exception) {
-            Log.w(TAG, "YoutubeDL re-init failed (will retry at next launch): ${e.message}")
-        }
-        try {
-            FFmpeg.getInstance().init(context)
-            Log.i(TAG, "FFmpeg re-initialized successfully")
-        } catch (e: Exception) {
-            Log.w(TAG, "FFmpeg re-init failed (will retry at next launch): ${e.message}")
-        }
-
-        // 6. Sanitize Storage & SAF Preferences
+        // 4. Sanitize Storage & SAF Preferences
         try {
             if (SDCARD_DOWNLOAD.getBoolean(false)) {
                 val safUri = SDCARD_URI.getString()
@@ -137,7 +204,7 @@ object UpgradeManager {
             Log.e(TAG, "Failed to sanitize SAF preferences", e)
         }
 
-        // 7. Sanitize Subtitle Language Preference (reset if blank/corrupted)
+        // 5. Sanitize Subtitle Language Preference (reset if blank)
         try {
             val currentSubLang = SUBTITLE_LANGUAGE.getString()
             if (currentSubLang.isBlank()) {
@@ -148,7 +215,7 @@ object UpgradeManager {
             Log.e(TAG, "Failed to sanitize SUBTITLE_LANGUAGE preference", e)
         }
 
-        // 8. Sync cached cookies to file system
+        // 6. Sync cached cookies to file system
         try {
             NetworkOptionBuilder.getCookiesContentFromDatabase().getOrNull()?.let { content ->
                 FileUtil.writeContentToFile(content, context.getCookiesFile())
@@ -157,7 +224,7 @@ object UpgradeManager {
             Log.e(TAG, "Failed to refresh cookies on upgrade", e)
         }
 
-        // 9. Trigger yt-dlp update check in background
+        // 7. Trigger yt-dlp update check in background
         try {
             UpdateUtil.updateYtDlp()
         } catch (e: Exception) {
@@ -167,10 +234,6 @@ object UpgradeManager {
         Log.i(TAG, "Upgrade migration complete.")
     }
 
-    /**
-     * Deletes stale temp/lock/partial files from a directory without deleting
-     * the directory itself or valid downloaded files.
-     */
     private fun purgeStaleFiles(dir: File?) {
         if (dir == null || !dir.exists() || !dir.isDirectory) return
         dir.listFiles()?.forEach { file ->
@@ -183,3 +246,4 @@ object UpgradeManager {
         }
     }
 }
+

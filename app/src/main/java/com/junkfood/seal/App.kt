@@ -99,14 +99,12 @@ class App : Application() {
 
         applicationScope.launch((Dispatchers.IO)) {
             try {
-                YoutubeDL.init(this@App)
-                FFmpeg.init(this@App)
-                Aria2c.init(this@App)
+                UpgradeManager.ensureNativeEnvironment(this@App)
+                UpgradeManager.checkAndRunMigrations(this@App)
                 com.junkfood.seal.util.DatabaseUtil.initDatabase()
                 DownloadUtil.getCookiesContentFromDatabase().getOrNull()?.let {
                     FileUtil.writeContentToFile(it, getCookiesFile())
                 }
-                UpgradeManager.checkAndRunMigrations(this@App)
                 UpdateUtil.deleteOutdatedApk()
 
                 // Keep yt-dlp binary up-to-date with latest Instagram/TikTok/YouTube extractor fixes
