@@ -455,8 +455,9 @@ fun PlaylistSyncDialog(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("الموجود بالجهاز", style = MaterialTheme.typography.labelMedium)
+                                        Text("Downloaded", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
                                     }
+                                    Spacer(modifier = Modifier.height(2.dp))
                                     Text(
                                         text = "${result.summary.downloaded} / ${result.totalCount}",
                                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -472,8 +473,9 @@ fun PlaylistSyncDialog(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(imageVector = Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("مفقود/غير مكتمل", style = MaterialTheme.typography.labelMedium)
+                                        Text("Missing", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
                                     }
+                                    Spacer(modifier = Modifier.height(2.dp))
                                     Text(
                                         text = "${missingOrIncompleteItems.size} / ${result.totalCount}",
                                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -490,8 +492,9 @@ fun PlaylistSyncDialog(
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Icon(imageVector = Icons.Outlined.Info, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.tertiary)
                                             Spacer(modifier = Modifier.width(4.dp))
-                                            Text("غير مؤكد", style = MaterialTheme.typography.labelMedium)
+                                            Text("Unknown", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
                                         }
+                                        Spacer(modifier = Modifier.height(2.dp))
                                         Text(
                                             text = "${unknownItems.size} / ${result.totalCount}",
                                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -514,12 +517,12 @@ fun PlaylistSyncDialog(
                     Tab(
                         selected = resultTab == 0,
                         onClick = { resultTab = 0 },
-                        text = { Text("المفقود (${missingOrIncompleteItems.size + unknownItems.size})") }
+                        text = { Text("Missing (${missingOrIncompleteItems.size + unknownItems.size})") }
                     )
                     Tab(
                         selected = resultTab == 1,
                         onClick = { resultTab = 1 },
-                        text = { Text("الموجود (${foundItems.size})") }
+                        text = { Text("Downloaded (${foundItems.size})") }
                     )
                 }
 
@@ -704,14 +707,26 @@ fun PlaylistSyncDialog(
                                         )
                                     }
                                     if (item.matchedFile != null) {
-                                        Text(
-                                            text = item.matchedFile.name,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.padding(start = 32.dp, top = 2.dp)
-                                        )
+                                        Row(
+                                            modifier = Modifier.padding(start = 32.dp, top = 2.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Text(
+                                                text = item.matchedFile.name,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.weight(1f, fill = false)
+                                            )
+                                            val sizeText = com.junkfood.seal.ui.common.formatters.FileSizeFormatter.format(item.matchedFileSize)
+                                            Text(
+                                                text = "[$sizeText]",
+                                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
                                     }
                                     HorizontalDivider(modifier = Modifier.padding(top = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
                                 }

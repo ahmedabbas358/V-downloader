@@ -52,9 +52,9 @@ fun Number?.toFileSizeText(): String {
 
     val bytes = this.toDouble()
     return when {
-        bytes >= GIGA_BYTES_D -> stringResource(R.string.filesize_gb).format(bytes / GIGA_BYTES_D)
-        bytes >= MEGA_BYTES_D -> stringResource(R.string.filesize_mb).format(bytes / MEGA_BYTES_D)
-        else -> "%.1f KB".format(bytes / KILO_BYTES_D)
+        bytes >= GIGA_BYTES_D -> String.format(java.util.Locale.US, "%.2f GB", bytes / GIGA_BYTES_D)
+        bytes >= MEGA_BYTES_D -> String.format(java.util.Locale.US, "%.2f MB", bytes / MEGA_BYTES_D)
+        else -> String.format(java.util.Locale.US, "%.1f KB", bytes / KILO_BYTES_D)
     }
 }
 
@@ -105,9 +105,9 @@ fun Number?.toBitrateText(): String {
     val br = this?.toFloat() ?: return ""
     return when {
         br <= 0f -> "" // i don't care
-        br < 1024f -> "%.1f Kbps".format(br)
+        br < 1024f -> String.format(java.util.Locale.US, "%.1f Kbps", br)
 
-        else -> "%.2f Mbps".format(br / 1024f)
+        else -> String.format(java.util.Locale.US, "%.2f Mbps", br / 1024f)
     }
 }
 

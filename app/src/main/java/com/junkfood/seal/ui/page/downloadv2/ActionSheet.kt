@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.ContentCut
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.FileDownload
+import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.KeyboardDoubleArrowUp
 import androidx.compose.material.icons.outlined.Link
@@ -54,12 +55,11 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.junkfood.seal.App
 import com.junkfood.seal.R
 import com.junkfood.seal.download.FakeDownloaderV2
 import com.junkfood.seal.download.Task
-import com.junkfood.seal.download.Task.*
-import com.junkfood.seal.util.FileUtil
-import com.junkfood.seal.util.toFileSizeText
+import com.junkfood.seal.download.Task.DownloadState
 import com.junkfood.seal.download.Task.DownloadState.Canceled
 import com.junkfood.seal.download.Task.DownloadState.Completed
 import com.junkfood.seal.download.Task.DownloadState.Error
@@ -67,20 +67,26 @@ import com.junkfood.seal.download.Task.DownloadState.FetchingInfo
 import com.junkfood.seal.download.Task.DownloadState.Idle
 import com.junkfood.seal.download.Task.DownloadState.ReadyWithInfo
 import com.junkfood.seal.download.Task.DownloadState.Running
+import com.junkfood.seal.download.Task.RestartableAction
+import com.junkfood.seal.download.Task.ViewState
 import com.junkfood.seal.ui.common.LocalFixedColorRoles
+import com.junkfood.seal.ui.common.formatters.DurationFormatter
+import com.junkfood.seal.ui.common.formatters.FileSizeFormatter
 import com.junkfood.seal.ui.component.ActionSheetItem
 import com.junkfood.seal.ui.component.ActionSheetPrimaryButton
 import com.junkfood.seal.ui.component.SealModalBottomSheet
 import com.junkfood.seal.ui.page.downloadv2.configure.PreferencesMock
 import com.junkfood.seal.ui.theme.ErrorTonalPalettes
 import com.junkfood.seal.ui.theme.SealTheme
+import com.junkfood.seal.util.FileUtil
 import com.junkfood.seal.util.Format
 import com.junkfood.seal.util.toBitrateText
-import com.junkfood.seal.ui.common.formatters.DurationFormatter
-import com.junkfood.seal.ui.common.formatters.FileSizeFormatter
+import com.junkfood.seal.util.toFileSizeText
 import com.junkfood.seal.util.toLocalizedString
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import java.io.File
+import java.util.Locale
 
 @Composable
 private fun ShareButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
@@ -255,23 +261,26 @@ private fun OpenThumbnailURLButton(modifier: Modifier = Modifier, onClick: () ->
 }
 
 @Composable
-fun Title(imageModel: Any?, title: String, author: String, downloadState: DownloadState) {
+private fun OpenFolderButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    ActionSheetPrimaryButton(
+        modifier = modifier,
+        containerColor = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        outlineColor = MaterialTheme.colorScheme.outlineVariant,
+        imageVector = Icons.Outlined.FolderOpen,
+        text = stringResource(R.string.open_folder),
+        onClick = onClick,
+    )
+}
 
+@Composable
+fun Title(imageModel: Any?, title: String, author: String, downloadState: DownloadState) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        /*        AsyncImageImpl(
-            model = imageModel,
-            modifier =
-                Modifier.height(64.dp).aspectRatio(16f / 9f, matchHeightConstraintsFirst = true),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-        )*/
-        //        Spacer(Modifier.width(12.dp))
-
         Column(modifier = Modifier.height(IntrinsicSize.Min)) {
-            Column(Modifier) {
+            Column {
                 Text(text = title, style = MaterialTheme.typography.titleSmall)
                 Spacer(Modifier.height(2.dp))
                 Text(
@@ -296,7 +305,6 @@ fun SheetContent(
     onDismissRequest: () -> Unit,
     onActionPost: (Task, UiAction) -> Unit,
 ) {
-
     LazyColumn {
         item {
             Title(
@@ -350,6 +358,15 @@ fun LazyListScope.ActionButtons(
                 }
             }
             val path = downloadState.filePath
+            if (!path.isNullOrBlank()) {
+                item(key = "OpenFolderButton") {
+                    OpenFolderButton(modifier = Modifier.animateItem()) {
+                        val folder = File(path).parentFile?.absolutePath ?: App.videoDownloadDir
+                        FileUtil.openDirectory(folder)
+                        onDismissRequest()
+                    }
+                }
+            }
             if (path != null && !viewState.isSubOnly && (FileUtil.isVideoFile(path) || FileUtil.isAudioFile(path))) {
                 item(key = "PreviewButton") {
                     PreviewButton(modifier = Modifier.animateItem()) {
@@ -550,13 +567,17 @@ fun ActionSheetInfo(modifier: Modifier = Modifier, task: Task, viewState: ViewSt
                 val estimatedSize = fmt.fileSize ?: fmt.fileSizeApprox ?: (formatBitrate.takeIf { it > 0.0 }?.times(dur * 125))
                 val fileSizeText = estimatedSize.toFileSizeText()
                 val bitRateText = fmt.vbr.toBitrateText()
-                val codecText = fmt.vcodec?.substringBefore(delimiter = ".") ?: ""
+                val codecText = fmt.vcodec?.substringBefore(delimiter = ".")?.uppercase(Locale.US) ?: ""
 
-                val title = "${stringResource(R.string.video)} #$index: ${fmt.formatNote}"
+                val note = fmt.formatNote.orEmpty().ifBlank { fmt.resolution ?: "Video" }
+                val title = "Video #$index · $note"
                 val details =
-                    listOf(codecText, fmt.resolution, bitRateText, fileSizeText)
-                        .filterNot { it.isNullOrBlank() }
-                        .joinToString(separator = " · ")
+                    listOfNotNull(
+                        fmt.resolution?.takeIf { it.isNotBlank() },
+                        codecText.takeIf { it.isNotBlank() },
+                        bitRateText.takeIf { it.isNotBlank() },
+                        fileSizeText.takeIf { it.isNotBlank() }
+                    ).joinToString(separator = " · ")
 
                 ActionSheetItem(
                     text = {
@@ -580,13 +601,16 @@ fun ActionSheetInfo(modifier: Modifier = Modifier, task: Task, viewState: ViewSt
                 val estimatedSize = fmt.fileSize ?: fmt.fileSizeApprox ?: (formatBitrate.takeIf { it > 0.0 }?.times(dur * 125))
                 val fileSizeText = estimatedSize.toFileSizeText()
                 val bitRateText = fmt.abr.toBitrateText()
-                val codecText = fmt.acodec?.substringBefore(delimiter = ".") ?: ""
+                val codecText = fmt.acodec?.substringBefore(delimiter = ".")?.uppercase(Locale.US) ?: ""
 
-                val title = "${stringResource(R.string.audio)} #$index: ${fmt.formatNote}"
+                val note = fmt.formatNote.orEmpty().ifBlank { codecText.ifBlank { "Audio" } }
+                val title = "Audio #$index · $note"
                 val details =
-                    listOf(codecText, bitRateText, fileSizeText)
-                        .filterNot { it.isBlank() }
-                        .joinToString(separator = " · ")
+                    listOfNotNull(
+                        codecText.takeIf { it.isNotBlank() },
+                        bitRateText.takeIf { it.isNotBlank() },
+                        fileSizeText.takeIf { it.isNotBlank() }
+                    ).joinToString(separator = " · ")
 
                 ActionSheetItem(
                     text = {
@@ -601,7 +625,7 @@ fun ActionSheetInfo(modifier: Modifier = Modifier, task: Task, viewState: ViewSt
 
             ActionSheetItem(
                 text = {
-                    Text(text = extractorKey, style = MaterialTheme.typography.titleSmall)
+                    Text(text = "Source · $extractorKey", style = MaterialTheme.typography.titleSmall)
                     Text(text = url, style = MaterialTheme.typography.bodySmall)
                 },
                 leadingIcon = { Icon(imageVector = Icons.Outlined.Link, contentDescription = null) },

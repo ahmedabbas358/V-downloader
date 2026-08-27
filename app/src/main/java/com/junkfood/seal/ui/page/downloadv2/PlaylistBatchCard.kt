@@ -379,24 +379,30 @@ fun PlaylistBatchCard(
                     // Open folder button
                     FilledTonalIconButton(
                         onClick = {
-                            val firstTask = tasks.firstOrNull()?.first
-                            val firstState = tasks.firstOrNull()?.second
+                            val completedFilePath = tasks.firstNotNullOfOrNull { (_, state) ->
+                                (state.downloadState as? Completed)?.filePath?.takeIf { File(it).exists() }
+                            }
                             val isAudio = batchType == PlaylistBatchType.AUDIO
                             val isSub = batchType == PlaylistBatchType.SUBTITLE
-                            val dirToOpen = if (firstTask != null) {
-                                OutputTemplateBuilder.resolveTargetDirectory(
-                                    preferences = firstTask.preferences,
-                                    isAudioDownload = isAudio,
-                                    playlistItem = (firstTask.type as? com.junkfood.seal.download.Task.TypeInfo.Playlist)?.index ?: 1,
-                                    fallbackPlaylistTitle = cleanPlaylistTitle,
-                                    videoPlaylistTitle = firstState?.videoInfo?.playlist,
-                                    videoInfo = firstState?.videoInfo,
-                                    taskUrl = firstTask.url
-                                )
+                            val dirToOpen = if (completedFilePath != null) {
+                                File(completedFilePath).parentFile ?: (if (isAudio) File(com.junkfood.seal.App.audioDownloadDir) else File(com.junkfood.seal.App.videoDownloadDir))
                             } else {
-                                val basePath = if (isAudio) com.junkfood.seal.App.audioDownloadDir else com.junkfood.seal.App.videoDownloadDir
+                                val firstTask = tasks.firstOrNull()?.first
+                                val isAudioDownload = isAudio
+                                val basePath = if (firstTask != null) {
+                                    OutputTemplateBuilder.resolveBaseDirectory(firstTask.preferences, isAudioDownload)
+                                } else {
+                                    if (isAudio) com.junkfood.seal.App.audioDownloadDir else com.junkfood.seal.App.videoDownloadDir
+                                }
                                 val cleanFolder = FileUtil.cleanFileName(cleanPlaylistTitle).ifBlank { "Playlist" }
-                                File(basePath, cleanFolder)
+                                val folderName = if (isSub) "[Subtitles] $cleanFolder" else cleanFolder
+                                val target = File(basePath, folderName)
+                                val altTarget = if (isSub) File(basePath, cleanFolder) else File(basePath, "[Subtitles] $cleanFolder")
+                                when {
+                                    target.exists() -> target
+                                    altTarget.exists() -> altTarget
+                                    else -> target
+                                }
                             }
                             if (!dirToOpen.exists()) dirToOpen.mkdirs()
                             FileUtil.openDirectory(dirToOpen.absolutePath)

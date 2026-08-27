@@ -238,6 +238,7 @@ object DownloadCommandBuilder {
             applyFormatSorter(request, preferences, sorter)
 
             // Subtitle options
+            val shouldMergeToMkv = mergeToMkv || (downloadSubtitle && embedSubtitle) || embedSubtitle
             if (downloadSubtitle || embedSubtitle) {
                 val subOpts = SubtitleOptionBuilder.buildForMediaWithSubtitles(
                     subtitleLanguage = subtitleLanguage.ifEmpty { "ar.*,en.*,.*-orig" },
@@ -246,11 +247,11 @@ object DownloadCommandBuilder {
                     autoTranslatedSubtitles = autoTranslatedSubtitles,
                     embedSubtitle = embedSubtitle,
                 )
-                applySubtitleOptions(this@apply, subOpts)
+                applySubtitleOptions(this@apply, subOpts, isMkv = shouldMergeToMkv)
             }
 
             // Container format
-            if (mergeToMkv) {
+            if (shouldMergeToMkv) {
                 addOption("--remux-video", "mkv")
                 addOption("--merge-output-format", "mkv")
             } else {
@@ -380,6 +381,7 @@ object DownloadCommandBuilder {
     private fun applySubtitleOptions(
         request: YoutubeDLRequest,
         options: SubtitleOptionBuilder.SubtitleOptions,
+        isMkv: Boolean = true,
     ) {
         if (options.writeSubs) request.addOption("--write-subs")
         if (options.writeAutoSubs) request.addOption("--write-auto-subs")
@@ -387,12 +389,16 @@ object DownloadCommandBuilder {
         if (options.subFormat.isNotEmpty()) request.addOption("--sub-format", options.subFormat)
         if (options.embedSubs) {
             request.addOption("--embed-subs")
-        }
-        if (options.convertSubs.isNotEmpty()) {
+            // For MKV containers, converting to srt or ass works natively with FFmpeg.
+            // For MP4 containers, yt-dlp automatically handles mov_text conversion; forcing --convert-subs srt/ass causes FFmpeg muxing errors.
+            if (isMkv) {
+                val fmt = if (options.convertSubs.equals("lrc", ignoreCase = true)) "srt" else options.convertSubs.ifEmpty { "srt" }
+                request.addOption("--convert-subs", fmt)
+            }
+        } else if (options.convertSubs.isNotEmpty()) {
             request.addOption("--convert-subs", options.convertSubs)
-        } else if (options.embedSubs) {
-            request.addOption("--convert-subs", "srt")
         }
+        request.addOption("--compat-options", "no-keep-subs")
         request.addOption("--ignore-errors")
     }
 

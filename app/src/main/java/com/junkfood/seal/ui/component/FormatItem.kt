@@ -238,7 +238,7 @@ fun SuggestedFormatItem(
 
     val tbrText = totalTbr.toBitrateText()
 
-    val firstLineText = connectWithDelimiter(fileSizeText, tbrText, delimiter = " ")
+    val firstLineText = connectWithDelimiter(fileSizeText, tbrText, delimiter = "  •  ")
 
     val vcodecText = videoInfo.vcodec?.substringBefore(delimiter = ".") ?: ""
     val acodecText = videoInfo.acodec?.substringBefore(delimiter = ".") ?: ""
@@ -282,15 +282,15 @@ fun FormatItem(
         val tbrText =
             when {
                 effectiveBitrate <= 0.0 -> "" // i don't care
-                effectiveBitrate < 1024f -> "%.1f Kbps".format(effectiveBitrate)
+                effectiveBitrate < 1024f -> String.format(java.util.Locale.US, "%.1f Kbps", effectiveBitrate)
 
-                else -> "%.2f Mbps".format(effectiveBitrate / 1024f)
+                else -> String.format(java.util.Locale.US, "%.2f Mbps", effectiveBitrate / 1024f)
             }
 
         val fileSize = fileSize ?: fileSizeApprox ?: (effectiveBitrate.takeIf { it > 0.0 }?.times(duration * 125))
         val fileSizeText = fileSize.toFileSizeText()
 
-        val firstLineText = connectWithDelimiter(fileSizeText, tbrText, delimiter = " ")
+        val firstLineText = connectWithDelimiter(fileSizeText, tbrText, delimiter = "  •  ")
 
         val secondLineText = connectWithDelimiter(ext, codec, delimiter = " ").uppercase()
 
@@ -371,24 +371,32 @@ fun FormatItem(
                 minLines = 2,
                 maxLines = 2,
                 color = animatedTitleColor,
-                overflow = TextOverflow.Clip,
+                overflow = TextOverflow.Ellipsis,
             )
 
-            Text(
-                text = firstLineText,
-                style = MaterialTheme.typography.labelMedium,
-                modifier = Modifier.padding(top = 6.dp),
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 2,
-            )
+            if (firstLineText.isNotBlank()) {
+                Text(
+                    text = firstLineText,
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        textDirection = androidx.compose.ui.text.style.TextDirection.Ltr
+                    ),
+                    modifier = Modifier.padding(top = 6.dp),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                )
+            }
 
-            Text(
-                text = secondLineText,
-                style = MaterialTheme.typography.labelMedium,
-                modifier = Modifier.padding(top = 2.dp),
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-            )
+            if (secondLineText.isNotBlank()) {
+                Text(
+                    text = secondLineText,
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        textDirection = androidx.compose.ui.text.style.TextDirection.Ltr
+                    ),
+                    modifier = Modifier.padding(top = 2.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                )
+            }
         }
         Row(modifier = Modifier.padding(bottom = 6.dp, end = 6.dp).align(Alignment.BottomEnd)) {
             if (containsVideo)

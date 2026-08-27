@@ -92,18 +92,9 @@ object OutputTemplateBuilder {
         videoInfo: VideoInfo? = null,
         taskUrl: String = "",
     ): File {
-        if (preferences.commandDirectory.isNotBlank()) {
-            return File(preferences.commandDirectory)
-        }
-
-        val basePath = resolveBaseDirectory(preferences, isAudioDownload)
-
-        val isPlaylist = playlistItem > 0 || preferences.downloadPlaylist ||
-                (fallbackPlaylistTitle.isNotBlank() && !fallbackPlaylistTitle.equals("NA", ignoreCase = true) && !fallbackPlaylistTitle.equals(videoInfo?.title, ignoreCase = true))
-
-        if (!isPlaylist) {
-            return File(basePath)
-        }
+        val isSubtitleOnly = preferences.skipDownload && preferences.downloadSubtitle
+        val isAudio = isAudioDownload || (preferences.extractAudio && !isSubtitleOnly)
+        val basePath = resolveBaseDirectory(preferences, isAudio)
 
         val rawPlaylistName = fallbackPlaylistTitle
             .ifBlank { videoPlaylistTitle.orEmpty() }
@@ -114,15 +105,52 @@ object OutputTemplateBuilder {
             .replace(Regex("^#\\d+\\s*"), "")
             .trim()
 
-        val isSubtitleOnly = preferences.skipDownload && preferences.downloadSubtitle
+        val allUrlsToCheck = listOf(
+            taskUrl,
+            videoInfo?.webpageUrl.orEmpty(),
+            videoInfo?.originalUrl.orEmpty()
+        )
+
+        val listId = allUrlsToCheck.firstNotNullOfOrNull { u ->
+            Regex("""[?&]list=([a-zA-Z0-9_-]+)""").find(u)?.groupValues?.get(1)
+        }
+
+        val isPlaylist = playlistItem > 0 ||
+                preferences.downloadPlaylist ||
+                listId != null ||
+                allUrlsToCheck.any { it.contains("/playlist", ignoreCase = true) } ||
+                (rawPlaylistName.isNotBlank() && !rawPlaylistName.equals("NA", ignoreCase = true) && !rawPlaylistName.equals("Playlist", ignoreCase = true) && !rawPlaylistName.equals(videoInfo?.title, ignoreCase = true)) ||
+                !videoPlaylistTitle.isNullOrBlank() ||
+                !videoInfo?.playlist.isNullOrBlank() ||
+                !videoInfo?.playlistTitle.isNullOrBlank()
+
+        if (!isPlaylist && rawPlaylistName.isBlank()) {
+            return if (preferences.commandDirectory.isNotBlank()) {
+                File(preferences.commandDirectory)
+            } else {
+                File(basePath)
+            }
+        }
+
         val cleanPlaylistName = FileUtil.cleanFileName(rawPlaylistName).trim()
             .ifBlank {
-                val listIdMatch = Regex("""[?&]list=([a-zA-Z0-9_-]+)""").find(taskUrl)
-                val listId = listIdMatch?.groupValues?.get(1)
                 if (!listId.isNullOrBlank()) "Playlist_$listId" else "Playlist"
             }
 
         val folderName = if (isSubtitleOnly) "[Subtitles] $cleanPlaylistName" else cleanPlaylistName
+
+        if (preferences.commandDirectory.isNotBlank()) {
+            val cmdDir = File(preferences.commandDirectory)
+            if (cmdDir.name.equals(folderName, ignoreCase = true) || cmdDir.name.equals(cleanPlaylistName, ignoreCase = true)) {
+                return cmdDir
+            }
+            return if (preferences.subdirectoryPlaylistTitle || isSubtitleOnly || isPlaylist) {
+                File(cmdDir, folderName)
+            } else {
+                cmdDir
+            }
+        }
+
         return File(basePath, folderName)
     }
 

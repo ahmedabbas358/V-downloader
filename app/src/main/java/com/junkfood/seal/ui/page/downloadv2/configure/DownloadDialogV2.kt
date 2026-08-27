@@ -448,6 +448,10 @@ private fun DownloadDialogContent(
                                     autoSubtitle = if (selectedDownloadType == DownloadType.Subtitle) true else preferences.autoSubtitle,
                                     autoTranslatedSubtitles = if (selectedDownloadType == DownloadType.Subtitle) true else preferences.autoTranslatedSubtitles,
                                 )
+                                val listId = state.urlList.firstNotNullOfOrNull { u ->
+                                    Regex("""[?&]list=([a-zA-Z0-9_-]+)""").find(u)?.groupValues?.get(1)
+                                }
+                                val fallbackTitle = if (!listId.isNullOrBlank()) "Playlist_$listId" else "Playlist"
                                 onActionPost(
                                     Action.FetchPlaylistSubtitleFormats(
                                         firstVideoUrl = firstUrl,
@@ -458,8 +462,8 @@ private fun DownloadDialogContent(
                                                 preferences = updatedPrefs,
                                                 type = com.junkfood.seal.download.Task.TypeInfo.Playlist(
                                                     index = index + 1,
-                                                    playlistTitle = "",
-                                                    playlistUrl = itemUrl,
+                                                    playlistTitle = fallbackTitle,
+                                                    playlistUrl = firstUrl,
                                                 )
                                             )
                                             val itemState = com.junkfood.seal.download.Task.State(
@@ -773,7 +777,7 @@ private fun ConfigurePage(
                         downloadType = selectedType,
                     )
                 )
-                val isPlaylist = selectedType == Playlist || (url.contains("list=", ignoreCase = true) && !url.contains("watch?v=", ignoreCase = true))
+                val isPlaylist = selectedType == Playlist || url.contains("list=", ignoreCase = true) || url.contains("/playlist", ignoreCase = true)
                 onActionPost(
                     Action.DownloadWithPreset(
                         urlList = listOf(url),
@@ -795,7 +799,7 @@ private fun ConfigurePage(
                         downloadType = selectedType,
                     )
                 )
-                val isPlaylist = selectedType == Playlist || (url.contains("list=", ignoreCase = true) && !url.contains("watch?v=", ignoreCase = true))
+                val isPlaylist = selectedType == Playlist || url.contains("list=", ignoreCase = true) || url.contains("/playlist", ignoreCase = true)
                 val updatedPrefs = preferences.copy(
                     downloadPlaylist = isPlaylist,
                     extractAudio = selectedType == Audio,

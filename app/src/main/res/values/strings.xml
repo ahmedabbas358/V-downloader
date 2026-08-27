@@ -4,6 +4,7 @@
     <string name="quick_download_long_label">Download from Clipboard</string>  
     <string name="quick_download_tile_label">Download from Clipboard</string>  
     <string name="video_directory">Video folder</string>  
+    <string name="open_folder">Open folder</string>  
     <string name="extract_audio">Save as audio</string>  
     <string name="create_thumbnail">Save thumbnail</string>  
     <string name="settings">Settings</string>  

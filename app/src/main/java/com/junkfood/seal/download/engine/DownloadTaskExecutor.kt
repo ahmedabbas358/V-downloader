@@ -52,16 +52,19 @@ object DownloadTaskExecutor {
         Regex("""^\[info\] Writing (?:video |automatic )?subtitles(?: \(all\))? to:?\s*["']?(.+?)["']?$""", RegexOption.IGNORE_CASE),
         Regex("""^\[ffmpeg\] Converting subtitles.* to ["']?(.+?)["']?$""", RegexOption.IGNORE_CASE),
         Regex("""^\[(?:Subtitle|info)\] Destination:\s*["']?(.+?)["']?$""", RegexOption.IGNORE_CASE),
+        Regex("""^\[(?:EmbedSubtitle|ffmpeg)\] Embedding subtitles in ["']?(.+?)["']?$""", RegexOption.IGNORE_CASE),
+        Regex("""^\[ffmpeg\] Subtitle format converter:.*to ["']?(.+?)["']?$""", RegexOption.IGNORE_CASE),
         // Already downloaded
-        Regex("""^\[download\]\s+(.+\.(?:mp4|mkv|webm|m4a|mp3|opus|flac|wav|ogg|m4b|mka|srt|vtt|ass|lrc))\s+has already been downloaded""", RegexOption.IGNORE_CASE),
+        Regex("""^\[download\]\s+(?:100% of\s+)?(.+\.(?:mp4|mkv|webm|m4a|mp3|opus|flac|wav|ogg|m4b|mka|srt|vtt|ass|lrc))\s+has already been downloaded""", RegexOption.IGNORE_CASE),
         // Merger output
-        Regex("""^\[Merger\] Merging formats into "(.+)"$"""),
+        Regex("""^\[(?:Merger|ffmpeg)\] Merging formats into ["']?(.+?)["']?$""", RegexOption.IGNORE_CASE),
         // FFmpegVideoConverter, FFmpegExtractAudio, etc.
         Regex("""^\[(\w+)\] Destination:\s*(.+)$"""),
         // Moving file
         Regex("""^\[download\] Moving file.+ to: (.+)$"""),
-        // Correcting container
-        Regex("""^\[ffmpeg\] Correcting container in "(.+)"$"""),
+        // Correcting container / fixups
+        Regex("""^\[ffmpeg\] Correcting container in ["']?(.+?)["']?$""", RegexOption.IGNORE_CASE),
+        Regex("""^\[Fixup\w+\] Fixing.+in ["']?(.+?)["']?$""", RegexOption.IGNORE_CASE),
         // ExtractAudio output
         Regex("""^\[ExtractAudio\] Destination:\s*(.+)$"""),
         // VideoRemuxer
@@ -203,7 +206,7 @@ object DownloadTaskExecutor {
                 fallbackPlaylistTitle = fallbackPlaylistTitle,
                 videoPlaylistTitle = if (playlistItem > 0) videoInfo.playlist else null,
                 videoInfo = videoInfo,
-                taskUrl = task.url
+                taskUrl = sourcePlaylistUrl.ifBlank { task.url }
             )
             targetDir.mkdirs()
 
@@ -301,13 +304,20 @@ object DownloadTaskExecutor {
                 error?.message?.contains("SponsorBlock", ignoreCase = true) == true) {
                 Log.w(TAG, "SponsorBlock failed (non-fatal), proceeding: ${error.message}")
                 // Fall through to post-processing
-            } else if (task.preferences.downloadSubtitle && !task.preferences.skipDownload &&
-                (error?.message?.contains("subtitles", ignoreCase = true) == true ||
-                 error?.message?.contains("subtitle", ignoreCase = true) == true ||
-                 error?.message?.contains("429", ignoreCase = true) == true)) {
-                // Subtitle failure during media download: retry without subtitles
-                Log.w(TAG, "Subtitle download failed (${error?.message}), retrying media-only...")
-                val fallbackPreferences = task.preferences.copy(downloadSubtitle = false)
+            } else if ((task.preferences.downloadSubtitle || task.preferences.embedSubtitle) && !task.preferences.skipDownload &&
+                (error?.message?.contains("subtitle", ignoreCase = true) == true ||
+                 error?.message?.contains("EmbedSubtitle", ignoreCase = true) == true ||
+                 error?.message?.contains("ffmpeg", ignoreCase = true) == true ||
+                 error?.message?.contains("429", ignoreCase = true) == true ||
+                 error?.message?.contains("403", ignoreCase = true) == true ||
+                 error?.message?.contains("Unable to extract", ignoreCase = true) == true ||
+                 error?.message?.contains("Could not find tag for codec", ignoreCase = true) == true)) {
+                // Subtitle/embed failure during media download: retry without subtitles and embedding
+                Log.w(TAG, "Subtitle/Embed failed (${error?.message}), retrying media-only...")
+                val fallbackPreferences = task.preferences.copy(
+                    downloadSubtitle = false,
+                    embedSubtitle = false
+                )
                 val fallbackRequest = DownloadCommandBuilder.buildDownloadRequest(
                     url = videoInfo.originalUrl ?: videoInfo.webpageUrl ?: task.url,
                     videoInfo = videoInfo,

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="open_folder">فتح المجلد</string>
     <string name="extract_audio">حفظ كملف صوت</string>
     <string name="create_thumbnail">تنزيل الصورة المصغرة</string>
     <string name="download_settings_desc">عام، التنسيق، أمر مخصص</string>
@@ -263,8 +264,8 @@
     <string name="edit_shortcuts_desc">قم بتعديل الاختصارات المخصصة التي يمكن استخدامها لإنشاء قوالب الأوامر.</string>
     <string name="subtitle_sponsorblock">قد يتم توقيت الترجمة بشكل غير صحيح عند إزالة مقاطع SponsorBlock.</string>
     <string name="embed_subtitles_mkv_msg">لتضمين الترجمات، سيتم إعادة صاغية مقاطع الفيديو بصيغة mkv. يمكنك استخدام مشغل VLC أو تطبيقات متوافقة أخرى لمشاهدة مقاطع الفيديو مع الترجمة المضمنة.</string>
-    <string name="filesize_mb">%.2f م.ب</string>
-    <string name="filesize_gb">%.2f ج.ب</string>
+    <string name="filesize_mb">%.2f MB</string>
+    <string name="filesize_gb">%.2f GB</string>
     <string name="share">شارك</string>
     <string name="stable_channel">المستقرة</string>
     <string name="pre_release_channel">المعاينة</string>

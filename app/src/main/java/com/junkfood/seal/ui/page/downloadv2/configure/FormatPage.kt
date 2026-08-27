@@ -192,14 +192,33 @@ fun FormatPage(
                 playlistTasks.forEach { taskWithState ->
                     val isSubOnly = skipDownload || isSubtitleOnly || taskWithState.task.preferences.skipDownload
                     val currentPlaylistType = taskWithState.task.type as? com.junkfood.seal.download.Task.TypeInfo.Playlist
-                    val resolvedTitle = currentPlaylistType?.playlistTitle?.ifBlank { null }
+                    val listId = listOfNotNull(
+                        currentPlaylistType?.playlistUrl,
+                        taskWithState.task.url,
+                        videoInfo.webpageUrl,
+                        videoInfo.originalUrl
+                    ).firstNotNullOfOrNull { u ->
+                        Regex("""[?&]list=([a-zA-Z0-9_-]+)""").find(u)?.groupValues?.get(1)
+                    }
+                    val finalPlaylistTitle = (currentPlaylistType?.playlistTitle?.ifBlank { null }
                         ?: videoInfo.playlist?.ifBlank { null }
                         ?: videoInfo.playlistTitle?.ifBlank { null }
-                        ?: ""
+                        ?: (if (!listId.isNullOrBlank()) "Playlist_$listId" else "Playlist"))
+                        .removePrefix("[Subtitles] ")
+                        .removePrefix("[Subtitle] ")
+                        .trim()
+
                     val updatedType = if (currentPlaylistType != null) {
-                        currentPlaylistType.copy(playlistTitle = if (currentPlaylistType.playlistTitle.isBlank()) resolvedTitle else currentPlaylistType.playlistTitle)
+                        currentPlaylistType.copy(
+                            playlistTitle = finalPlaylistTitle,
+                            playlistUrl = currentPlaylistType.playlistUrl.ifBlank { videoInfo.webpageUrl.orEmpty() }
+                        )
                     } else {
-                        taskWithState.task.type
+                        com.junkfood.seal.download.Task.TypeInfo.Playlist(
+                            index = 1,
+                            playlistTitle = finalPlaylistTitle,
+                            playlistUrl = videoInfo.webpageUrl.orEmpty()
+                        )
                     }
                     val updatedTask = taskWithState.task.copy(
                         type = updatedType,
@@ -219,7 +238,12 @@ fun FormatPage(
                             playlistNumbering = taskWithState.task.preferences.playlistNumbering || isSubOnly || com.junkfood.seal.util.PLAYLIST_NUMBERING.getBoolean(),
                         )
                     )
-                    downloader.enqueue(taskWithState.copy(task = updatedTask))
+                    val oldViewState = taskWithState.state.viewState
+                    val updatedViewState = oldViewState.copy(
+                        isSubOnly = isSubOnly,
+                        title = if (isSubOnly && !oldViewState.title.startsWith("[Subtitle]")) "[Subtitle] ${oldViewState.title}" else oldViewState.title
+                    )
+                    downloader.enqueue(taskWithState.copy(task = updatedTask, state = taskWithState.state.copy(viewState = updatedViewState)))
                 }
             } else {
                 val createdTaskWithState = com.junkfood.seal.download.TaskFactory.createWithConfigurations(

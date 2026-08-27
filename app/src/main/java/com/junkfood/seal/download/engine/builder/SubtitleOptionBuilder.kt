@@ -22,15 +22,15 @@ object SubtitleOptionBuilder {
     /** Default subtitle language pattern: all available */
     private const val DEFAULT_LANG_PATTERN = "all"
 
-    /** Preferred subtitle format order for yt-dlp */
-    private const val SUB_FORMAT_PREFERENCE = "srt/best/ass/vtt/lrc"
+    /** Preferred subtitle format order for yt-dlp to support all platforms and YouTube formats */
+    private const val SUB_FORMAT_PREFERENCE = "best/vtt/srt/ass/lrc/srv3/srv2/srv1"
 
     /**
      * Builds a yt-dlp --sub-langs value from a raw language string.
      *
      * Clean targeting:
      * - Empty or "all" -> "all"
-     * - Specific code (e.g. "ar") -> "ar,ar-.*" (targets Arabic without duplicate cross-translations)
+     * - Specific code (e.g. "ar") -> "ar,ar-.*,ar-orig,.*-ar" (targets all variations of the language)
      * - Multiple codes (comma-separated) -> cleaned and joined
      */
     fun buildSubLangsOption(rawLang: String): String {
@@ -42,16 +42,30 @@ object SubtitleOptionBuilder {
         val langs = trimmed.split(",").map { it.trim() }.filter { it.isNotEmpty() }
         if (langs.isEmpty()) return DEFAULT_LANG_PATTERN
 
-        val expanded = langs.flatMap { lang ->
-            when {
-                lang.equals("all", ignoreCase = true) -> listOf("all")
-                lang.contains(".*") -> listOf(lang)
-                lang.contains("-") -> listOf(lang)
-                else -> listOf(lang, "$lang-.*")
+        val expanded = mutableSetOf<String>()
+        for (lang in langs) {
+            if (lang.equals("all", ignoreCase = true)) {
+                return "all"
             }
-        }.distinct().joinToString(",")
+            expanded.add(lang)
+            val base = lang.substringBefore('-').substringBefore('.')
+            if (base.isNotEmpty() && base != lang) {
+                expanded.add(base)
+            }
+            if (base == "ar") {
+                expanded.add("ar-.*")
+                expanded.add("ar-orig")
+                expanded.add("ar.*")
+            } else if (base == "en") {
+                expanded.add("en-.*")
+                expanded.add("en-orig")
+                expanded.add("en.*")
+            } else if (!lang.contains(".*") && !lang.contains("-")) {
+                expanded.add("$lang-.*")
+            }
+        }
 
-        return expanded
+        return expanded.joinToString(",")
     }
 
     /**
