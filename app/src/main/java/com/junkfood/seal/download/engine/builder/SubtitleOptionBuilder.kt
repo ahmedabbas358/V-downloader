@@ -23,7 +23,7 @@ object SubtitleOptionBuilder {
     private const val DEFAULT_LANG_PATTERN = "all"
 
     /** Preferred subtitle format order for yt-dlp to support all platforms and YouTube formats */
-    private const val SUB_FORMAT_PREFERENCE = "best/vtt/srt/ass/lrc/srv3/srv2/srv1"
+    private const val SUB_FORMAT_PREFERENCE = "srt/best/vtt/ass/lrc/srv3/srv2/srv1"
 
     /**
      * Builds a yt-dlp --sub-langs value from a raw language string.

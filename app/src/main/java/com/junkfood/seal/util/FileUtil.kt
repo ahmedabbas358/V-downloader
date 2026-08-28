@@ -109,6 +109,12 @@ object FileUtil {
 
     fun openDirectory(path: String, onFailureCallback: (Throwable) -> Unit = {}) {
         path.runCatching {
+            // Relax StrictMode VM policy for file:// URI compatibility with third-party file managers
+            try {
+                val builder = android.os.StrictMode.VmPolicy.Builder()
+                android.os.StrictMode.setVmPolicy(builder.build())
+            } catch (_: Exception) {}
+
             if (path.startsWith("content://")) {
                 try {
                     val treeUri = Uri.parse(path)
@@ -116,7 +122,10 @@ object FileUtil {
                         setDataAndType(treeUri, DocumentsContract.Document.MIME_TYPE_DIR)
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
-                    context.startActivity(treeIntent)
+                    val chooser = Intent.createChooser(treeIntent, "فتح المجلد / Open with").apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(chooser)
                     return@runCatching
                 } catch (e: Exception) {
                     Log.w(TAG, "Failed to open content URI directly: ${e.message}")
@@ -126,93 +135,91 @@ object FileUtil {
             val dir = File(path)
             if (!dir.exists()) dir.mkdirs()
 
-            var launched = false
-
-            // 1. Try DocumentsContract Document URI for Files/SAF
             val relativePath = dir.absolutePath.substringAfter("/storage/emulated/0/", "")
+            val fileUri = Uri.fromFile(dir)
+            val contentUri = runCatching {
+                FileProvider.getUriForFile(context, "${context.packageName}.provider", dir)
+            }.getOrNull()
+
+            val candidateIntents = mutableListOf<Intent>()
+
+            // 1. Intents with file:// URI and folder MIME types (widely supported by Solid Explorer, MiXplorer, ZArchiver, Total Commander, Samsung My Files, Xiaomi)
+            val folderMimes = listOf("resource/folder", "vnd.android.document/directory", "inode/directory", "*/*")
+            for (mime in folderMimes) {
+                candidateIntents.add(
+                    Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(fileUri, mime)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                )
+            }
+
+            // 2. Intents with FileProvider Content URI
+            if (contentUri != null) {
+                for (mime in folderMimes) {
+                    candidateIntents.add(
+                        Intent(Intent.ACTION_VIEW).apply {
+                            setDataAndType(contentUri, mime)
+                            clipData = ClipData.newRawUri("", contentUri)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                    )
+                }
+            }
+
+            // 3. SAF Tree / Document URI for DocumentsUI and modern SAF explorers
             if (relativePath.isNotEmpty()) {
                 val docUri = DocumentsContract.buildDocumentUri(
                     "com.android.externalstorage.documents",
                     "primary:$relativePath"
                 )
-                val docIntent = Intent(Intent.ACTION_VIEW).apply {
-                    setDataAndType(docUri, DocumentsContract.Document.MIME_TYPE_DIR)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
-                try {
-                    context.startActivity(docIntent)
-                    launched = true
-                } catch (e: Exception) {
-                    Log.w(TAG, "DocumentsContract URI failed: ${e.message}")
-                }
-            }
-
-            // 2. Try SAF Tree Document URI
-            if (!launched && relativePath.isNotEmpty()) {
+                candidateIntents.add(
+                    Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(docUri, DocumentsContract.Document.MIME_TYPE_DIR)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                )
                 val treeUri = DocumentsContract.buildTreeDocumentUri(
                     "com.android.externalstorage.documents",
                     "primary:$relativePath"
                 )
-                val treeIntent = Intent(Intent.ACTION_VIEW).apply {
-                    setDataAndType(treeUri, DocumentsContract.Document.MIME_TYPE_DIR)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
-                try {
-                    context.startActivity(treeIntent)
-                    launched = true
-                } catch (e: Exception) {
-                    Log.w(TAG, "Tree URI failed: ${e.message}")
-                }
-            }
-
-            // 3. Try FileProvider URI with directory MIME types
-            if (!launched) {
-                try {
-                    val contentUri = FileProvider.getUriForFile(
-                        context,
-                        "${context.packageName}.provider",
-                        dir
-                    )
-                    val fpIntent = Intent(Intent.ACTION_VIEW).apply {
-                        setDataAndType(contentUri, DocumentsContract.Document.MIME_TYPE_DIR)
+                candidateIntents.add(
+                    Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(treeUri, DocumentsContract.Document.MIME_TYPE_DIR)
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
-                    context.startActivity(fpIntent)
-                    launched = true
-                } catch (e: Exception) {
-                    Log.w(TAG, "FileProvider directory intent failed: ${e.message}")
-                }
+                )
             }
 
-            // 4. Try resource/folder and vnd.android.document/directory MIME type with VM policy bypass for third-party file managers
-            if (!launched) {
+            // Try launching with Intent Chooser or direct intent
+            var launched = false
+            for (intent in candidateIntents) {
                 try {
-                    val builder = android.os.StrictMode.VmPolicy.Builder()
-                    android.os.StrictMode.setVmPolicy(builder.build())
-                    val fileUri = Uri.fromFile(dir)
-                    val mimeTypes = listOf("resource/folder", "vnd.android.document/directory", "*/*")
-                    for (mime in mimeTypes) {
-                        try {
-                            val folderIntent = Intent(Intent.ACTION_VIEW).apply {
-                                setDataAndType(fileUri, mime)
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            }
-                            context.startActivity(folderIntent)
-                            launched = true
-                            break
-                        } catch (_: Exception) {}
+                    val resolved = context.packageManager.queryIntentActivities(intent, 0)
+                    if (resolved.isNotEmpty()) {
+                        val chooser = Intent.createChooser(intent, "فتح المجلد / Open directory with").apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(chooser)
+                        launched = true
+                        break
                     }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Uri.fromFile folder intent failed: ${e.message}")
+                } catch (_: Exception) {}
+            }
+
+            // If queryIntentActivities was restricted by package visibility, try direct startActivity
+            if (!launched) {
+                for (intent in candidateIntents) {
+                    try {
+                        context.startActivity(intent)
+                        launched = true
+                        break
+                    } catch (_: Exception) {}
                 }
             }
 
-            // 5. Fallback to ACTION_VIEW_DOWNLOADS
             if (!launched) {
-                val fallbackIntent = Intent(android.app.DownloadManager.ACTION_VIEW_DOWNLOADS).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(fallbackIntent)
+                Log.w(TAG, "No specific file manager resolved for $path")
             }
         }.onFailure { onFailureCallback(it) }
     }

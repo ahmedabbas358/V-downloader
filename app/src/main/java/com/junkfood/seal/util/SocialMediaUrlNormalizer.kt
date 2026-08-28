@@ -73,7 +73,6 @@ object SocialMediaUrlNormalizer {
 
             // 1. Instagram Normalization
             if (host.contains("instagram.com") || host == "instagr.am" || host.contains("ddinstagram.com")) {
-                // Route normalization
                 path = path.replace("/share/reel/", "/reel/")
                     .replace("/share/p/", "/p/")
                     .replace("/reels/", "/reel/")
@@ -84,13 +83,24 @@ object SocialMediaUrlNormalizer {
             }
 
             // 2. Facebook Normalization
-            if (host.contains("facebook.com") || host == "fb.watch" || host == "fb.com" || host == "m.facebook.com") {
-                path = path.replace("/share/r/", "/reel/")
-                    .replace("/share/v/", "/watch/?v=")
+            if (host.contains("facebook.com") || host == "fb.watch" || host == "fb.com" || host.contains("fb.me")) {
                 val canonicalHost = if (host == "fb.watch") "fb.watch" else "www.facebook.com"
+                val shareVideoMatch = Regex("""/share/v/([a-zA-Z0-9_-]+)""").find(path)
+                val shareReelMatch = Regex("""/share/r/([a-zA-Z0-9_-]+)""").find(path)
                 val cleanQuery = cleanQueryString(rawQuery)
-                val queryPart = if (cleanQuery.isNotEmpty()) "?$cleanQuery" else ""
-                return "$scheme://$canonicalHost$path$queryPart"
+
+                return if (shareVideoMatch != null) {
+                    val videoId = shareVideoMatch.groupValues[1]
+                    val queryPart = if (cleanQuery.isNotEmpty()) "&$cleanQuery" else ""
+                    "$scheme://$canonicalHost/watch?v=$videoId$queryPart"
+                } else if (shareReelMatch != null) {
+                    val reelId = shareReelMatch.groupValues[1]
+                    val queryPart = if (cleanQuery.isNotEmpty()) "?$cleanQuery" else ""
+                    "$scheme://$canonicalHost/reel/$reelId$queryPart"
+                } else {
+                    val queryPart = if (cleanQuery.isNotEmpty()) "?$cleanQuery" else ""
+                    "$scheme://$canonicalHost$path$queryPart"
+                }
             }
 
             // 3. TikTok Normalization

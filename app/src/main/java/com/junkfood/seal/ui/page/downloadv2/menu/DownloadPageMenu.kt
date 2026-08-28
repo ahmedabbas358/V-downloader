@@ -206,8 +206,8 @@ fun DownloadPageMenuSheet(
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
         )
         val sortOptions = listOf(
-            SortOption.DateNewest to "الأحدث تاريخاً (التصاعدي)",
-            SortOption.DateOldest to "الأقدم تاريخاً",
+            SortOption.DateNewest to "الأحدث تاريخاً (الأحدث أولاً)",
+            SortOption.DateOldest to "الأقدم تاريخاً (الأقدم أولاً)",
             SortOption.NameAZ to "الاسم (أ - ي)",
             SortOption.NameZA to "الاسم (ي - أ)",
             SortOption.SizeLargest to "الحجم (الأكبر أولاً)",

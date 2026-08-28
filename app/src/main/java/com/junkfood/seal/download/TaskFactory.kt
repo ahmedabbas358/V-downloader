@@ -83,7 +83,7 @@ object TaskFactory {
                         embedSubtitle = if (skipDownload || isAudioOnlySelected) false else (embedSubtitle || this.embedSubtitle),
                         autoSubtitle = if (hasSelectedSubs) true else (autoSubtitle || skipDownload || embedSubtitle),
                         autoTranslatedSubtitles = if (hasSelectedSubs) true else autoTranslatedSubtitles,
-                        subtitleLanguage = if (hasSelectedSubs) subtitleLanguage else this.subtitleLanguage.ifEmpty { "ar.*,en.*,.*-orig" },
+                        subtitleLanguage = if (hasSelectedSubs) subtitleLanguage else this.subtitleLanguage.ifEmpty { "all" },
                     )
                 }
 
