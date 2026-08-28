@@ -330,7 +330,7 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
     ) {
         val validUrls = sanitizeUrls(urlList).filter { isValidUrl(it) }
         validUrls.forEach { url ->
-            val isPlaylistUrl = preferences.downloadPlaylist && (url.contains("list=", ignoreCase = true) || url.contains("/playlist", ignoreCase = true))
+            val isPlaylistUrl = preferences.downloadPlaylist || url.contains("list=", ignoreCase = true) || url.contains("/playlist", ignoreCase = true)
             if (isPlaylistUrl) {
                 val taskKey = "FetchAndDownload_$url"
                 if (activeJobs.containsKey(taskKey)) return@forEach

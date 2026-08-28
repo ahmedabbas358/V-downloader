@@ -35,6 +35,7 @@ class MainActivity : AppCompatActivity() {
         }
         enableEdgeToEdge()
 
+
         context = this.baseContext
         intent.getSharedURL()?.let { url ->
             if (url.isNotEmpty()) {
@@ -61,6 +62,17 @@ class MainActivity : AppCompatActivity() {
         val url = intent.getSharedURL()
         if (url != null) {
             dialogViewModel.postAction(DownloadDialogViewModel.Action.ShowSheet(listOf(url)))
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (isFinishing) {
+            val hasBackgroundPermission = com.junkfood.seal.util.PermissionManager.checkBatteryOptimizationCapability(this) == com.junkfood.seal.util.PermissionManager.CapabilityStatus.GRANTED
+            if (!hasBackgroundPermission) {
+                App.stopService()
+                com.junkfood.seal.util.NotificationUtil.cancelAllNotifications()
+            }
         }
     }
 

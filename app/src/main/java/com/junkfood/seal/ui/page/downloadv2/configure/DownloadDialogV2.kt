@@ -778,7 +778,7 @@ private fun ConfigurePage(
                         downloadType = selectedType,
                     )
                 )
-                val isPlaylist = selectedType == Playlist
+                val isPlaylist = selectedType == Playlist || (url.contains("list=", ignoreCase = true) || url.contains("/playlist", ignoreCase = true)) || preferences.downloadPlaylist
                 onActionPost(
                     Action.DownloadWithPreset(
                         urlList = listOf(url),
@@ -800,7 +800,7 @@ private fun ConfigurePage(
                         downloadType = selectedType,
                     )
                 )
-                val isPlaylist = selectedType == Playlist
+                val isPlaylist = selectedType == Playlist || (url.contains("list=", ignoreCase = true) || url.contains("/playlist", ignoreCase = true)) || preferences.downloadPlaylist
                 val updatedPrefs = preferences.copy(
                     downloadPlaylist = isPlaylist,
                     extractAudio = selectedType == Audio,

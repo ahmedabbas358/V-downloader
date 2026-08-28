@@ -149,6 +149,7 @@ fun PlaylistSelectionPage(
                 onDismissRequest = onDismissConfigurationSheet,
                 onDownload = { type, useFormatSelection ->
                     val updatedPreferences = preferences.copy(
+                        downloadPlaylist = true,
                         extractAudio = type == Audio,
                         skipDownload = type == DownloadType.Subtitle,
                         downloadSubtitle = if (type == DownloadType.Subtitle) true else preferences.downloadSubtitle,

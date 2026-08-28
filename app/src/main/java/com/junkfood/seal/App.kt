@@ -229,12 +229,13 @@ class App : Application() {
         }
 
         fun stopService() {
-            if (!isServiceRunning && !isStartingService) return
             mainHandler.post {
                 try {
                     isServiceRunning = false
                     isStartingService = false
-                    context.applicationContext.unbindService(connection)
+                    runCatching { context.applicationContext.unbindService(connection) }
+                    val intent = Intent(context.applicationContext, DownloadService::class.java)
+                    context.applicationContext.stopService(intent)
                 } catch (e: Exception) {
                     Log.e("App", "stopService error: ${e.message}", e)
                 }

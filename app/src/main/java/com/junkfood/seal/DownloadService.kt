@@ -107,7 +107,7 @@ class DownloadService : Service() {
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
-        Log.d(TAG, "onTaskRemoved: ")
+        Log.d(TAG, "onTaskRemoved called")
         val hasBackgroundPermission = com.junkfood.seal.util.PermissionManager.checkBatteryOptimizationCapability(this) == com.junkfood.seal.util.PermissionManager.CapabilityStatus.GRANTED
         
         if (!hasBackgroundPermission) {
@@ -126,6 +126,7 @@ class DownloadService : Service() {
                 stopForeground(true)
             }
             stopSelf()
+            App.stopService()
             releaseLocks()
         } else {
             // Background permission granted -> save state and continue background execution
@@ -137,6 +138,13 @@ class DownloadService : Service() {
         super.onDestroy()
         App.isServiceRunning = false
         App.isStartingService = false
+        NotificationUtil.cancelAllNotifications()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } else {
+            @Suppress("DEPRECATION")
+            stopForeground(true)
+        }
         releaseLocks()
     }
 
