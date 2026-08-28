@@ -153,13 +153,19 @@ fun DownloadDirectoryPreferences(onNavigateBack: () -> Unit) {
     var videoDirectoryText by
         remember(isPrivateDirectoryEnabled) {
             mutableStateOf(
-                if (!isPrivateDirectoryEnabled) App.videoDownloadDir else App.privateDownloadDir
+                if (!isPrivateDirectoryEnabled) {
+                    val pref = VIDEO_DIRECTORY.getString()
+                    if (pref.isNotBlank()) pref else App.videoDownloadDir
+                } else App.privateDownloadDir
             )
         }
     var audioDirectoryText by
         remember(isPrivateDirectoryEnabled) {
             mutableStateOf(
-                if (!isPrivateDirectoryEnabled) App.audioDownloadDir else App.privateDownloadDir
+                if (!isPrivateDirectoryEnabled) {
+                    val pref = AUDIO_DIRECTORY.getString()
+                    if (pref.isNotBlank()) pref else App.audioDownloadDir
+                } else App.privateDownloadDir
             )
         }
     var sdcardUri by remember { mutableStateOf(SDCARD_URI.getString()) }

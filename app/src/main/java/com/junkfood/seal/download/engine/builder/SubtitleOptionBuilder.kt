@@ -4,6 +4,7 @@ import com.junkfood.seal.util.CONVERT_ASS
 import com.junkfood.seal.util.CONVERT_LRC
 import com.junkfood.seal.util.CONVERT_SRT
 import com.junkfood.seal.util.CONVERT_VTT
+import com.junkfood.seal.util.PreferenceUtil.getString
 
 /**
  * SubtitleOptionBuilder

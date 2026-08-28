@@ -431,14 +431,32 @@ object FileUtil {
     fun writeContentToFile(content: String, file: File): File = file.apply { writeText(content) }
 
     fun getRealPath(treeUri: Uri): String {
-        val path: String = treeUri.path.toString()
-        Log.d(TAG, path)
-        if (!path.contains("primary:")) {
-            ToastUtil.makeToast("This directory is not supported")
-            return getExternalDownloadDirectory().absolutePath
+        try {
+            if (DocumentsContract.isTreeUri(treeUri)) {
+                val docId = DocumentsContract.getTreeDocumentId(treeUri)
+                val decodedDocId = Uri.decode(docId)
+                val split = decodedDocId.split(":")
+                val type = split[0]
+                val relativePath = if (split.size > 1) split[1].trimStart('/') else ""
+                if ("primary".equals(type, ignoreCase = true)) {
+                    val root = Environment.getExternalStorageDirectory().absolutePath
+                    return if (relativePath.isNotEmpty()) "$root/$relativePath" else root
+                } else {
+                    val extFile = File("/storage/$type/$relativePath")
+                    if (extFile.exists() || File("/storage/$type").exists()) {
+                        return extFile.absolutePath
+                    }
+                }
+            }
+            val decodedPath = Uri.decode(treeUri.toString())
+            if (decodedPath.contains("primary:")) {
+                val last = decodedPath.substringAfter("primary:").trimStart('/')
+                return Environment.getExternalStorageDirectory().absolutePath + "/$last"
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error resolving real path from uri: $treeUri", e)
         }
-        val last: String = path.split("primary:").last()
-        return Environment.getExternalStorageDirectory().absolutePath + "/$last"
+        return getExternalDownloadDirectory().absolutePath
     }
 
     fun cleanFileName(fileName: String): String =

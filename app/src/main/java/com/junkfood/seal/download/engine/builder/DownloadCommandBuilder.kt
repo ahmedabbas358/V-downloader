@@ -244,7 +244,6 @@ object DownloadCommandBuilder {
             applyFormatSorter(request, preferences, sorter)
 
             // Subtitle options
-            val shouldMergeToMkv = mergeToMkv || (downloadSubtitle && embedSubtitle) || embedSubtitle
             if (downloadSubtitle || embedSubtitle) {
                 val subOpts = SubtitleOptionBuilder.buildForMediaWithSubtitles(
                     subtitleLanguage = subtitleLanguage,
@@ -253,11 +252,11 @@ object DownloadCommandBuilder {
                     autoTranslatedSubtitles = autoTranslatedSubtitles,
                     embedSubtitle = embedSubtitle,
                 )
-                applySubtitleOptions(this@apply, subOpts, isMkv = shouldMergeToMkv)
+                applySubtitleOptions(this@apply, subOpts, isMkv = mergeToMkv)
             }
 
             // Container format
-            if (shouldMergeToMkv) {
+            if (mergeToMkv) {
                 addOption("--remux-video", "mkv")
                 addOption("--merge-output-format", "mkv")
             } else {

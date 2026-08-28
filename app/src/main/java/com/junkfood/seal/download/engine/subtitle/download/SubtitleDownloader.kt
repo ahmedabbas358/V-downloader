@@ -303,26 +303,7 @@ object SubtitleDownloader {
     }
 
     private fun buildSubLangsOption(requestedLangs: String): String {
-        if (requestedLangs.isBlank() || requestedLangs.equals("all", ignoreCase = true)) {
-            return "all"
-        }
-        val langs = requestedLangs.split(',').map { it.trim() }.filter { it.isNotEmpty() }
-        val options = mutableSetOf<String>()
-        for (lang in langs) {
-            val base = lang.substringBefore('-').substringBefore('.')
-            options.add(lang)
-            if (base.isNotEmpty() && base != lang) {
-                options.add(base)
-            }
-            if (base == "ar") {
-                options.add("ar.*")
-                options.add("ar-orig")
-            } else if (base == "en") {
-                options.add("en.*")
-                options.add("en-orig")
-            }
-        }
-        return options.joinToString(",")
+        return SubtitleOptionBuilder.buildSubLangsOption(requestedLangs)
     }
 
     /**

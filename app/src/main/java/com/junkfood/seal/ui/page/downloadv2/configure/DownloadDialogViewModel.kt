@@ -287,7 +287,10 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
                 }
 
                 val fetchUrl = effectiveTasks.firstOrNull()?.task?.url?.takeIf { it.isNotBlank() } ?: url
-                val fetchIndex = if (fetchUrl.contains("list=", ignoreCase = true) || preferences.downloadPlaylist) 1 else null
+                val isDirectWatchUrl = fetchUrl.contains("watch?v=", ignoreCase = true) ||
+                        fetchUrl.contains("youtu.be/", ignoreCase = true) ||
+                        fetchUrl.contains("/shorts/", ignoreCase = true)
+                val fetchIndex = if (!isDirectWatchUrl && (fetchUrl.contains("list=", ignoreCase = true) || fetchUrl.contains("/playlist", ignoreCase = true))) 1 else null
 
                 DownloadUtil.fetchVideoInfoFromUrl(url = fetchUrl, playlistIndex = fetchIndex, preferences = preferences)
                     .onSuccess { info ->

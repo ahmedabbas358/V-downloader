@@ -265,6 +265,7 @@ class App : Application() {
 
                 Directory.CUSTOM_COMMAND -> {
                     val path = FileUtil.getRealPath(uri)
+                    PreferenceUtil.encodeString(COMMAND_DIRECTORY, path)
                 }
 
                 Directory.SDCARD -> {

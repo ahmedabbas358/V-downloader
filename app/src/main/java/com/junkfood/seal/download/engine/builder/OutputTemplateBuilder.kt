@@ -3,6 +3,7 @@ package com.junkfood.seal.download.engine.builder
 import com.junkfood.seal.App
 import com.junkfood.seal.util.DownloadUtil.DownloadPreferences
 import com.junkfood.seal.util.FileUtil
+import com.junkfood.seal.util.PreferenceUtil.getString
 import com.junkfood.seal.util.VideoInfo
 import java.io.File
 import java.util.Locale
@@ -86,7 +87,7 @@ object OutputTemplateBuilder {
 
     /**
      * Resolves the target directory for a download task.
-     * General/single video downloads (playlistItem == 0) are saved directly into the base directory.
+     * General/single video downloads (playlistItem <= 0) are ALWAYS saved directly into the base directory.
      * Dedicated playlist folders are only created for actual playlist items (playlistItem > 0).
      */
     fun resolveTargetDirectory(
@@ -102,8 +103,8 @@ object OutputTemplateBuilder {
         val isAudio = isAudioDownload || (preferences.extractAudio && !isSubtitleOnly)
         val basePath = resolveBaseDirectory(preferences, isAudio)
 
-        // General / single video downloads (playlistItem <= 0) are ALWAYS saved directly in the app download directory
-        if (playlistItem <= 0 && !preferences.downloadPlaylist) {
+        // General / single video downloads (playlistItem <= 0) MUST ALWAYS be saved directly in the base app download directory
+        if (playlistItem <= 0) {
             return File(basePath)
         }
 
@@ -124,10 +125,6 @@ object OutputTemplateBuilder {
 
         val listId = allUrlsToCheck.firstNotNullOfOrNull { u ->
             Regex("""[?&]list=([a-zA-Z0-9_-]+)""").find(u)?.groupValues?.get(1)
-        }
-
-        if (playlistItem <= 0 && (rawPlaylistName.isBlank() || rawPlaylistName.equals("NA", ignoreCase = true) || rawPlaylistName.equals("Playlist", ignoreCase = true) || rawPlaylistName.equals(videoInfo?.title, ignoreCase = true))) {
-            return File(basePath)
         }
 
         val cleanPlaylistName = FileUtil.cleanFileName(rawPlaylistName).trim()
