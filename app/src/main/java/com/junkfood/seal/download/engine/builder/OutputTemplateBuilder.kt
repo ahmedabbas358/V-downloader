@@ -139,19 +139,23 @@ object OutputTemplateBuilder {
 
         val folderName = if (isSubtitleOnly) "[Subtitles] $cleanPlaylistName" else cleanPlaylistName
 
-        if (preferences.commandDirectory.isNotBlank()) {
+        val targetDir = if (preferences.commandDirectory.isNotBlank()) {
             val cmdDir = File(preferences.commandDirectory)
             if (cmdDir.name.equals(folderName, ignoreCase = true) || cmdDir.name.equals(cleanPlaylistName, ignoreCase = true)) {
-                return cmdDir
-            }
-            return if (preferences.subdirectoryPlaylistTitle || isSubtitleOnly || isPlaylist) {
+                cmdDir
+            } else if (preferences.subdirectoryPlaylistTitle || isSubtitleOnly || isPlaylist) {
                 File(cmdDir, folderName)
             } else {
                 cmdDir
             }
+        } else {
+            File(basePath, folderName)
         }
 
-        return File(basePath, folderName)
+        if (!targetDir.exists()) {
+            targetDir.mkdirs()
+        }
+        return targetDir
     }
 
     /**

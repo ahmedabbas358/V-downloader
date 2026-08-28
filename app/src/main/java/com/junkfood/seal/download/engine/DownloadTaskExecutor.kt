@@ -186,11 +186,7 @@ object DownloadTaskExecutor {
             com.junkfood.seal.util.UpgradeManager.ensureNativeEnvironment(appContext)
         }
         val playlistItem = (task.type as? TypeInfo.Playlist)?.index ?: 0
-        val sourcePlaylistUrl = if (playlistItem != 0) {
-            (task.type as? TypeInfo.Playlist)?.playlistUrl ?: ""
-        } else {
-            ""
-        }
+        val sourcePlaylistUrl = (task.type as? TypeInfo.Playlist)?.playlistUrl.orEmpty().ifBlank { task.url }
         val isFallback = (task.type as? TypeInfo.Playlist)?.isFallback ?: false
         val fallbackPlaylistTitle = (task.type as? TypeInfo.Playlist)?.playlistTitle ?: ""
 
@@ -364,11 +360,19 @@ object DownloadTaskExecutor {
         Log.d(TAG, "Download completed. Discovered ${discoveredPaths.size} path(s): $discoveredPaths")
 
         // Post-Download Processing Pipeline
-        val basePath = OutputTemplateBuilder.resolveBaseDirectory(task.preferences, isAudioDownload)
+        val targetDir = OutputTemplateBuilder.resolveTargetDirectory(
+            preferences = task.preferences,
+            isAudioDownload = isAudioDownload,
+            playlistItem = playlistItem,
+            fallbackPlaylistTitle = fallbackPlaylistTitle,
+            videoPlaylistTitle = if (playlistItem > 0) videoInfo.playlist else null,
+            videoInfo = videoInfo,
+            taskUrl = sourcePlaylistUrl.ifBlank { task.url }
+        )
         return@withContext PostDownloadCoordinator.handleDownloadCompletion(
             preferences = task.preferences,
             videoInfo = videoInfo,
-            downloadPath = basePath,
+            downloadPath = targetDir.absolutePath,
             sdcardUri = task.preferences.sdcardUri,
             playlistItem = playlistItem,
             fallbackPlaylistTitle = fallbackPlaylistTitle,
