@@ -85,22 +85,9 @@ object SocialMediaUrlNormalizer {
             // 2. Facebook Normalization
             if (host.contains("facebook.com") || host == "fb.watch" || host == "fb.com" || host.contains("fb.me")) {
                 val canonicalHost = if (host == "fb.watch") "fb.watch" else "www.facebook.com"
-                val shareVideoMatch = Regex("""/share/v/([a-zA-Z0-9_-]+)""").find(path)
-                val shareReelMatch = Regex("""/share/r/([a-zA-Z0-9_-]+)""").find(path)
                 val cleanQuery = cleanQueryString(rawQuery)
-
-                return if (shareVideoMatch != null) {
-                    val videoId = shareVideoMatch.groupValues[1]
-                    val queryPart = if (cleanQuery.isNotEmpty()) "&$cleanQuery" else ""
-                    "$scheme://$canonicalHost/watch?v=$videoId$queryPart"
-                } else if (shareReelMatch != null) {
-                    val reelId = shareReelMatch.groupValues[1]
-                    val queryPart = if (cleanQuery.isNotEmpty()) "?$cleanQuery" else ""
-                    "$scheme://$canonicalHost/reel/$reelId$queryPart"
-                } else {
-                    val queryPart = if (cleanQuery.isNotEmpty()) "?$cleanQuery" else ""
-                    "$scheme://$canonicalHost$path$queryPart"
-                }
+                val queryPart = if (cleanQuery.isNotEmpty()) "?$cleanQuery" else ""
+                return "$scheme://$canonicalHost$path$queryPart"
             }
 
             // 3. TikTok Normalization
@@ -126,8 +113,7 @@ object SocialMediaUrlNormalizer {
 
             // 6. YouTube Normalization
             if (host.contains("youtube.com") || host == "youtu.be") {
-                val isWatchVideo = path.contains("/watch") || host == "youtu.be" || path.contains("/shorts/")
-                val cleanQuery = cleanQueryString(rawQuery, stripListParam = isWatchVideo)
+                val cleanQuery = cleanQueryString(rawQuery, stripListParam = false)
                 val queryPart = if (cleanQuery.isNotEmpty()) "?$cleanQuery" else ""
                 val canonicalHost = if (host == "youtu.be") "youtu.be" else "www.youtube.com"
                 return "$scheme://$canonicalHost$path$queryPart"

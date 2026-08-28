@@ -397,23 +397,22 @@ fun DownloadPageImplV2(
             val result = mutableListOf<QueueUiItem>()
             val processedBatchKeys = mutableSetOf<Triple<String, String, PlaylistBatchType>>()
 
-            // Group all playlist items
+            // Group only genuine playlist tasks
             val allPlaylistGroups = mutableMapOf<Triple<String, String, PlaylistBatchType>, MutableList<Pair<Task, Task.State>>>()
             filteredMap.forEach { pair ->
                 val task = pair.first
                 val isSubtitle = task.preferences.skipDownload && task.preferences.downloadSubtitle
                 val isAudio = task.preferences.extractAudio && !isSubtitle
                 val playlistInfo = task.type as? Task.TypeInfo.Playlist
-                val isPlaylist = playlistInfo != null || task.preferences.downloadPlaylist
-                if (isPlaylist) {
+                val isPlaylist = playlistInfo != null && (playlistInfo.playlistUrl.isNotBlank() || playlistInfo.playlistTitle.isNotBlank())
+                if (isPlaylist && playlistInfo != null) {
                     val batchType = when {
                         isSubtitle -> PlaylistBatchType.SUBTITLE
                         isAudio -> PlaylistBatchType.AUDIO
                         else -> PlaylistBatchType.VIDEO
                     }
-                    val rawTitle = playlistInfo?.playlistTitle?.ifBlank { null }
-                        ?: task.preferences.newTitle.ifBlank { "Playlist" }
-                    val playlistUrl = playlistInfo?.playlistUrl.orEmpty()
+                    val rawTitle = playlistInfo.playlistTitle.ifBlank { "Playlist" }
+                    val playlistUrl = playlistInfo.playlistUrl
                     val key = Triple(rawTitle, playlistUrl, batchType)
                     allPlaylistGroups.getOrPut(key) { mutableListOf() }.add(pair)
                 }
@@ -425,22 +424,21 @@ fun DownloadPageImplV2(
                 val isSubtitle = task.preferences.skipDownload && task.preferences.downloadSubtitle
                 val isAudio = task.preferences.extractAudio && !isSubtitle
                 val playlistInfo = task.type as? Task.TypeInfo.Playlist
-                val isPlaylist = playlistInfo != null || task.preferences.downloadPlaylist
-                if (isPlaylist) {
+                val isPlaylist = playlistInfo != null && (playlistInfo.playlistUrl.isNotBlank() || playlistInfo.playlistTitle.isNotBlank())
+                if (isPlaylist && playlistInfo != null) {
                     val batchType = when {
                         isSubtitle -> PlaylistBatchType.SUBTITLE
                         isAudio -> PlaylistBatchType.AUDIO
                         else -> PlaylistBatchType.VIDEO
                     }
-                    val rawTitle = playlistInfo?.playlistTitle?.ifBlank { null }
-                        ?: task.preferences.newTitle.ifBlank { "Playlist" }
-                    val playlistUrl = playlistInfo?.playlistUrl.orEmpty()
+                    val rawTitle = playlistInfo.playlistTitle.ifBlank { "Playlist" }
+                    val playlistUrl = playlistInfo.playlistUrl
                     val key = Triple(rawTitle, playlistUrl, batchType)
 
                     if (!processedBatchKeys.contains(key)) {
                         processedBatchKeys.add(key)
                         val tasks = allPlaylistGroups[key] ?: mutableListOf(pair)
-                        if (tasks.size > 1 || tasks.firstOrNull()?.first?.type is Task.TypeInfo.Playlist) {
+                        if (tasks.size > 1) {
                             val sortedTasks = tasks.sortedBy { (it.first.type as? Task.TypeInfo.Playlist)?.index ?: 0 }
                             result.add(QueueUiItem.PlaylistBatch(rawTitle, batchType, sortedTasks))
                         } else {

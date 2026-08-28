@@ -136,20 +136,12 @@ object PostDownloadCoordinator {
             }
         }
 
-        // 5. Hard validation — look for recent media files if not found
+        // 5. Hard validation — fail honestly if no media was downloaded
         if (!isSubtitleOnly && finalPaths.isEmpty()) {
-            // Last-resort: look for any recently modified media file in the download dir
-            val lastResort = findMostRecentMediaFile(downloadPath, windowMinutes = 15)
-                ?: File(downloadPath).parentFile?.let { findMostRecentMediaFile(it.absolutePath, windowMinutes = 15) }
-            if (lastResort != null) {
-                Log.w(TAG, "Last-resort file found: $lastResort")
-                finalPaths = listOf(lastResort)
-            } else {
-                throw IllegalStateException(
-                    "لم يتم العثور على الملف المحمّل في: $downloadPath\n" +
-                    "تأكد من صلاحيات الوصول للتخزين وأن المساحة كافية."
-                )
-            }
+            throw IllegalStateException(
+                "فشل التنزيل: لم يتم إنتاج ملف وسائط من قِبل أداة التنزيل في: $downloadPath\n" +
+                "تأكد من توفر الرابط وصلاحية الوصول."
+            )
         }
 
         // 6. Validate each found file actually exists and is non-empty
