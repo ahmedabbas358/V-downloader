@@ -20,6 +20,8 @@ import com.junkfood.seal.util.DownloadUtil.DownloadPreferences
 import com.junkfood.seal.util.FileUtil
 import com.junkfood.seal.util.PLAYLIST_NUMBERING
 import com.junkfood.seal.util.PreferenceUtil.getBoolean
+import com.junkfood.seal.util.PreferenceUtil.getString
+import com.junkfood.seal.util.SUBTITLE_LANGUAGE
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
 import kotlinx.coroutines.Dispatchers
@@ -327,7 +329,7 @@ object SubtitleDownloader {
 
             try {
                 val rawLang = preferences.subtitleLanguage.ifBlank {
-                    com.junkfood.seal.util.SUBTITLE_LANGUAGE.getString().ifBlank { "all" }
+                    SUBTITLE_LANGUAGE.getString().ifBlank { "all" }
                 }
                 val subLangs = buildSubLangsOption(rawLang)
                 val targetFormatStr = SubtitleOptionBuilder.getConvertSubsValue(preferences.convertSubtitle).ifBlank { "srt" }
