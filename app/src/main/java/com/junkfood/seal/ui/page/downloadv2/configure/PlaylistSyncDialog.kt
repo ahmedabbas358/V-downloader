@@ -104,7 +104,13 @@ fun PlaylistSyncDialog(
     val context = LocalContext.current
 
     var url by remember { mutableStateOf(initialUrl) }
-    var selectedType by remember { mutableStateOf(0) } // 0: Video, 1: Audio, 2: Subtitle
+    var selectedType by remember { mutableIntStateOf(
+        when {
+            preferences.skipDownload && preferences.downloadSubtitle -> 2
+            preferences.extractAudio -> 1
+            else -> 0
+        }
+    ) } // 0: Video, 1: Audio, 2: Subtitle
     var isScanning by remember { mutableStateOf(false) }
     var scanResult by remember { mutableStateOf<com.junkfood.seal.download.engine.playlist.PlaylistAuditResult?>(null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }

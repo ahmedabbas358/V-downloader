@@ -294,7 +294,7 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
                                 info = info,
                                 playlistTasks = effectiveTasks,
                                 audioOnly = preferences.extractAudio,
-                                isSubtitleOnly = true,
+                                isSubtitleOnly = preferences.skipDownload && preferences.downloadSubtitle,
                             )
                         }
                         withContext(Dispatchers.Main) { dismissSheet() }

@@ -51,6 +51,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
@@ -69,6 +71,7 @@ class DownloadQueueManager(
 
     val taskStateMap: SnapshotStateMap<Task, Task.State> = mutableStateMapOf()
 
+    private val queueMutex = Mutex()
     private val retryCountMap = mutableMapOf<String, Int>()
     private val priorityTaskIds = mutableSetOf<String>()
 
@@ -200,10 +203,18 @@ class DownloadQueueManager(
         }
     }
 
+    fun processQueue() {
+        scope.launch {
+            queueMutex.withLock {
+                processQueueInternal()
+            }
+        }
+    }
+
     /**
      * Processes pending tasks, observing concurrency limits, priorities, and playlist sequence.
      */
-    fun processQueue() {
+    private suspend fun processQueueInternal() {
         val maxConcurrent = PreferenceUtil.getMaxConcurrentDownloads().coerceAtLeast(1)
 
         while (taskStateMap.countRunning() < maxConcurrent) {
@@ -557,7 +568,7 @@ class DownloadQueueManager(
                     notificationId = task.id.hashCode(),
                     title = current.viewState.title,
                     text = appContext.getString(R.string.status_completed),
-                    intent = null
+                    filePath = null
                 )
                 processQueue()
             }.onFailure { throwable ->

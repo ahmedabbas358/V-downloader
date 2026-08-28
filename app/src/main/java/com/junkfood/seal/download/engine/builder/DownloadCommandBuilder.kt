@@ -390,11 +390,16 @@ object DownloadCommandBuilder {
         if (options.embedSubs) {
             request.addOption("--embed-subs")
             // For MKV containers, converting to srt or ass works natively with FFmpeg.
-            // For MP4 containers, yt-dlp automatically handles mov_text conversion; forcing --convert-subs srt/ass causes FFmpeg muxing errors.
-            if (isMkv) {
-                val fmt = if (options.convertSubs.equals("lrc", ignoreCase = true)) "srt" else options.convertSubs.ifEmpty { "srt" }
-                request.addOption("--convert-subs", fmt)
+            // For MP4 containers, yt-dlp automatically handles mov_text conversion, but converting to srt first is often required to avoid errors with vtt.
+            val fmt = when {
+                options.convertSubs.equals("lrc", ignoreCase = true) -> "srt"
+                options.convertSubs.isNotEmpty() -> {
+                    if (!isMkv && options.convertSubs.equals("ass", ignoreCase = true)) "srt" 
+                    else options.convertSubs
+                }
+                else -> "srt"
             }
+            request.addOption("--convert-subs", fmt)
         } else if (options.convertSubs.isNotEmpty()) {
             request.addOption("--convert-subs", options.convertSubs)
         }

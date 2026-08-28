@@ -318,8 +318,13 @@ fun AppEntry(dialogViewModel: DownloadDialogViewModel) {
         LaunchedEffect(sheetValue) {
             if (sheetValue == DownloadDialogViewModel.SheetValue.Expanded) {
                 showDialog = true
-            } else {
-                launch { dialogSheetState.hide() }.invokeOnCompletion { showDialog = false }
+            } else if (showDialog) {
+                try {
+                    dialogSheetState.hide()
+                } catch (_: Exception) {
+                } finally {
+                    showDialog = false
+                }
             }
         }
     
