@@ -114,7 +114,16 @@ object SocialMediaUrlNormalizer {
                 return "$scheme://$host$path$queryPart"
             }
 
-            // 6. Generic cleaning
+            // 6. YouTube Normalization
+            if (host.contains("youtube.com") || host == "youtu.be") {
+                val isWatchVideo = path.contains("/watch") || host == "youtu.be" || path.contains("/shorts/")
+                val cleanQuery = cleanQueryString(rawQuery, stripListParam = isWatchVideo)
+                val queryPart = if (cleanQuery.isNotEmpty()) "?$cleanQuery" else ""
+                val canonicalHost = if (host == "youtu.be") "youtu.be" else "www.youtube.com"
+                return "$scheme://$canonicalHost$path$queryPart"
+            }
+
+            // 7. Generic cleaning
             val cleanQuery = cleanQueryString(rawQuery)
             val queryPart = if (cleanQuery.isNotEmpty()) "?$cleanQuery" else ""
             "$scheme://$host$path$queryPart"
@@ -124,12 +133,13 @@ object SocialMediaUrlNormalizer {
         }
     }
 
-    private fun cleanQueryString(rawQuery: String?): String {
+    private fun cleanQueryString(rawQuery: String?, stripListParam: Boolean = false): String {
         if (rawQuery.isNullOrBlank()) return ""
         return rawQuery.split("&")
             .filter { param ->
                 if (param.isBlank()) return@filter false
                 val key = param.substringBefore("=").lowercase().trim()
+                if (stripListParam && (key == "list" || key == "index" || key == "pp")) return@filter false
                 key !in TRACKING_PARAMS && !key.startsWith("utm_")
             }
             .joinToString("&")

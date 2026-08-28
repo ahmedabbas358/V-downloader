@@ -110,9 +110,7 @@ import com.junkfood.seal.ui.common.HapticFeedback.longPressHapticFeedback
 import com.junkfood.seal.ui.common.motion.materialSharedAxisX
 import com.junkfood.seal.ui.component.ButtonChip
 import com.junkfood.seal.ui.component.DrawerSheetSubtitle
-import com.junkfood.seal.ui.component.OutlinedButtonWithIcon
 import com.junkfood.seal.ui.component.SealModalBottomSheet
-import com.junkfood.seal.ui.component.SealModalBottomSheetM2Variant
 import com.junkfood.seal.ui.component.SingleChoiceChip
 import com.junkfood.seal.ui.component.SingleChoiceSegmentedButton
 import com.junkfood.seal.ui.component.VideoFilterChip
@@ -555,32 +553,34 @@ private fun ErrorPreview() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FormatPage(
     modifier: Modifier = Modifier,
     state: SelectionState.FormatSelection,
     onDismissRequest: () -> Unit,
 ) {
-    val sheetState =
-        androidx.compose.material.rememberModalBottomSheetState(
-            initialValue = ModalBottomSheetValue.Hidden,
-            skipHalfExpanded = true,
-        )
-
-    LaunchedEffect(state) { sheetState.show() }
+    val sheetState = androidx.compose.material3.rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+    )
     val scope = rememberCoroutineScope()
-    BackHandler { scope.launch { sheetState.hide() }.invokeOnCompletion { onDismissRequest() } }
+    val onBack: () -> Unit = {
+        scope.launch { sheetState.hide() }.invokeOnCompletion { onDismissRequest() }
+    }
+    BackHandler(onBack = onBack)
 
-    SealModalBottomSheetM2Variant(sheetState = sheetState, sheetGesturesEnabled = false) {
+    SealModalBottomSheet(
+        sheetState = sheetState,
+        contentPadding = PaddingValues(),
+        onDismissRequest = onBack,
+    ) {
         FormatPage(
             modifier = modifier,
             videoInfo = state.info,
             playlistTasks = state.playlistTasks,
             audioOnly = state.audioOnly,
             isSubtitleOnly = state.isSubtitleOnly,
-            onNavigateBack = {
-                scope.launch { sheetState.hide() }.invokeOnCompletion { onDismissRequest() }
-            },
+            onNavigateBack = onBack,
         )
     }
 }
@@ -777,7 +777,7 @@ private fun ConfigurePage(
                         downloadType = selectedType,
                     )
                 )
-                val isPlaylist = selectedType == Playlist || url.contains("list=", ignoreCase = true) || url.contains("/playlist", ignoreCase = true)
+                val isPlaylist = selectedType == Playlist
                 onActionPost(
                     Action.DownloadWithPreset(
                         urlList = listOf(url),
@@ -799,7 +799,7 @@ private fun ConfigurePage(
                         downloadType = selectedType,
                     )
                 )
-                val isPlaylist = selectedType == Playlist || url.contains("list=", ignoreCase = true) || url.contains("/playlist", ignoreCase = true)
+                val isPlaylist = selectedType == Playlist
                 val updatedPrefs = preferences.copy(
                     downloadPlaylist = isPlaylist,
                     extractAudio = selectedType == Audio,

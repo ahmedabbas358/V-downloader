@@ -188,7 +188,9 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
                             }
                         }
                     }
-                    dismissSheet() // إخفاء بدون إلغاء (العملية انتهت بنجاح)
+                    withContext(Dispatchers.Main) {
+                        dismissSheet()
+                    }
                 }.onFailure { th ->
                     mSheetStateFlow.update {
                         SheetState.Error(action = action, throwable = th)
@@ -328,12 +330,12 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
     ) {
         val validUrls = sanitizeUrls(urlList).filter { isValidUrl(it) }
         validUrls.forEach { url ->
-            val isPlaylistUrl = preferences.downloadPlaylist || url.contains("list=", ignoreCase = true)
+            val isPlaylistUrl = preferences.downloadPlaylist && (url.contains("list=", ignoreCase = true) || url.contains("/playlist", ignoreCase = true))
             if (isPlaylistUrl) {
                 val taskKey = "FetchAndDownload_$url"
                 if (activeJobs.containsKey(taskKey)) return@forEach
 
-                val job = viewModelScope.launch(Dispatchers.IO, start = CoroutineStart.LAZY) {
+                val job = viewModelScope.launch(Dispatchers.IO) {
                     try {
                         DownloadUtil.getPlaylistOrVideoInfo(url, preferences)
                             .onSuccess { info ->
@@ -360,22 +362,15 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
                     } finally {
                         withContext(Dispatchers.Main) {
                             activeJobs.remove(taskKey)
-                            if (activeJobs.isEmpty()) {
-                                dismissSheet()
-                            }
                         }
                     }
                 }
                 activeJobs[taskKey] = job
-                mSheetStateFlow.update { SheetState.Loading(taskKey = taskKey, job = job) }
-                job.start()
             } else {
                 downloader.enqueue(Task(url = url, preferences = preferences))
             }
         }
-        if (activeJobs.isEmpty()) {
-            dismissSheet()
-        }
+        dismissSheet()
     }
 
     private fun runCommand(

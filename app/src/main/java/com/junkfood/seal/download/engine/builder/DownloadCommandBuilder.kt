@@ -43,7 +43,13 @@ object DownloadCommandBuilder {
         val request = YoutubeDLRequest(normalizedUrl)
         with(request) {
             addOption("-o", OutputTemplateBuilder.BASENAME)
-            val isPlaylistUrl = normalizedUrl.contains("list=", ignoreCase = true) || preferences.downloadPlaylist
+            val isDirectSingleVideo = normalizedUrl.contains("watch?v=", ignoreCase = true) ||
+                    normalizedUrl.contains("youtu.be/", ignoreCase = true) ||
+                    normalizedUrl.contains("/shorts/", ignoreCase = true) ||
+                    normalizedUrl.contains("/reel/", ignoreCase = true) ||
+                    normalizedUrl.contains("/p/", ignoreCase = true)
+
+            val isPlaylistUrl = !isDirectSingleVideo && (preferences.downloadPlaylist || (normalizedUrl.contains("list=", ignoreCase = true) && !normalizedUrl.contains("watch?v=", ignoreCase = true)))
             if (isFlatPlaylist) {
                 addOption("--flat-playlist")
                 addOption("--dump-single-json")
@@ -71,7 +77,7 @@ object DownloadCommandBuilder {
             if (preferences.proxy) {
                 NetworkOptionBuilder.applyProxy(this, preferences.proxyUrl)
             }
-            NetworkOptionBuilder.applyNetworkResilience(this, preferences.forceIpv4, preferences.debug)
+            NetworkOptionBuilder.applyNetworkResilience(this, preferences.forceIpv4, preferences.debug, isInfoFetch = true)
         }
         return request
     }
@@ -241,7 +247,7 @@ object DownloadCommandBuilder {
             val shouldMergeToMkv = mergeToMkv || (downloadSubtitle && embedSubtitle) || embedSubtitle
             if (downloadSubtitle || embedSubtitle) {
                 val subOpts = SubtitleOptionBuilder.buildForMediaWithSubtitles(
-                    subtitleLanguage = subtitleLanguage.ifEmpty { "ar.*,en.*,.*-orig" },
+                    subtitleLanguage = subtitleLanguage.ifEmpty { "all" },
                     convertSubtitle = convertSubtitle,
                     autoSubtitle = autoSubtitle,
                     autoTranslatedSubtitles = autoTranslatedSubtitles,
@@ -403,7 +409,6 @@ object DownloadCommandBuilder {
         } else if (options.convertSubs.isNotEmpty()) {
             request.addOption("--convert-subs", options.convertSubs)
         }
-        request.addOption("--compat-options", "no-keep-subs")
         request.addOption("--ignore-errors")
     }
 

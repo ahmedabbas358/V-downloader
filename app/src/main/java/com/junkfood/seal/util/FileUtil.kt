@@ -109,6 +109,20 @@ object FileUtil {
 
     fun openDirectory(path: String, onFailureCallback: (Throwable) -> Unit = {}) {
         path.runCatching {
+            if (path.startsWith("content://")) {
+                try {
+                    val treeUri = Uri.parse(path)
+                    val treeIntent = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(treeUri, DocumentsContract.Document.MIME_TYPE_DIR)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    context.startActivity(treeIntent)
+                    return@runCatching
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to open content URI directly: ${e.message}")
+                }
+            }
+
             val dir = File(path)
             if (!dir.exists()) dir.mkdirs()
 
@@ -243,6 +257,7 @@ object FileUtil {
             setDataAndType(uri, mimeType)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            clipData = ClipData.newRawUri("", uri)
         }
     }
 

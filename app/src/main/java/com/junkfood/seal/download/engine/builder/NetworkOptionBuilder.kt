@@ -67,13 +67,6 @@ object NetworkOptionBuilder {
             lowerUrl.contains("x.com") || lowerUrl.contains("twitter.com") -> {
                 addOption("--extractor-args", "twitter:api=syndication")
             }
-            lowerUrl.contains("instagram.com") || lowerUrl.contains("instagr.am") -> {
-                addOption("--extractor-args", "instagram:api=graphql")
-            }
-            lowerUrl.contains("tiktok.com") -> {
-                addOption("--extractor-args", "tiktok:app_version=35.1.3")
-            }
-            // NOTE: YouTube extractor args intentionally omitted to preserve all HD, 1080p, 1440p, and 4K streams.
         }
 
         // Automatically attach cookies if available in app storage
@@ -118,12 +111,15 @@ object NetworkOptionBuilder {
         request: YoutubeDLRequest,
         forceIpv4: Boolean = false,
         debug: Boolean = false,
+        isInfoFetch: Boolean = false,
     ): YoutubeDLRequest = request.apply {
-        addOption("-R", "10")
-        addOption("--retries", "10")
-        addOption("--fragment-retries", "10")
-        addOption("--file-access-retries", "5")
-        addOption("--socket-timeout", "25")
+        val retries = if (isInfoFetch) "3" else "10"
+        val timeout = if (isInfoFetch) "12" else "25"
+        addOption("-R", retries)
+        addOption("--retries", retries)
+        addOption("--fragment-retries", retries)
+        addOption("--file-access-retries", "3")
+        addOption("--socket-timeout", timeout)
         addOption("--no-check-certificates")
         addOption("--geo-bypass")
 

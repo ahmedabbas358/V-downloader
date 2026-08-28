@@ -140,11 +140,35 @@ fun FormatPage(
     downloader: DownloaderV2 = koinInject(),
     onNavigateBack: () -> Unit = {},
 ) {
-    if (videoInfo.formats.isNullOrEmpty() && !isSubtitleOnly) return
+    val effectiveInfo = if (videoInfo.formats.isNullOrEmpty() && !isSubtitleOnly) {
+        val fallbackFormats = mutableListOf<Format>()
+        videoInfo.requestedFormats?.let { fallbackFormats.addAll(it) }
+        if (fallbackFormats.isEmpty()) {
+            fallbackFormats.add(
+                Format(
+                    formatId = videoInfo.formatId ?: "best",
+                    formatNote = videoInfo.formatNote ?: "Standard Quality",
+                    ext = videoInfo.ext.ifBlank { "mp4" },
+                    url = videoInfo.url,
+                    vcodec = videoInfo.vcodec ?: "h264",
+                    acodec = videoInfo.acodec ?: "aac",
+                    width = videoInfo.width,
+                    height = videoInfo.height,
+                    fps = videoInfo.fps,
+                    fileSize = videoInfo.fileSize,
+                    fileSizeApprox = videoInfo.fileSizeApprox,
+                )
+            )
+        }
+        videoInfo.copy(formats = fallbackFormats)
+    } else {
+        videoInfo
+    }
+
     val mergeAudioStream = MERGE_MULTI_AUDIO_STREAM.getBoolean()
     val subtitleLanguageRegex = SUBTITLE_LANGUAGE.getString()
     val initialSelectedSubtitles =
-        videoInfo
+        effectiveInfo
             .run { subtitles.keys + automaticCaptions.keys }
             .filterWithRegex(subtitleLanguageRegex)
 
@@ -153,13 +177,13 @@ fun FormatPage(
 
     FormatPageImpl(
         modifier = modifier,
-        videoInfo = videoInfo,
+        videoInfo = effectiveInfo,
         onNavigateBack = onNavigateBack,
         audioOnly = isAudioSelected,
         isSubtitleOnly = isSubOnly,
         mergeAudioStream = !isAudioSelected && mergeAudioStream,
         selectedSubtitleCodes = initialSelectedSubtitles,
-        isClippingAvailable = !isAudioSelected && !isSubOnly && VIDEO_CLIP.getBoolean() && (videoInfo.duration ?: .0) >= 0,
+        isClippingAvailable = !isAudioSelected && !isSubOnly && VIDEO_CLIP.getBoolean() && (effectiveInfo.duration ?: .0) >= 0,
     ) { config ->
         with(config) {
 
@@ -247,7 +271,7 @@ fun FormatPage(
                 }
             } else {
                 val createdTaskWithState = com.junkfood.seal.download.TaskFactory.createWithConfigurations(
-                    videoInfo = videoInfo,
+                    videoInfo = effectiveInfo,
                     formatList = formatList,
                     videoClips = videoClips,
                     splitByChapter = splitByChapter,
@@ -368,9 +392,35 @@ private fun FormatPageImpl(
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
-    if (videoInfo.formats.orEmpty().isEmpty() && !isSubtitleOnly) return
-    val videoFormats = remember(videoInfo.formats) {
-        videoInfo.formats.orEmpty()
+    val effectiveFormats = remember(videoInfo.formats, isSubtitleOnly) {
+        if (videoInfo.formats.isNullOrEmpty() && !isSubtitleOnly) {
+            val fallback = mutableListOf<Format>()
+            videoInfo.requestedFormats?.let { fallback.addAll(it) }
+            if (fallback.isEmpty()) {
+                fallback.add(
+                    Format(
+                        formatId = videoInfo.formatId ?: "best",
+                        formatNote = videoInfo.formatNote ?: "Standard Quality",
+                        ext = videoInfo.ext.ifBlank { "mp4" },
+                        url = videoInfo.url,
+                        vcodec = videoInfo.vcodec ?: "h264",
+                        acodec = videoInfo.acodec ?: "aac",
+                        width = videoInfo.width,
+                        height = videoInfo.height,
+                        fps = videoInfo.fps,
+                        fileSize = videoInfo.fileSize,
+                        fileSizeApprox = videoInfo.fileSizeApprox,
+                    )
+                )
+            }
+            fallback
+        } else {
+            videoInfo.formats.orEmpty()
+        }
+    }
+
+    val videoFormats = remember(effectiveFormats) {
+        effectiveFormats
             .filter { it.containsVideo() && !it.formatId.isNullOrEmpty() && !it.formatId.startsWith("sb") }
             .distinctBy { it.formatId }
             .sortedWith(
@@ -379,8 +429,8 @@ private fun FormatPageImpl(
                     .thenByDescending { it.tbr ?: it.vbr ?: it.abr ?: 0.0 }
             )
     }
-    val audioOnlyFormats = remember(videoInfo.formats) {
-        videoInfo.formats.orEmpty()
+    val audioOnlyFormats = remember(effectiveFormats) {
+        effectiveFormats
             .filter { it.isAudioOnly() && it.containsAudio() && !it.formatId.isNullOrEmpty() }
             .distinctBy { it.formatId }
             .sortedByDescending { it.tbr ?: it.abr ?: 0.0 }

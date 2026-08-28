@@ -90,7 +90,7 @@ object PlaylistVerifier {
 
                 if (!startsWithIndex) return@firstOrNull false
 
-                if (normalizedTitle.isBlank()) return@firstOrNull true
+                if (normalizedTitle.isBlank()) return@firstOrNull false
 
                 val cleanedName = cleanFileNameForMatching(record.name)
                 val normalizedRecordName = normalizeText(cleanedName)
@@ -103,12 +103,12 @@ object PlaylistVerifier {
                 val titleTokens = normalizedTitle.split(' ').filter { it.length >= 2 }.toSet()
                 if (recordTokens.isNotEmpty() && titleTokens.isNotEmpty()) {
                     val intersection = recordTokens.intersect(titleTokens)
-                    val overlapRatio = intersection.size.toFloat() / titleTokens.size.coerceAtMost(recordTokens.size).toFloat()
-                    if (overlapRatio >= 0.35f || intersection.size >= 2) return@firstOrNull true
+                    val minTokenCount = titleTokens.size.coerceAtMost(recordTokens.size)
+                    val overlapRatio = if (minTokenCount > 0) intersection.size.toFloat() / minTokenCount.toFloat() else 0f
+                    if (overlapRatio >= 0.5f || intersection.size >= 2) return@firstOrNull true
                 }
 
-                // If filename has exact matching prefix index in playlist directory, consider matched
-                true
+                false
             }
         }
 
@@ -251,12 +251,11 @@ object PlaylistVerifier {
             findFuzzySiblingDirs(File(App.videoDownloadDir))
             findFuzzySiblingDirs(File(App.audioDownloadDir))
 
-            // Add base root download folders as final fallback
-            if (defaultBaseDir.exists() && defaultBaseDir.isDirectory && !candidateDirs.contains(defaultBaseDir)) {
-                candidateDirs.add(defaultBaseDir)
-            }
-            if (File(App.videoDownloadDir).exists() && !candidateDirs.contains(File(App.videoDownloadDir))) {
-                candidateDirs.add(File(App.videoDownloadDir))
+            // Add base root download folders only as fallback if no specific playlist directory exists
+            if (candidateDirs.isEmpty()) {
+                if (defaultBaseDir.exists() && defaultBaseDir.isDirectory) {
+                    candidateDirs.add(defaultBaseDir)
+                }
             }
 
             if (finalDirPath.isEmpty()) {
