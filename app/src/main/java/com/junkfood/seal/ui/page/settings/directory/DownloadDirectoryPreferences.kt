@@ -90,6 +90,7 @@ import com.junkfood.seal.ui.component.PreferenceSwitch
 import com.junkfood.seal.ui.component.PreferenceSwitchWithDivider
 import com.junkfood.seal.ui.component.PreferencesHintCard
 import com.junkfood.seal.ui.component.SealDialog
+import com.junkfood.seal.util.AUDIO_DIRECTORY
 import com.junkfood.seal.util.COMMAND_DIRECTORY
 import com.junkfood.seal.util.CUSTOM_COMMAND
 import com.junkfood.seal.util.CUSTOM_OUTPUT_TEMPLATE
@@ -109,6 +110,7 @@ import com.junkfood.seal.util.SDCARD_DOWNLOAD
 import com.junkfood.seal.util.SDCARD_URI
 import com.junkfood.seal.util.SUBDIRECTORY_EXTRACTOR
 import com.junkfood.seal.util.SUBDIRECTORY_PLAYLIST_TITLE
+import com.junkfood.seal.util.VIDEO_DIRECTORY
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
