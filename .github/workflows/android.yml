@@ -104,14 +104,14 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           files: app/build/outputs/apk/generic/release/*.apk
-          name: V-Downloader v3.6.29 — حفظ المقاطع العامة في مجلد التطبيق المباشر ودقة مسارات الإعدادات
-          tag_name: v3.6.29
+          name: V-Downloader v3.6.30 — حفظ المقاطع العامة في مجلد التطبيق المباشر ودقة مسارات الإعدادات
+          tag_name: v3.6.30
           target_commitish: ${{ github.sha }}
           draft: false
           prerelease: false
           make_latest: true
           body: |
-            # 🚀 V-Downloader v3.6.29 — الدقة التامة في مسارات الحفظ ودمج الترجمات
+            # 🚀 V-Downloader v3.6.30 — الدقة التامة في مسارات الحفظ ودمج الترجمات
 
             > 💎 **تحديث يضمن حفظ المقاطع الفردية والعامة مباشرة في مجلد التطبيق دون إنشاء مجلد Playlist، مع الاستجابة الفورية والدقيقة للمسارات المحددة في الإعدادات.**
 

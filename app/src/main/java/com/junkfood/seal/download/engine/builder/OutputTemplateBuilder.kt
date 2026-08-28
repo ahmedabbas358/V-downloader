@@ -1,8 +1,11 @@
 package com.junkfood.seal.download.engine.builder
 
 import com.junkfood.seal.App
+import com.junkfood.seal.util.AUDIO_DIRECTORY
 import com.junkfood.seal.util.DownloadUtil.DownloadPreferences
 import com.junkfood.seal.util.FileUtil
+import com.junkfood.seal.util.PreferenceUtil.getString
+import com.junkfood.seal.util.VIDEO_DIRECTORY
 import com.junkfood.seal.util.VideoInfo
 import java.io.File
 import java.util.Locale
@@ -73,11 +76,11 @@ object OutputTemplateBuilder {
                 commandDirectory.isNotBlank() -> commandDirectory
                 privateDirectory -> App.privateDownloadDir
                 isAudioDownload -> {
-                    val customAudio = com.junkfood.seal.util.PreferenceUtil.AUDIO_DIRECTORY.getString()
+                    val customAudio = AUDIO_DIRECTORY.getString()
                     if (customAudio.isNotBlank()) customAudio else App.audioDownloadDir
                 }
                 else -> {
-                    val customVideo = com.junkfood.seal.util.PreferenceUtil.VIDEO_DIRECTORY.getString()
+                    val customVideo = VIDEO_DIRECTORY.getString()
                     if (customVideo.isNotBlank()) customVideo else App.videoDownloadDir
                 }
             }
