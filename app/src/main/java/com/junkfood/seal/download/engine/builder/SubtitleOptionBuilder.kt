@@ -33,14 +33,26 @@ object SubtitleOptionBuilder {
      * - Specific code (e.g. "ar") -> "ar,ar-.*,ar-orig,.*-ar" (targets all variations of the language)
      * - Multiple codes (comma-separated) -> cleaned and joined
      */
+    /**
+     * Builds a yt-dlp --sub-langs value from a raw language string with intelligent language expansion.
+     */
     fun buildSubLangsOption(rawLang: String): String {
         val trimmed = rawLang.trim()
-        if (trimmed.isEmpty() || trimmed.equals("all", ignoreCase = true)) {
-            return DEFAULT_LANG_PATTERN
+        val effectiveLang = when {
+            trimmed.isEmpty() -> {
+                val pref = com.junkfood.seal.util.SUBTITLE_LANGUAGE.getString().trim()
+                if (pref.isNotEmpty() && !pref.equals("all", ignoreCase = true)) pref
+                else java.util.Locale.getDefault().language.ifBlank { "ar" }
+            }
+            else -> trimmed
         }
 
-        val langs = trimmed.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-        if (langs.isEmpty()) return DEFAULT_LANG_PATTERN
+        if (effectiveLang.equals("all", ignoreCase = true)) {
+            return "all"
+        }
+
+        val langs = effectiveLang.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        if (langs.isEmpty()) return java.util.Locale.getDefault().language.ifBlank { "ar" }
 
         val expanded = mutableSetOf<String>()
         for (lang in langs) {
@@ -49,17 +61,15 @@ object SubtitleOptionBuilder {
             }
             expanded.add(lang)
             val base = lang.substringBefore('-').substringBefore('.')
-            if (base.isNotEmpty() && base != lang) {
+            if (base.isNotEmpty()) {
                 expanded.add(base)
+                expanded.add("$base.*")
+                expanded.add("$base-orig")
+                expanded.add(".*-$base")
             }
-            if (base == "ar") {
-                expanded.add("ar.*")
-                expanded.add("ar-orig")
-            } else if (base == "en") {
-                expanded.add("en.*")
-                expanded.add("en-orig")
-            } else if (!lang.contains(".*") && !lang.contains("-")) {
+            if (!lang.contains(".*") && !lang.contains("-")) {
                 expanded.add("$lang.*")
+                expanded.add(".*-$lang")
             }
         }
 
@@ -102,10 +112,6 @@ object SubtitleOptionBuilder {
     /**
      * Builds a complete SubtitleOptions from download preferences for subtitle-only downloads
      * (--skip-download mode).
-     *
-     * @param subtitleLanguage Raw subtitle language preference
-     * @param convertSubtitle Subtitle conversion format preference
-     * @return Complete SubtitleOptions with all fields populated
      */
     fun buildForSubtitleOnlyDownload(
         subtitleLanguage: String,
@@ -113,7 +119,6 @@ object SubtitleOptionBuilder {
         autoSubtitle: Boolean = true,
         autoTranslatedSubtitles: Boolean = true,
     ): SubtitleOptions {
-        // Respect user's auto-subtitle and auto-translated preferences
         val shouldWriteAutoSubs = autoSubtitle || autoTranslatedSubtitles
         return SubtitleOptions(
             writeSubs = true,
@@ -127,13 +132,6 @@ object SubtitleOptionBuilder {
 
     /**
      * Builds SubtitleOptions for video/audio downloads that also include subtitles.
-     *
-     * @param subtitleLanguage Raw subtitle language preference
-     * @param convertSubtitle Subtitle conversion format preference
-     * @param autoSubtitle Whether to include auto-generated subtitles
-     * @param autoTranslatedSubtitles Whether to include auto-translated subtitles
-     * @param embedSubtitle Whether to embed subtitles in the container
-     * @return Complete SubtitleOptions
      */
     fun buildForMediaWithSubtitles(
         subtitleLanguage: String,
@@ -142,14 +140,14 @@ object SubtitleOptionBuilder {
         autoTranslatedSubtitles: Boolean = true,
         embedSubtitle: Boolean = false,
     ): SubtitleOptions {
-        // Respect user's auto-subtitle and auto-translated preferences
-        val shouldWriteAutoSubs = autoSubtitle || autoTranslatedSubtitles
+        val shouldWriteAutoSubs = autoSubtitle || autoTranslatedSubtitles || embedSubtitle
+        val subFormat = if (embedSubtitle) "srt" else getConvertSubsValue(convertSubtitle)
         return SubtitleOptions(
             writeSubs = true,
             writeAutoSubs = shouldWriteAutoSubs,
             subLangs = buildSubLangsOption(subtitleLanguage),
             subFormat = SUB_FORMAT_PREFERENCE,
-            convertSubs = getConvertSubsValue(convertSubtitle),
+            convertSubs = subFormat,
             embedSubs = embedSubtitle,
         )
     }

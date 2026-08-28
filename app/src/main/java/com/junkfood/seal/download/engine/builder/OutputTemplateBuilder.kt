@@ -63,6 +63,7 @@ object OutputTemplateBuilder {
 
     /**
      * Resolves the base destination directory according to preferences and media type.
+     * Accurately respects directories configured in user settings (VIDEO_DIRECTORY / AUDIO_DIRECTORY).
      */
     fun resolveBaseDirectory(
         preferences: DownloadPreferences,
@@ -70,18 +71,23 @@ object OutputTemplateBuilder {
     ): String {
         return preferences.run {
             when {
-                commandDirectory.isNotBlank() -> commandDirectory
                 privateDirectory -> App.privateDownloadDir
-                isAudioDownload -> App.audioDownloadDir
-                else -> App.videoDownloadDir
+                isAudioDownload -> {
+                    val prefAudio = com.junkfood.seal.util.AUDIO_DIRECTORY.getString()
+                    if (prefAudio.isNotBlank()) prefAudio else App.audioDownloadDir
+                }
+                else -> {
+                    val prefVideo = com.junkfood.seal.util.VIDEO_DIRECTORY.getString()
+                    if (prefVideo.isNotBlank()) prefVideo else App.videoDownloadDir
+                }
             }
         }
     }
 
     /**
-     * Resolves the target directory for a download task, accurately creating a dedicated
-     * folder named after the playlist for Video, Audio, and Subtitle downloads.
-     * Standalone single videos are NEVER placed into playlist subdirectories.
+     * Resolves the target directory for a download task.
+     * General/single video downloads (playlistItem == 0) are saved directly into the base directory.
+     * Dedicated playlist folders are only created for actual playlist items (playlistItem > 0).
      */
     fun resolveTargetDirectory(
         preferences: DownloadPreferences,
@@ -95,6 +101,11 @@ object OutputTemplateBuilder {
         val isSubtitleOnly = preferences.skipDownload && preferences.downloadSubtitle
         val isAudio = isAudioDownload || (preferences.extractAudio && !isSubtitleOnly)
         val basePath = resolveBaseDirectory(preferences, isAudio)
+
+        // General / single video downloads (playlistItem <= 0) are ALWAYS saved directly in the app download directory
+        if (playlistItem <= 0 && !preferences.downloadPlaylist) {
+            return File(basePath)
+        }
 
         val rawPlaylistName = fallbackPlaylistTitle
             .ifBlank { videoPlaylistTitle.orEmpty() }
@@ -115,21 +126,8 @@ object OutputTemplateBuilder {
             Regex("""[?&]list=([a-zA-Z0-9_-]+)""").find(u)?.groupValues?.get(1)
         }
 
-        val isPlaylist = playlistItem > 0 ||
-                preferences.downloadPlaylist ||
-                listId != null ||
-                allUrlsToCheck.any { it.contains("/playlist", ignoreCase = true) } ||
-                (rawPlaylistName.isNotBlank() && !rawPlaylistName.equals("NA", ignoreCase = true) && !rawPlaylistName.equals("Playlist", ignoreCase = true) && !rawPlaylistName.equals(videoInfo?.title, ignoreCase = true)) ||
-                !videoPlaylistTitle.isNullOrBlank() ||
-                !videoInfo?.playlist.isNullOrBlank() ||
-                !videoInfo?.playlistTitle.isNullOrBlank()
-
-        if (!isPlaylist && rawPlaylistName.isBlank()) {
-            return if (preferences.commandDirectory.isNotBlank()) {
-                File(preferences.commandDirectory)
-            } else {
-                File(basePath)
-            }
+        if (playlistItem <= 0 && (rawPlaylistName.isBlank() || rawPlaylistName.equals("NA", ignoreCase = true) || rawPlaylistName.equals("Playlist", ignoreCase = true) || rawPlaylistName.equals(videoInfo?.title, ignoreCase = true))) {
+            return File(basePath)
         }
 
         val cleanPlaylistName = FileUtil.cleanFileName(rawPlaylistName).trim()
@@ -138,18 +136,6 @@ object OutputTemplateBuilder {
             }
 
         val folderName = if (isSubtitleOnly) "[Subtitles] $cleanPlaylistName" else cleanPlaylistName
-
-        if (preferences.commandDirectory.isNotBlank()) {
-            val cmdDir = File(preferences.commandDirectory)
-            if (cmdDir.name.equals(folderName, ignoreCase = true) || cmdDir.name.equals(cleanPlaylistName, ignoreCase = true)) {
-                return cmdDir
-            }
-            return if (preferences.subdirectoryPlaylistTitle || isSubtitleOnly || isPlaylist) {
-                File(cmdDir, folderName)
-            } else {
-                cmdDir
-            }
-        }
 
         return File(basePath, folderName)
     }

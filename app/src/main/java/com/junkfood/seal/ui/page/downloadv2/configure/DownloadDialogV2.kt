@@ -778,7 +778,7 @@ private fun ConfigurePage(
                         downloadType = selectedType,
                     )
                 )
-                val isPlaylist = selectedType == Playlist || (url.contains("list=", ignoreCase = true) || url.contains("/playlist", ignoreCase = true)) || preferences.downloadPlaylist
+                val isPlaylist = selectedType == Playlist || (preferences.downloadPlaylist && (url.contains("list=", ignoreCase = true) || url.contains("/playlist", ignoreCase = true))) || (url.contains("/playlist", ignoreCase = true) && !url.contains("watch?v=", ignoreCase = true) && !url.contains("youtu.be/", ignoreCase = true))
                 onActionPost(
                     Action.DownloadWithPreset(
                         urlList = listOf(url),
@@ -800,7 +800,7 @@ private fun ConfigurePage(
                         downloadType = selectedType,
                     )
                 )
-                val isPlaylist = selectedType == Playlist || (url.contains("list=", ignoreCase = true) || url.contains("/playlist", ignoreCase = true)) || preferences.downloadPlaylist
+                val isPlaylist = selectedType == Playlist || (preferences.downloadPlaylist && (url.contains("list=", ignoreCase = true) || url.contains("/playlist", ignoreCase = true))) || (url.contains("/playlist", ignoreCase = true) && !url.contains("watch?v=", ignoreCase = true) && !url.contains("youtu.be/", ignoreCase = true))
                 val updatedPrefs = preferences.copy(
                     downloadPlaylist = isPlaylist,
                     extractAudio = selectedType == Audio,

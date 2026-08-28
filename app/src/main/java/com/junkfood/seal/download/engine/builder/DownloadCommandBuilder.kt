@@ -247,7 +247,7 @@ object DownloadCommandBuilder {
             val shouldMergeToMkv = mergeToMkv || (downloadSubtitle && embedSubtitle) || embedSubtitle
             if (downloadSubtitle || embedSubtitle) {
                 val subOpts = SubtitleOptionBuilder.buildForMediaWithSubtitles(
-                    subtitleLanguage = subtitleLanguage.ifEmpty { "all" },
+                    subtitleLanguage = subtitleLanguage,
                     convertSubtitle = convertSubtitle,
                     autoSubtitle = autoSubtitle,
                     autoTranslatedSubtitles = autoTranslatedSubtitles,
