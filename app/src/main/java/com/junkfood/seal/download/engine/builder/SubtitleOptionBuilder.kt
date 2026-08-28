@@ -148,8 +148,8 @@ object SubtitleOptionBuilder {
             writeSubs = true,
             writeAutoSubs = shouldWriteAutoSubs,
             subLangs = buildSubLangsOption(subtitleLanguage),
-            subFormat = if (embedSubtitle) "srt/vtt/best" else SUB_FORMAT_PREFERENCE,
-            convertSubs = if (embedSubtitle) "srt" else getConvertSubsValue(convertSubtitle),
+            subFormat = SUB_FORMAT_PREFERENCE,
+            convertSubs = getConvertSubsValue(convertSubtitle),
             embedSubs = embedSubtitle,
         )
     }

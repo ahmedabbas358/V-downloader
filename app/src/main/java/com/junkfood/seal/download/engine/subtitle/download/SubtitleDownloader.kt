@@ -48,7 +48,7 @@ object SubtitleDownloader {
         tracks: List<SubtitleTrack>,
         destinationDir: File,
         preferences: DownloadPreferences,
-        clientChain: List<YoutubeClient> = listOf(YoutubeClient.ANDROID, YoutubeClient.DEFAULT, YoutubeClient.WEB),
+        clientChain: List<YoutubeClient> = listOf(YoutubeClient.IOS, YoutubeClient.MWEB, YoutubeClient.WEB),
         playlistIndex: Int = 0,
         appContext: Context = context,
         onProgress: (SubtitleProgress) -> Unit = {}
@@ -77,7 +77,7 @@ object SubtitleDownloader {
         title: String = "",
         playlistIndex: Int = 0,
         appContext: Context = context,
-        clientChain: List<YoutubeClient> = listOf(YoutubeClient.ANDROID, YoutubeClient.DEFAULT, YoutubeClient.WEB),
+        clientChain: List<YoutubeClient> = listOf(YoutubeClient.IOS, YoutubeClient.MWEB, YoutubeClient.WEB),
         onProgress: (SubtitleProgress) -> Unit = {}
     ): Result<List<File>> = withContext(Dispatchers.IO) {
         runCatching {
@@ -362,7 +362,7 @@ object SubtitleDownloader {
                     addOption("--write-auto-subs")
                     addOption("--sub-langs", subLangs)
                     addOption("--sub-format", "best/vtt/srt/ass/lrc/srv3/srv2/srv1")
-                    val extractorArgs = YoutubeClientStrategy.buildExtractorArgs(clientChain = listOf(YoutubeClient.ANDROID, YoutubeClient.DEFAULT, YoutubeClient.WEB))
+                    val extractorArgs = YoutubeClientStrategy.buildExtractorArgs(clientChain = listOf(YoutubeClient.IOS, YoutubeClient.MWEB, YoutubeClient.WEB))
                     addOption("--extractor-args", extractorArgs)
 
                     FFmpegManager.getFFmpegExecutable(appContext)?.let { ffmpegFile ->

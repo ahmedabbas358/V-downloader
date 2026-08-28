@@ -244,7 +244,7 @@ object DownloadCommandBuilder {
             applyFormatSorter(request, preferences, sorter)
 
             // Subtitle options
-            val shouldMergeToMkv = mergeToMkv
+            val shouldMergeToMkv = mergeToMkv || (downloadSubtitle && embedSubtitle) || embedSubtitle
             if (downloadSubtitle || embedSubtitle) {
                 val subOpts = SubtitleOptionBuilder.buildForMediaWithSubtitles(
                     subtitleLanguage = subtitleLanguage.ifEmpty { "all" },
@@ -397,7 +397,6 @@ object DownloadCommandBuilder {
             request.addOption("--embed-subs")
             val fmt = when {
                 options.convertSubs.equals("lrc", ignoreCase = true) -> "srt"
-                !isMkv -> "srt" // MP4 container requires mov_text from srt/vtt
                 options.convertSubs.isNotEmpty() -> options.convertSubs
                 else -> "srt"
             }
