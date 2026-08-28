@@ -47,18 +47,30 @@ object PlaylistVerifier {
     )
 
     class LocalFileIndex(private val files: List<LocalFileRecord>) {
+        private val claimedPaths = mutableSetOf<String>()
+
         fun findByVideoId(videoId: String, exts: Set<String>): LocalFileRecord? {
             if (videoId.isBlank() || videoId.length < 4) return null
-            return files.firstOrNull { record ->
+            val match = files.firstOrNull { record ->
+                if (claimedPaths.contains(record.absolutePath)) return@firstOrNull false
                 val ext = record.name.substringAfterLast('.', "").lowercase(Locale.US)
                 val matchesExt = exts.isEmpty() || exts.contains(ext) || record.isPartial
-                matchesExt && (
-                    record.name.contains(videoId, ignoreCase = true) ||
-                    record.name.contains("[$videoId]", ignoreCase = true) ||
-                    record.name.contains("_$videoId", ignoreCase = true) ||
-                    record.name.contains("-$videoId", ignoreCase = true)
-                )
+                if (!matchesExt) return@firstOrNull false
+
+                // Check for exact video ID patterns in filename
+                val name = record.name
+                name.contains("[$videoId]", ignoreCase = true) ||
+                name.contains("_$videoId", ignoreCase = true) ||
+                name.contains("-$videoId", ignoreCase = true) ||
+                name.contains(" $videoId ", ignoreCase = true) ||
+                name.contains(" $videoId.", ignoreCase = true) ||
+                name.contains(" $videoId[", ignoreCase = true) ||
+                (name.contains(videoId, ignoreCase = true) && !name.contains(Regex("[a-zA-Z0-9_-]$videoId[a-zA-Z0-9_-]")))
             }
+            if (match != null) {
+                claimedPaths.add(match.absolutePath)
+            }
+            return match
         }
 
         fun findByIndexedTitle(index: Int, normalizedTitle: String, exts: Set<String>): LocalFileRecord? {
@@ -67,7 +79,8 @@ object PlaylistVerifier {
             val indexPadded2 = "%02d".format(Locale.US, index)
             val indexStr = index.toString()
 
-            return files.firstOrNull { record ->
+            val match = files.firstOrNull { record ->
+                if (claimedPaths.contains(record.absolutePath)) return@firstOrNull false
                 val ext = record.name.substringAfterLast('.', "").lowercase(Locale.US)
                 val matchesExt = exts.isEmpty() || exts.contains(ext) || record.isPartial
                 if (!matchesExt) return@firstOrNull false
@@ -90,31 +103,36 @@ object PlaylistVerifier {
 
                 if (!startsWithIndex) return@firstOrNull false
 
-                if (normalizedTitle.isBlank()) return@firstOrNull false
+                if (normalizedTitle.isBlank()) return@firstOrNull true
 
                 val cleanedName = cleanFileNameForMatching(record.name)
                 val normalizedRecordName = normalizeText(cleanedName)
                 if (normalizedRecordName == normalizedTitle) return@firstOrNull true
-                if (normalizedTitle.length >= 3 && normalizedRecordName.contains(normalizedTitle)) return@firstOrNull true
-                if (normalizedRecordName.length >= 3 && normalizedTitle.contains(normalizedRecordName)) return@firstOrNull true
+                if (normalizedTitle.length >= 4 && normalizedRecordName.contains(normalizedTitle)) return@firstOrNull true
+                if (normalizedRecordName.length >= 4 && normalizedTitle.contains(normalizedRecordName)) return@firstOrNull true
 
-                // Token overlap check for yt-dlp truncated or sanitized titles
+                // High token overlap requirement
                 val recordTokens = normalizedRecordName.split(' ').filter { it.length >= 2 }.toSet()
                 val titleTokens = normalizedTitle.split(' ').filter { it.length >= 2 }.toSet()
                 if (recordTokens.isNotEmpty() && titleTokens.isNotEmpty()) {
                     val intersection = recordTokens.intersect(titleTokens)
-                    val minTokenCount = titleTokens.size.coerceAtMost(recordTokens.size)
-                    val overlapRatio = if (minTokenCount > 0) intersection.size.toFloat() / minTokenCount.toFloat() else 0f
-                    if (overlapRatio >= 0.5f || intersection.size >= 2) return@firstOrNull true
+                    val union = recordTokens.union(titleTokens)
+                    val jaccard = intersection.size.toFloat() / union.size.toFloat()
+                    if (jaccard >= 0.6f) return@firstOrNull true
                 }
 
                 false
             }
+            if (match != null) {
+                claimedPaths.add(match.absolutePath)
+            }
+            return match
         }
 
         fun findByExactName(normalizedTitle: String, exts: Set<String>): LocalFileRecord? {
-            if (normalizedTitle.isBlank()) return null
-            return files.firstOrNull { record ->
+            if (normalizedTitle.isBlank() || normalizedTitle.length < 3) return null
+            val match = files.firstOrNull { record ->
+                if (claimedPaths.contains(record.absolutePath)) return@firstOrNull false
                 val ext = record.name.substringAfterLast('.', "").lowercase(Locale.US)
                 val matchesExt = exts.isEmpty() || exts.contains(ext) || record.isPartial
                 if (!matchesExt) return@firstOrNull false
@@ -122,20 +140,25 @@ object PlaylistVerifier {
                 val cleanedName = cleanFileNameForMatching(record.name)
                 val normalizedRecordName = normalizeText(cleanedName)
                 if (normalizedRecordName == normalizedTitle) return@firstOrNull true
-                if (normalizedTitle.length >= 4 && normalizedRecordName.contains(normalizedTitle)) return@firstOrNull true
-                if (normalizedRecordName.length >= 4 && normalizedTitle.contains(normalizedRecordName)) return@firstOrNull true
+                if (normalizedTitle.length >= 6 && normalizedRecordName.contains(normalizedTitle)) return@firstOrNull true
+                if (normalizedRecordName.length >= 6 && normalizedTitle.contains(normalizedRecordName)) return@firstOrNull true
 
                 val recordTokens = normalizedRecordName.split(' ').filter { it.length >= 2 }.toSet()
                 val titleTokens = normalizedTitle.split(' ').filter { it.length >= 2 }.toSet()
                 if (recordTokens.isNotEmpty() && titleTokens.isNotEmpty()) {
                     val intersection = recordTokens.intersect(titleTokens)
-                    val minSize = titleTokens.size.coerceAtMost(recordTokens.size)
-                    if (minSize > 0 && intersection.size.toFloat() / minSize.toFloat() >= 0.5f) {
+                    val union = recordTokens.union(titleTokens)
+                    val jaccard = intersection.size.toFloat() / union.size.toFloat()
+                    if (jaccard >= 0.75f) {
                         return@firstOrNull true
                     }
                 }
                 false
             }
+            if (match != null) {
+                claimedPaths.add(match.absolutePath)
+            }
+            return match
         }
 
         fun getAllPartials(): List<LocalFileRecord> = files.filter { it.isPartial }
@@ -251,16 +274,9 @@ object PlaylistVerifier {
             findFuzzySiblingDirs(File(App.videoDownloadDir))
             findFuzzySiblingDirs(File(App.audioDownloadDir))
 
-            // Add base root download folders only as fallback if no specific playlist directory exists
-            if (candidateDirs.isEmpty()) {
-                if (defaultBaseDir.exists() && defaultBaseDir.isDirectory) {
-                    candidateDirs.add(defaultBaseDir)
-                }
-            }
-
+            val preferred = if (isSubtitleOnly) subFolder else plainFolder
             if (finalDirPath.isEmpty()) {
-                val preferred = if (isSubtitleOnly) subFolder else plainFolder
-                finalDirPath = candidateDirs.firstOrNull { it.exists() && it != defaultBaseDir }?.absolutePath ?: preferred.absolutePath
+                finalDirPath = candidateDirs.firstOrNull { it.exists() }?.absolutePath ?: preferred.absolutePath
             }
 
             Log.d(TAG, "scanPlaylist: Target Directory determined as $finalDirPath with ${candidateDirs.size} candidate scan folders")

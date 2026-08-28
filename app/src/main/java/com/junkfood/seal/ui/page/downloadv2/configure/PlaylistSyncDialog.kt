@@ -453,6 +453,7 @@ fun PlaylistSyncDialog(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
+                            val totalMissingCount = missingOrIncompleteItems.size + unknownItems.size
                             Card(
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
                                 modifier = Modifier.weight(1f)
@@ -461,11 +462,11 @@ fun PlaylistSyncDialog(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Downloaded", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
+                                        Text("تم تنزيله", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
                                     }
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = "${result.summary.downloaded} / ${result.totalCount}",
+                                        text = "${foundItems.size} / ${result.totalCount}",
                                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                         color = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
@@ -479,34 +480,14 @@ fun PlaylistSyncDialog(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(imageVector = Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Missing", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
+                                        Text("المفقود", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
                                     }
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = "${missingOrIncompleteItems.size} / ${result.totalCount}",
+                                        text = "$totalMissingCount / ${result.totalCount}",
                                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                         color = MaterialTheme.colorScheme.onErrorContainer
                                     )
-                                }
-                            }
-                            if (unknownItems.isNotEmpty()) {
-                                Card(
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Column(modifier = Modifier.padding(12.dp)) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(imageVector = Icons.Outlined.Info, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.tertiary)
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text("Unknown", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
-                                        }
-                                        Spacer(modifier = Modifier.height(2.dp))
-                                        Text(
-                                            text = "${unknownItems.size} / ${result.totalCount}",
-                                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                            color = MaterialTheme.colorScheme.onTertiaryContainer
-                                        )
-                                    }
                                 }
                             }
                         }
@@ -516,6 +497,7 @@ fun PlaylistSyncDialog(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Tab Switcher between Missing and Found
+                val totalMissingCount = missingOrIncompleteItems.size + unknownItems.size
                 PrimaryTabRow(
                     selectedTabIndex = resultTab,
                     modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
@@ -523,12 +505,12 @@ fun PlaylistSyncDialog(
                     Tab(
                         selected = resultTab == 0,
                         onClick = { resultTab = 0 },
-                        text = { Text("Missing (${missingOrIncompleteItems.size + unknownItems.size})") }
+                        text = { Text("المفقود ($totalMissingCount)") }
                     )
                     Tab(
                         selected = resultTab == 1,
                         onClick = { resultTab = 1 },
-                        text = { Text("Downloaded (${foundItems.size})") }
+                        text = { Text("المحمّل (${foundItems.size})") }
                     )
                 }
 
