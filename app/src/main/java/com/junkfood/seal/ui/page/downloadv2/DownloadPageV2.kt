@@ -678,7 +678,8 @@ fun DownloadPageImplV2(
                                     playlistTitle = queueItem.playlistTitle,
                                     batchType = queueItem.batchType,
                                     tasks = queueItem.tasks,
-                                    onActionPost = onActionPost
+                                    onActionPost = onActionPost,
+                                    onShowActionSheet = { task -> showActionSheet(task) }
                                 )
                             }
                             is QueueUiItem.SingleTask -> {

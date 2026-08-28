@@ -99,9 +99,11 @@ fun PlaylistBatchCard(
     batchType: PlaylistBatchType = PlaylistBatchType.VIDEO,
     tasks: List<Pair<Task, Task.State>>,
     onActionPost: (Task, UiAction) -> Unit,
+    onShowActionSheet: ((Task) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     var isExpanded by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
 
     val cleanPlaylistTitle = playlistTitle
         .removePrefix("[Subtitles] ")
@@ -213,46 +215,161 @@ fun PlaylistBatchCard(
                     }
                 }
 
-                // Status Badge
-                Surface(
-                    shape = CircleShape,
-                    color = when {
-                        isAllCompleted -> MaterialTheme.colorScheme.primaryContainer
-                        isRunning -> MaterialTheme.colorScheme.secondaryContainer
-                        errorCount > 0 -> MaterialTheme.colorScheme.errorContainer
-                        else -> MaterialTheme.colorScheme.surfaceVariant
-                    },
-                    modifier = Modifier.padding(start = 8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                // Status Badge & Menu
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = CircleShape,
+                        color = when {
+                            isAllCompleted -> MaterialTheme.colorScheme.primaryContainer
+                            isRunning -> MaterialTheme.colorScheme.secondaryContainer
+                            errorCount > 0 -> MaterialTheme.colorScheme.errorContainer
+                            else -> MaterialTheme.colorScheme.surfaceVariant
+                        },
+                        modifier = Modifier.padding(start = 8.dp)
                     ) {
-                        if (isRunning) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(10.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.secondary
-                            )
-                            Spacer(Modifier.width(6.dp))
-                        }
-                        Text(
-                            text = when {
-                                isAllCompleted -> "مكتمل ✓"
-                                isRunning -> "جاري التنزيل..."
-                                canceledCount > 0 -> "متوقف"
-                                errorCount > 0 -> "فشل $errorCount"
-                                else -> "في الانتظار"
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Medium,
-                            color = when {
-                                isAllCompleted -> MaterialTheme.colorScheme.onPrimaryContainer
-                                isRunning -> MaterialTheme.colorScheme.onSecondaryContainer
-                                errorCount > 0 -> MaterialTheme.colorScheme.onErrorContainer
-                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (isRunning) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(10.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                                Spacer(Modifier.width(6.dp))
                             }
-                        )
+                            Text(
+                                text = when {
+                                    isAllCompleted -> "مكتمل ✓"
+                                    isRunning -> "جاري التنزيل..."
+                                    canceledCount > 0 -> "متوقف"
+                                    errorCount > 0 -> "فشل $errorCount"
+                                    else -> "في الانتظار"
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Medium,
+                                color = when {
+                                    isAllCompleted -> MaterialTheme.colorScheme.onPrimaryContainer
+                                    isRunning -> MaterialTheme.colorScheme.onSecondaryContainer
+                                    errorCount > 0 -> MaterialTheme.colorScheme.onErrorContainer
+                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            )
+                        }
+                    }
+
+                    Box {
+                        IconButton(
+                            onClick = { showMenu = true },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.MoreVert,
+                                contentDescription = "خيارات القائمة",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            if (!isRunning && !isAllCompleted) {
+                                DropdownMenuItem(
+                                    text = { Text("استئناف الكل") },
+                                    leadingIcon = { Icon(Icons.Rounded.PlayArrow, contentDescription = null) },
+                                    onClick = {
+                                        tasks.forEach { (task, state) ->
+                                            if (state.downloadState is Task.DownloadState.Restartable) {
+                                                onActionPost(task, UiAction.Resume)
+                                            }
+                                        }
+                                        showMenu = false
+                                    }
+                                )
+                            }
+                            if (isRunning) {
+                                DropdownMenuItem(
+                                    text = { Text("إيقاف مؤقت للكل") },
+                                    leadingIcon = { Icon(Icons.Outlined.Pause, contentDescription = null) },
+                                    onClick = {
+                                        tasks.forEach { (task, state) ->
+                                            if (state.downloadState is Running || state.downloadState is FetchingInfo || state.downloadState is Idle || state.downloadState is ReadyWithInfo) {
+                                                onActionPost(task, UiAction.Pause)
+                                            }
+                                        }
+                                        showMenu = false
+                                    }
+                                )
+                            }
+                            if (errorCount > 0) {
+                                DropdownMenuItem(
+                                    text = { Text("إعادة محاولة العناصر الفاشلة ($errorCount)") },
+                                    leadingIcon = { Icon(Icons.Rounded.Refresh, contentDescription = null) },
+                                    onClick = {
+                                        tasks.filter { it.second.downloadState is Error || it.second.downloadState is Canceled }
+                                            .forEach { (task, _) -> onActionPost(task, UiAction.Resume) }
+                                        showMenu = false
+                                    }
+                                )
+                            }
+                            DropdownMenuItem(
+                                text = { Text("فتح مجلد القائمة") },
+                                leadingIcon = { Icon(Icons.Outlined.FolderOpen, contentDescription = null) },
+                                onClick = {
+                                    val completedFilePath = tasks.firstNotNullOfOrNull { (_, state) ->
+                                        (state.downloadState as? Completed)?.filePath?.takeIf { File(it).exists() }
+                                    }
+                                    val isAudio = batchType == PlaylistBatchType.AUDIO
+                                    val isSub = batchType == PlaylistBatchType.SUBTITLE
+                                    val dirToOpen = if (completedFilePath != null) {
+                                        File(completedFilePath).parentFile ?: (if (isAudio) File(com.junkfood.seal.App.audioDownloadDir) else File(com.junkfood.seal.App.videoDownloadDir))
+                                    } else {
+                                        val firstTask = tasks.firstOrNull()?.first
+                                        val isAudioDownload = isAudio
+                                        val basePath = if (firstTask != null) {
+                                            OutputTemplateBuilder.resolveBaseDirectory(firstTask.preferences, isAudioDownload)
+                                        } else {
+                                            if (isAudio) com.junkfood.seal.App.audioDownloadDir else com.junkfood.seal.App.videoDownloadDir
+                                        }
+                                        val cleanFolder = FileUtil.cleanFileName(cleanPlaylistTitle).ifBlank { "Playlist" }
+                                        val folderName = if (isSub) "[Subtitles] $cleanFolder" else cleanFolder
+                                        val target = File(basePath, folderName)
+                                        val altTarget = if (isSub) File(basePath, cleanFolder) else File(basePath, "[Subtitles] $cleanFolder")
+                                        when {
+                                            target.exists() -> target
+                                            altTarget.exists() -> altTarget
+                                            else -> target
+                                        }
+                                    }
+                                    if (!dirToOpen.exists()) dirToOpen.mkdirs()
+                                    FileUtil.openDirectory(dirToOpen.absolutePath)
+                                    showMenu = false
+                                }
+                            )
+                            if (!isAllCompleted) {
+                                DropdownMenuItem(
+                                    text = { Text("إلغاء تنزيل القائمة") },
+                                    leadingIcon = { Icon(Icons.Outlined.Cancel, contentDescription = null) },
+                                    onClick = {
+                                        tasks.forEach { (task, state) ->
+                                            if (state.downloadState !is Completed) {
+                                                onActionPost(task, UiAction.Cancel)
+                                            }
+                                        }
+                                        showMenu = false
+                                    }
+                                )
+                            }
+                            DropdownMenuItem(
+                                text = { Text("حذف القائمة من السجل") },
+                                leadingIcon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null) },
+                                onClick = {
+                                    tasks.forEach { (task, _) -> onActionPost(task, UiAction.Delete) }
+                                    showMenu = false
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -374,8 +491,29 @@ fun PlaylistBatchCard(
                     )
                 }
 
-                // Batch Actions
+                // Batch Actions Toolbar
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    // Retry failed items button
+                    if (errorCount > 0) {
+                        FilledTonalIconButton(
+                            onClick = {
+                                tasks.filter { it.second.downloadState is Error || it.second.downloadState is Canceled }
+                                    .forEach { (task, _) -> onActionPost(task, UiAction.Resume) }
+                            },
+                            modifier = Modifier.size(34.dp),
+                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                contentColor = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Refresh,
+                                contentDescription = "إعادة محاولة العناصر الفاشلة",
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
                     // Open folder button
                     FilledTonalIconButton(
                         onClick = {
@@ -477,7 +615,7 @@ fun PlaylistBatchCard(
                 }
             }
 
-            // ── Expanded Individual Items List ──────────────────────────────────────
+            // ── Expanded Individual Items List with full controls ───────────────────
             AnimatedVisibility(
                 visible = isExpanded,
                 enter = expandVertically() + fadeIn(),
@@ -512,13 +650,13 @@ fun PlaylistBatchCard(
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .then(
-                                    if (isItemDone && !completedPath.isNullOrBlank()) {
-                                        Modifier.clickable {
-                                            onActionPost(task, UiAction.OpenFile(completedPath))
-                                        }
-                                    } else Modifier
-                                )
+                                .clickable {
+                                    if (onShowActionSheet != null) {
+                                        onShowActionSheet(task)
+                                    } else if (isItemDone && !completedPath.isNullOrBlank()) {
+                                        onActionPost(task, UiAction.OpenFile(completedPath))
+                                    }
+                                }
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),

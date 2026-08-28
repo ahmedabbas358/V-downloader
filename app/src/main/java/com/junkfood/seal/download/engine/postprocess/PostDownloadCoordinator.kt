@@ -115,14 +115,6 @@ object PostDownloadCoordinator {
                 Log.w(TAG, "No subtitle paths discovered, falling back to directory scan")
                 fallbackDirectoryScan(fileName, downloadPath, isSubtitleOnly = true, videoId = videoInfo.id)
             }
-            if (finalPaths.isEmpty()) {
-                val lastResort = findMostRecentSubtitleFile(downloadPath, windowMinutes = 15)
-                    ?: File(downloadPath).parentFile?.let { findMostRecentSubtitleFile(it.absolutePath, windowMinutes = 15) }
-                if (lastResort != null) {
-                    Log.w(TAG, "Last-resort subtitle file found: $lastResort")
-                    finalPaths = listOf(lastResort)
-                }
-            }
         } else {
             // Media download: use yt-dlp-reported media paths (not subtitles)
             val reportedMedia = mediaPaths.filter { MEDIA_REGEX.containsMatchIn(it) }

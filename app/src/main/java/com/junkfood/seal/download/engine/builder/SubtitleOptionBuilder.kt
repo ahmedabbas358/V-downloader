@@ -53,15 +53,13 @@ object SubtitleOptionBuilder {
                 expanded.add(base)
             }
             if (base == "ar") {
-                expanded.add("ar-.*")
-                expanded.add("ar-orig")
                 expanded.add("ar.*")
+                expanded.add("ar-orig")
             } else if (base == "en") {
-                expanded.add("en-.*")
-                expanded.add("en-orig")
                 expanded.add("en.*")
+                expanded.add("en-orig")
             } else if (!lang.contains(".*") && !lang.contains("-")) {
-                expanded.add("$lang-.*")
+                expanded.add("$lang.*")
             }
         }
 

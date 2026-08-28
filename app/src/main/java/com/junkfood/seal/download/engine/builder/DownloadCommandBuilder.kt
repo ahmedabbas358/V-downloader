@@ -395,20 +395,16 @@ object DownloadCommandBuilder {
         if (options.subFormat.isNotEmpty()) request.addOption("--sub-format", options.subFormat)
         if (options.embedSubs) {
             request.addOption("--embed-subs")
-            if (isMkv) {
-                val fmt = when {
-                    options.convertSubs.equals("lrc", ignoreCase = true) -> "srt"
-                    options.convertSubs.isNotEmpty() -> options.convertSubs
-                    else -> "srt"
-                }
-                request.addOption("--convert-subs", fmt)
-            } else {
-                request.addOption("--convert-subs", "srt")
-                request.addOption("--ppa", "EmbedSubtitle:-c:s mov_text")
+            val fmt = when {
+                options.convertSubs.equals("lrc", ignoreCase = true) -> "srt"
+                options.convertSubs.isNotEmpty() -> options.convertSubs
+                else -> "srt"
             }
+            request.addOption("--convert-subs", fmt)
         } else if (options.convertSubs.isNotEmpty()) {
             request.addOption("--convert-subs", options.convertSubs)
         }
+        request.addOption("--no-abort-on-error")
         request.addOption("--ignore-errors")
     }
 
