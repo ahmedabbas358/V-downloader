@@ -83,6 +83,16 @@ jobs:
           if-no-files-found: ignore
           retention-days: 20
 
+      # Extract App Version dynamically from Version.kt
+      - name: Extract App Version
+        run: |
+          MAJOR=$(grep -oE 'versionMajor\s*=\s*[0-9]+' buildSrc/src/main/kotlin/Version.kt | grep -oE '[0-9]+')
+          MINOR=$(grep -oE 'versionMinor\s*=\s*[0-9]+' buildSrc/src/main/kotlin/Version.kt | grep -oE '[0-9]+')
+          PATCH=$(grep -oE 'versionPatch\s*=\s*[0-9]+' buildSrc/src/main/kotlin/Version.kt | grep -oE '[0-9]+')
+          APP_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "APP_VERSION=$APP_VERSION" >> $GITHUB_ENV
+          echo "Extracted App Version: $APP_VERSION"
+
       # Prune previous GitHub releases
       - name: Delete Previous GitHub Releases
         env:
@@ -104,31 +114,34 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           files: app/build/outputs/apk/generic/release/*.apk
-          name: V-Downloader v3.6.27 — استقرار تنزيل القوائم والترجمات وحل تجميد الواجهة
-          tag_name: v3.6.27
+          name: V-Downloader ${{ env.APP_VERSION }} — التحديث الشامل والإصلاحات الدقيقة
+          tag_name: ${{ env.APP_VERSION }}
           target_commitish: ${{ github.sha }}
           draft: false
           prerelease: false
           make_latest: true
           body: |
-            # 🚀 V-Downloader v3.6.27 — التحديث الشامل للاستقرار وتنزيل القوائم والترجمات
+            # 🚀 V-Downloader ${{ env.APP_VERSION }} — التحديث الشامل والإصلاحات الدقيقة
 
-            > ⚡ **تحديث فائق الاستقرار يحل مشكلات دمج الترجمات وتجميد الواجهة، ويسرّع تنزيل قوائم التشغيل مع تحكم كامل وإدارة ذكية للملفات.**
+            > ⚡ **تحديث شامل يحل مشكلات دمج الترجمات وتنزيل قوائم الترجمة، ويضبط مسارات حفظ المقاطع وتخصيص المجلدات من الإعدادات، مع تحكم كامل وإدارة ذكية للملفات.**
 
             ---
 
             ### ✨ أبرز التحسينات في هذا الإصدار:
 
+            * 📂 **حفظ المقاطع العامة وتخصيص المجلدات بدقة عالية**:
+              - حفظ كافة المقاطع والملفات الفردية والعامة مباشرة في مجلد التنزيل العام دون إنشاء أي مجلد داخلي باسم `Playlist`.
+              - قصر إنشاء المجلدات الفرعية فقط على عناصر قوائم التشغيل الفعلية.
+              - دعم كامل ودقيق لاختيار وتغيير مجلد التنزيل من الإعدادات عبر نظام SAF ووحدات التخزين وبطاقات SD.
+            * 📝 **دمج موثوق وشامل للترجمات (`--embed-subs`)**:
+              - إصلاح دمج ملفات الترجمة تلقائياً داخل حاويات MP4 و MKV دون أخطاء.
+              - تفعيل تنزيل وترجمة الكابشن التلقائي آلياً عند طلب دمج الترجمة أو تنزيلها لكافة صيغ اللغات (`ar.*`, `ar`, `ar-orig`, `.*-ar`).
             * ⚡ **تسريع وسلاسة تنزيل ترجمات القوائم (Fast & Anti-Ban)**:
-              - وتيرة تنزيل سريعة وانسيابية مع حماية متقدمة ضد حظر أو تجميد الاتصال من خوادم اليوتيوب.
-            * 📝 **دمج موثوق للترجمات داخل الفيديو (`--embed-subs`)**:
-              - إصلاح دمج ملفات الترجمة تلقائياً داخل حاويات MP4 و MKV بدون أخطاء.
+              - وتيرة تنزيل سريعة وانسيابية مع حماية متقدمة ضد حظر أو تجميد الاتصال من خوادم اليوتيوب وحل مشكلة التوقف في دائرة البداية.
             * 🎛️ **شريط تحكم متكامل لقوائم التشغيل**:
               - خيارات جماعية سلسة (استئناف، إيقاف، إعادة المحاولة، وفتح المجلد)، مع إمكانية إدارة وتخصيص كل مقطع على حدة.
-            * 🛡️ **القضاء على تجميد الواجهة (No Bottom Sheet Hang & ANR)**:
+            * 🛡️ **القضاء على تجميد الواجهة (No Hang & ANR)**:
               - معالجة تعليق القائمة السفلية والتنزيل التلقائي وتأمين تزامن العمليات في الخلفية.
-            * 🔍 **مزامنة ذكية ومطابقة دقيقة (Smart Playlist Sync)**:
-              - فحص وتدقيق دقيق 1-إلى-1 للملفات المكتملة والمتبقية دون خلط.
 
             ---
 
