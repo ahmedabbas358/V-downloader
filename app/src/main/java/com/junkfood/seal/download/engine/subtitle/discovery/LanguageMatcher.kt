@@ -72,10 +72,14 @@ object LanguageMatcher {
     )
 
     /**
-     * Normalizes a language tag to lowercase standard format (e.g. "en_US" -> "en-us", "العربية" -> "ar").
+     * Normalizes a language tag to lowercase standard format (e.g. "en_US" -> "en-us", "ar.*" -> "ar", "العربية" -> "ar").
      */
     fun normalizeLangCode(code: String): String {
-        val trimmed = code.trim().lowercase(Locale.US).replace('_', '-')
+        val trimmed = code.trim()
+            .removeSuffix(".*")
+            .removeSuffix("*")
+            .lowercase(Locale.US)
+            .replace('_', '-')
         return LANGUAGE_NAME_ALIASES[trimmed] ?: trimmed
     }
 
@@ -105,7 +109,7 @@ object LanguageMatcher {
                 val baseQ = getBaseLanguageCode(normQ)
 
                 // 1. Direct equality or base match
-                if (normCode == normQ || baseCode == baseQ || rawCode.equals(q, ignoreCase = true)) {
+                if (normCode == normQ || baseCode == baseQ || rawCode.equals(q, ignoreCase = true) || rawCode.equals(normQ, ignoreCase = true)) {
                     matched.add(rawCode)
                     break
                 }
@@ -118,8 +122,8 @@ object LanguageMatcher {
 
                 // 3. Regex / wildcard match
                 if (q.contains('*') || q.contains('.')) {
-                    val regexPattern = if (q.contains('*') && !q.contains(".*")) q.replace("*", ".*") else q
-                    val regex = runCatching { Regex("(?i)^$regexPattern$") }.getOrNull()
+                    val cleanPattern = if (q.contains(".*")) q else q.replace("*", ".*")
+                    val regex = runCatching { Regex("(?i)^$cleanPattern$") }.getOrNull()
                     if (regex != null && (regex.matches(rawCode) || regex.matches(normCode))) {
                         matched.add(rawCode)
                         break
@@ -192,10 +196,13 @@ object LanguageMatcher {
         val baseQuery = getBaseLanguageCode(normQuery)
 
         // 1. Wildcard / regex query check (e.g. "ar.*", ".*-ar", "ar-orig")
-        if (query.contains("*") || query.contains(".")) {
-            val regex = runCatching { Regex("(?i)^" + query.replace("*", ".*") + "$") }.getOrNull()
+        if (query.contains("*")) {
+            val cleanPattern = if (query.contains(".*")) query else query.replace("*", ".*")
+            val regex = runCatching { Regex("(?i)^$cleanPattern$") }.getOrNull()
             if (regex != null) {
-                val wildMatches = candidateTracks.filter { regex.matches(it.languageCode) }
+                val wildMatches = candidateTracks.filter { 
+                    regex.matches(it.languageCode) || regex.matches(normalizeLangCode(it.languageCode))
+                }
                 if (wildMatches.isNotEmpty()) {
                     return filterBestByPolicy(wildMatches, policy)
                 }
