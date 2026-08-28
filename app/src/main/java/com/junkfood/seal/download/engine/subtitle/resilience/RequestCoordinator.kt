@@ -22,8 +22,8 @@ object RequestCoordinator {
     private var globalCooldownUntilTimestamp: Long = 0L
     private val cooldownMutex = Mutex()
 
-    const val DEFAULT_INTER_ITEM_DELAY_MS = 1800L
-    const val RATE_LIMIT_COOLDOWN_DELAY_MS = 6000L
+    const val DEFAULT_INTER_ITEM_DELAY_MS = 500L
+    const val RATE_LIMIT_COOLDOWN_DELAY_MS = 4000L
 
     /**
      * Executes a block within controlled concurrency and active cooldown awareness.
@@ -57,7 +57,7 @@ object RequestCoordinator {
         val now = System.currentTimeMillis()
         val remaining = globalCooldownUntilTimestamp - now
         if (remaining > 0) {
-            val jitter = Random.nextLong(200L, 800L)
+            val jitter = Random.nextLong(100L, 400L)
             delay(remaining + jitter)
         }
     }
@@ -67,7 +67,7 @@ object RequestCoordinator {
      */
     fun getPacingDelayMs(isRateLimited: Boolean = false): Long {
         val base = if (isRateLimited) RATE_LIMIT_COOLDOWN_DELAY_MS else DEFAULT_INTER_ITEM_DELAY_MS
-        val jitter = Random.nextLong(200L, 800L)
+        val jitter = if (isRateLimited) Random.nextLong(200L, 800L) else Random.nextLong(100L, 300L)
         return base + jitter
     }
 }

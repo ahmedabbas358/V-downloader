@@ -26,8 +26,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
@@ -45,6 +47,8 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -265,7 +269,7 @@ fun PlaylistBatchCard(
                             modifier = Modifier.size(32.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.MoreVert,
+                                imageVector = Icons.Default.MoreVert,
                                 contentDescription = "خيارات القائمة",
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -363,7 +367,7 @@ fun PlaylistBatchCard(
                             }
                             DropdownMenuItem(
                                 text = { Text("حذف القائمة من السجل") },
-                                leadingIcon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null) },
+                                leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
                                 onClick = {
                                     tasks.forEach { (task, _) -> onActionPost(task, UiAction.Delete) }
                                     showMenu = false
