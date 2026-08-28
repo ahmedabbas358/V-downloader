@@ -473,8 +473,8 @@ class DownloadQueueManager(
                     }
                 }
 
-                // If this is a playlist item, attempt fallback task if available
-                if (task.type is TypeInfo.Playlist && !(task.type as TypeInfo.Playlist).isFallback) {
+                // If this is a playlist item, attempt fallback task if available (media only, not subtitle-only)
+                if (task.type is TypeInfo.Playlist && !(task.type as TypeInfo.Playlist).isFallback && !task.preferences.skipDownload) {
                     val playlistType = task.type as TypeInfo.Playlist
                     val fallbackUrl = taskStateMap[task]?.viewState?.url?.ifEmpty { task.url } ?: task.url
                     val fallbackTask = task.copy(

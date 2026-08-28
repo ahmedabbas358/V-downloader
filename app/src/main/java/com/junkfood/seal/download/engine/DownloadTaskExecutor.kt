@@ -119,55 +119,40 @@ object DownloadTaskExecutor {
             null
         }
 
-        val isSubtitleTask = task.preferences.skipDownload && task.preferences.downloadSubtitle
-        var acquiredSubtitleLock = false
+        var retryCount = 0
+        val maxRetries = 3
+        var result: Result<VideoInfo>? = null
 
-        try {
-            if (isSubtitleTask) {
-                SubtitleManager.subtitleMutex.lock()
-                acquiredSubtitleLock = true
-                delay(50L)
+        while (retryCount <= maxRetries) {
+            if (retryCount > 0) {
+                delay((1000L * retryCount).coerceAtMost(3000L))
             }
 
-            var retryCount = 0
-            val maxRetries = 3
-            var result: Result<VideoInfo>? = null
+            val executionRes = DownloadUtil.fetchVideoInfoFromUrl(
+                url = fetchUrl,
+                playlistIndex = playlistIndex,
+                taskKey = task.id,
+                preferences = task.preferences,
+            )
 
-            while (retryCount <= maxRetries) {
-                if (retryCount > 0) {
-                    delay((1000L * retryCount).coerceAtMost(3000L))
-                }
-
-                val executionRes = DownloadUtil.fetchVideoInfoFromUrl(
-                    url = fetchUrl,
-                    playlistIndex = playlistIndex,
-                    taskKey = task.id,
-                    preferences = task.preferences,
-                )
-
-                if (executionRes.isSuccess) {
+            if (executionRes.isSuccess) {
+                result = executionRes
+                break
+            } else {
+                val th = executionRes.exceptionOrNull()
+                if (th is YoutubeDL.CanceledException) {
                     result = executionRes
                     break
-                } else {
-                    val th = executionRes.exceptionOrNull()
-                    if (th is YoutubeDL.CanceledException) {
-                        result = executionRes
-                        break
-                    }
-                    if (retryCount == maxRetries) {
-                        result = executionRes
-                        break
-                    }
-                    retryCount++
                 }
-            }
-
-            return@withContext result ?: Result.failure(IllegalStateException("لم يتم الحصول على نتيجة"))
-        } finally {
-            if (acquiredSubtitleLock) {
-                SubtitleManager.subtitleMutex.unlock()
+                if (retryCount == maxRetries) {
+                    result = executionRes
+                    break
+                }
+                retryCount++
             }
         }
+
+        return@withContext result ?: Result.failure(IllegalStateException("لم يتم الحصول على نتيجة"))
     }
 
     /**
@@ -192,57 +177,6 @@ object DownloadTaskExecutor {
 
         val isAudioDownload = DownloadUtil.isAudioOnlyDownload(task.preferences, videoInfo)
 
-        // ── Subtitle-only path ──────────────────────────────────────────────────
-        val isSubtitleTask = task.preferences.skipDownload && task.preferences.downloadSubtitle
-        if (isSubtitleTask) {
-            val targetDir = OutputTemplateBuilder.resolveTargetDirectory(
-                preferences = task.preferences,
-                isAudioDownload = false,
-                playlistItem = playlistItem,
-                fallbackPlaylistTitle = fallbackPlaylistTitle,
-                videoPlaylistTitle = if (playlistItem > 0) videoInfo.playlist else null,
-                videoInfo = videoInfo,
-                taskUrl = sourcePlaylistUrl.ifBlank { task.url }
-            )
-            targetDir.mkdirs()
-
-            val subtitleRes = SubtitleManager.downloadSubtitles(
-                url = videoInfo.originalUrl ?: videoInfo.webpageUrl ?: task.url,
-                videoInfo = videoInfo,
-                preferences = task.preferences,
-                destinationDir = targetDir,
-                playlistIndex = playlistItem,
-                onProgress = { progress ->
-                    onProgressUpdate(progress.progress, progress.statusMessage)
-                }
-            )
-
-            return@withContext when (subtitleRes) {
-                is com.junkfood.seal.download.engine.subtitle.model.SubtitleDownloadResult.Success -> {
-                    val paths = subtitleRes.downloadedFiles.map { it.absolutePath }
-                    PostDownloadCoordinator.handleDownloadCompletion(
-                        preferences = task.preferences,
-                        videoInfo = videoInfo,
-                        downloadPath = targetDir.absolutePath,
-                        sdcardUri = task.preferences.sdcardUri,
-                        playlistItem = playlistItem,
-                        fallbackPlaylistTitle = fallbackPlaylistTitle,
-                        discoveredPaths = paths,
-                        appContext = appContext,
-                    )
-                }
-                is com.junkfood.seal.download.engine.subtitle.model.SubtitleDownloadResult.Failure -> {
-                    if (playlistItem > 0 && (subtitleRes.error is com.junkfood.seal.download.engine.subtitle.model.SubtitleFailure.NoSubtitles || subtitleRes.error is com.junkfood.seal.download.engine.subtitle.model.SubtitleFailure.InvalidSubtitle)) {
-                        Log.w(TAG, "No subtitles found for playlist item $playlistItem (${videoInfo.title}), completing gracefully")
-                        Result.success(emptyList())
-                    } else {
-                        Result.failure(subtitleRes.error)
-                    }
-                }
-            }
-        }
-
-        // ── Regular media download path ─────────────────────────────────────────
         val request = DownloadCommandBuilder.buildDownloadRequest(
             url = videoInfo.originalUrl ?: videoInfo.webpageUrl ?: task.url,
             videoInfo = videoInfo,
@@ -257,6 +191,7 @@ object DownloadTaskExecutor {
 
         var lastUpdateTime = 0L
         val discoveredPaths = mutableSetOf<String>()
+        val isSubOnly = task.preferences.skipDownload
 
         val downloadExecResult = runCatching {
             YoutubeDL.getInstance().execute(
@@ -278,10 +213,13 @@ object DownloadTaskExecutor {
 
                     val effectiveProgress = when {
                         isMerging -> 0.95f
+                        isSubOnly -> (progressPercentage / 100f).coerceIn(0.1f, 0.99f)
                         else -> (progressPercentage / 100f).coerceIn(0f, 0.99f)
                     }
                     val effectiveText = when {
                         isMerging -> "جاري دمج الصوت والفيديو..."
+                        isSubOnly && text.contains("Destination:", ignoreCase = true) -> "تم تنزيل ملف الترجمة"
+                        isSubOnly -> "جاري تنزيل الترجمة..."
                         else -> text
                     }
 
@@ -300,8 +238,11 @@ object DownloadTaskExecutor {
                 return@withContext Result.failure(error)
             }
 
-            // SponsorBlock post-processor error — media was already saved, continue
-            if (task.preferences.sponsorBlock &&
+            // Subtitle-only tasks: if subtitles were missing or warning was logged, proceed to check output
+            if (isSubOnly) {
+                Log.w(TAG, "Subtitle download completed with warning (${error?.message}), proceeding to verify files")
+                // Fall through to PostDownloadCoordinator
+            } else if (task.preferences.sponsorBlock &&
                 error?.message?.contains("SponsorBlock", ignoreCase = true) == true) {
                 Log.w(TAG, "SponsorBlock failed (non-fatal), proceeding: ${error.message}")
                 // Fall through to post-processing
