@@ -455,6 +455,22 @@ class DownloadQueueManager(
             }.onFailure { throwable ->
                 if (throwable is YoutubeDL.CanceledException) return@onFailure
 
+                if (task.preferences.skipDownload && task.preferences.downloadSubtitle &&
+                    (throwable is com.junkfood.seal.download.engine.subtitle.model.SubtitleFailure.NoSubtitles ||
+                     throwable.message?.contains("No subtitle", ignoreCase = true) == true)) {
+                    Log.w(TAG, "No subtitles available for task ${task.id}, marking as skipped and proceeding to next item.")
+                    val current = taskStateMap[task]
+                    if (current != null) {
+                        taskStateMap[task] = current.copy(
+                            downloadState = Completed(null),
+                            viewState = current.viewState.copy(title = "[No Subs] ${current.viewState.title}")
+                        )
+                        checkPlaylistCompletion(task)
+                        processQueue()
+                        return@onFailure
+                    }
+                }
+
                 val isRateLimited = SubtitleManager.isRateLimitOrBotError(throwable)
                 val retries = (retryCountMap[task.id] ?: 0) + 1
                 retryCountMap[task.id] = retries

@@ -47,121 +47,46 @@ class SubtitleOrchestrator(
             kotlinx.coroutines.delay(delay)
         }
 
-        // 1. Stage: Discovery
-        onProgress(SubtitleProgress.Discovering("Discovering available subtitles..."))
-        val discoveryRes = youtubeProvider.discover(url, preferences, videoInfo)
+        // 1. Direct Fast Execution: single yt-dlp pass with auto-subs and manual subs
+        onProgress(SubtitleProgress.Downloading(preferences.subtitleLanguage.ifBlank { "ar,en" }, 0.3f))
+        val directRes = com.junkfood.seal.download.engine.subtitle.download.SubtitleDownloader.downloadSubtitlesDirectly(
+            url = url,
+            videoId = videoId,
+            title = resolvedTitle,
+            destinationDir = destinationDir,
+            preferences = preferences,
+            playlistIndex = playlistIndex,
+            onProgress = onProgress
+        )
 
-        val inventory = when (discoveryRes) {
-            is SubtitleDiscoveryResult.Success -> discoveryRes.inventory
-            is SubtitleDiscoveryResult.Failure -> null
-        }
-        var attempt = 0
-        val maxAttempts = 3
-        var lastFailure: SubtitleFailure? = null
-
-        while (attempt < maxAttempts) {
-            attempt++
-            try {
-                if (attempt > 1) {
-                    kotlinx.coroutines.delay(1000L * attempt)
-                    onProgress(SubtitleProgress.Downloading("Retrying subtitle download (Attempt $attempt/$maxAttempts)...", 0.1f * attempt))
-                }
-
-                if (inventory != null && inventory.isNotEmpty()) {
-                    // 2. Stage: Language & Track Selection
-                    val requestedLangs = preferences.subtitleLanguage.ifBlank { "ar,en" }
-
-                    var matchedTracks = LanguageMatcher.matchTracks(
-                        requestedLangs = requestedLangs,
-                        availableTracks = inventory.allTracks,
-                        policy = SubtitleTypePolicy.ANY,
-                        allowAutoCaptions = preferences.autoSubtitle,
-                        allowTranslatedSubtitles = preferences.autoTranslatedSubtitles
-                    )
-
-                    if (matchedTracks.isEmpty()) {
-                        // Resilient fallback: match any available track in inventory
-                        matchedTracks = LanguageMatcher.matchTracks(
-                            requestedLangs = "all",
-                            availableTracks = inventory.allTracks,
-                            policy = SubtitleTypePolicy.ANY,
-                            allowAutoCaptions = true,
-                            allowTranslatedSubtitles = true
-                        ).take(2)
-                    }
-
-                    val targetFormatStr = SubtitleOptionBuilder.getConvertSubsValue(preferences.convertSubtitle)
-                    val registeredKeys = mutableListOf<SubtitleDownloadKey>()
-                    val uniqueTracks = mutableListOf<SubtitleTrack>()
-                    
-                    for (track in matchedTracks) {
-                        val key = SubtitleDownloadKey(videoId, track.languageCode, track.source, targetFormatStr)
-                        if (SubtitleTaskRegistry.registerTask(key)) {
-                            registeredKeys.add(key)
-                            uniqueTracks.add(track)
-                        }
-                    }
-
-                    if (uniqueTracks.isNotEmpty()) {
-                        // 3. Stage: Coordinated Download & Conversion
-                        val downloadRes = try {
-                            youtubeProvider.downloadTracks(
-                                url = url,
-                                videoId = videoId,
-                                tracks = uniqueTracks,
-                                destinationDir = destinationDir,
-                                preferences = preferences,
-                                videoTitle = resolvedTitle,
-                                playlistIndex = playlistIndex,
-                                onProgress = onProgress
-                            )
-                        } finally {
-                            registeredKeys.forEach { SubtitleTaskRegistry.unregisterTask(it) }
-                        }
-
-                        if (downloadRes is SubtitleDownloadResult.Success && downloadRes.downloadedFiles.isNotEmpty()) {
-                            return downloadRes
-                        }
-                    }
-                }
-
-                // 4. Robust Direct Extraction Fallback (proven high-compatibility yt-dlp execution)
-                onProgress(SubtitleProgress.Downloading(preferences.subtitleLanguage.ifBlank { "ar,en" }, 0.4f))
-                val directRes = com.junkfood.seal.download.engine.subtitle.download.SubtitleDownloader.downloadSubtitlesDirectly(
-                    url = url,
-                    videoId = videoId,
-                    title = resolvedTitle,
-                    destinationDir = destinationDir,
-                    preferences = preferences,
-                    playlistIndex = playlistIndex,
-                    onProgress = onProgress
-                )
-
-                val result = directRes.fold(
-                    onSuccess = { files ->
-                        if (files.isNotEmpty()) {
-                            SubtitleDownloadResult.Success(
-                                downloadedFiles = files,
-                                tracks = emptyList(),
-                                executionTimeMs = System.currentTimeMillis() - startTime
-                            )
-                        } else {
-                            null
-                        }
-                    },
-                    onFailure = { th ->
-                        lastFailure = if (th is SubtitleFailure) th else SubtitleFailure.fromThrowable(th)
-                        null
-                    }
-                )
-
-                if (result != null) return result
-            } catch (e: Exception) {
-                lastFailure = SubtitleFailure.NetworkError(e.message ?: "Network error during subtitle download", e)
-            }
+        val directFiles = directRes.getOrNull()
+        if (!directFiles.isNullOrEmpty()) {
+            return SubtitleDownloadResult.Success(
+                downloadedFiles = directFiles,
+                tracks = emptyList(),
+                executionTimeMs = System.currentTimeMillis() - startTime
+            )
         }
 
-        return SubtitleDownloadResult.Failure(lastFailure ?: SubtitleFailure.NoSubtitles)
+        // 2. Check if subtitle files already exist in destination
+        val targetFormat = com.junkfood.seal.download.engine.subtitle.model.SubtitleOutputFormat.fromExtension(
+            SubtitleOptionBuilder.getConvertSubsValue(preferences.convertSubtitle)
+        )
+        val existingFiles = com.junkfood.seal.download.engine.subtitle.download.SubtitleDownloader.findExistingSubtitleFiles(
+            destinationDir, resolvedTitle, videoId, targetFormat
+        )
+        if (existingFiles.isNotEmpty()) {
+            onProgress(SubtitleProgress.Completed(existingFiles.size))
+            return SubtitleDownloadResult.Success(
+                downloadedFiles = existingFiles,
+                tracks = emptyList(),
+                executionTimeMs = System.currentTimeMillis() - startTime
+            )
+        }
+
+        val err = directRes.exceptionOrNull()
+        val failure = if (err is SubtitleFailure) err else (err?.let { SubtitleFailure.fromThrowable(it) } ?: SubtitleFailure.NoSubtitles)
+        return SubtitleDownloadResult.Failure(failure)
     }
 
     /**

@@ -343,8 +343,9 @@ object SubtitleDownloader {
                     addOption("--write-auto-subs")
                     addOption("--sub-langs", subLangs)
                     addOption("--sub-format", "best/vtt/srt/ass/lrc/srv3/srv2/srv1")
-                    val extractorArgs = YoutubeClientStrategy.buildExtractorArgs(clientChain = listOf(YoutubeClient.ANDROID, YoutubeClient.DEFAULT, YoutubeClient.WEB))
-                    addOption("--extractor-args", extractorArgs)
+                    addOption("--add-header", "Accept-Language: en-US,en;q=0.9,ar;q=0.8")
+                    addOption("--no-abort-on-error")
+                    addOption("--ignore-errors")
 
                     FFmpegManager.getFFmpegExecutable(appContext)?.let { ffmpegFile ->
                         addOption("--ffmpeg-location", ffmpegFile.absolutePath)
