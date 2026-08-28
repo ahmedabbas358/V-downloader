@@ -78,6 +78,23 @@ object SubtitleOptionBuilder {
     }
 
     /**
+     * Builds dynamic Accept-Language HTTP header prioritizing user's selected language(s).
+     */
+    fun buildAcceptLanguageHeader(rawLang: String): String {
+        val effective = rawLang.trim().ifBlank { com.junkfood.seal.util.SUBTITLE_LANGUAGE.getString().trim() }
+        val langs = effective.split(",").map { it.trim().lowercase() }.filter { it.isNotEmpty() && it != "all" }
+        if (langs.isEmpty()) return "en-US,en;q=0.9,ar;q=0.8,*"
+        val headerParts = mutableListOf<String>()
+        langs.forEachIndexed { index, lang ->
+            val q = (1.0 - (index * 0.1)).coerceIn(0.6, 1.0)
+            headerParts.add("$lang;q=%.1f".format(java.util.Locale.US, q))
+        }
+        if (!langs.contains("en")) headerParts.add("en;q=0.7")
+        headerParts.add("*;q=0.5")
+        return headerParts.joinToString(",")
+    }
+
+    /**
      * Returns the --sub-format value for maximum compatibility.
      */
     fun getSubFormatPreference(): String = SUB_FORMAT_PREFERENCE

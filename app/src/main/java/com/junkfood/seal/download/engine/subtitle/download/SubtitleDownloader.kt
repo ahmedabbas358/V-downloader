@@ -326,12 +326,14 @@ object SubtitleDownloader {
             tempWorkDir.mkdirs()
 
             try {
-                val rawLang = preferences.subtitleLanguage.ifBlank { "ar,en" }
+                val rawLang = preferences.subtitleLanguage.ifBlank {
+                    com.junkfood.seal.util.SUBTITLE_LANGUAGE.getString().ifBlank { "all" }
+                }
                 val subLangs = buildSubLangsOption(rawLang)
                 val targetFormatStr = SubtitleOptionBuilder.getConvertSubsValue(preferences.convertSubtitle).ifBlank { "srt" }
                 val targetFormat = SubtitleOutputFormat.fromExtension(targetFormatStr)
 
-                onProgress(SubtitleProgress.Downloading(subLangs, 0.3f))
+                onProgress(SubtitleProgress.Downloading(rawLang, 0.3f))
 
                 val request = YoutubeDLRequest(url).apply {
                     addOption("--skip-download")
@@ -343,7 +345,7 @@ object SubtitleDownloader {
                     addOption("--write-auto-subs")
                     addOption("--sub-langs", subLangs)
                     addOption("--sub-format", "best/vtt/srt/ass/lrc/srv3/srv2/srv1")
-                    addOption("--add-header", "Accept-Language: en-US,en;q=0.9,ar;q=0.8")
+                    addOption("--add-header", "Accept-Language: " + SubtitleOptionBuilder.buildAcceptLanguageHeader(rawLang))
                     addOption("--no-abort-on-error")
                     addOption("--ignore-errors")
 
