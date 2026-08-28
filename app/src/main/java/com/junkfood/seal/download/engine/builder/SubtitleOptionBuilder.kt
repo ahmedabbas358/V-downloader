@@ -87,7 +87,7 @@ object SubtitleOptionBuilder {
         val headerParts = mutableListOf<String>()
         langs.forEachIndexed { index, lang ->
             val q = (1.0 - (index * 0.1)).coerceIn(0.6, 1.0)
-            headerParts.add("$lang;q=%.1f".format(java.util.Locale.US, q))
+            headerParts.add(String.format(java.util.Locale.US, "%s;q=%.1f", lang, q))
         }
         if (!langs.contains("en")) headerParts.add("en;q=0.7")
         headerParts.add("*;q=0.5")
