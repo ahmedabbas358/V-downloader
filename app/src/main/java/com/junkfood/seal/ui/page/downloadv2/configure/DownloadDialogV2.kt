@@ -110,6 +110,7 @@ import com.junkfood.seal.ui.common.HapticFeedback.longPressHapticFeedback
 import com.junkfood.seal.ui.common.motion.materialSharedAxisX
 import com.junkfood.seal.ui.component.ButtonChip
 import com.junkfood.seal.ui.component.DrawerSheetSubtitle
+import com.junkfood.seal.ui.component.OutlinedButtonWithIcon
 import com.junkfood.seal.ui.component.SealModalBottomSheet
 import com.junkfood.seal.ui.component.SingleChoiceChip
 import com.junkfood.seal.ui.component.SingleChoiceSegmentedButton
