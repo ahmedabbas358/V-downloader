@@ -93,6 +93,8 @@ fun PlaylistSelectionPage(
     var preferences by remember {
         mutableStateOf(DownloadUtil.DownloadPreferences.createFromPreferences())
     }
+    var showVideoPresetDialog by remember { mutableStateOf(false) }
+    var showAudioPresetDialog by remember { mutableStateOf(false) }
     var taskList by remember { mutableStateOf(emptyList<TaskFactory.TaskWithState>()) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
