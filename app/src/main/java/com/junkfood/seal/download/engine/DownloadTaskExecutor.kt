@@ -232,7 +232,12 @@ object DownloadTaskExecutor {
                     )
                 }
                 is com.junkfood.seal.download.engine.subtitle.model.SubtitleDownloadResult.Failure -> {
-                    Result.failure(subtitleRes.error)
+                    if (playlistItem > 0) {
+                        Log.w(TAG, "No subtitles found for playlist item $playlistItem (${videoInfo.title}), completing gracefully")
+                        Result.success(emptyList())
+                    } else {
+                        Result.failure(subtitleRes.error)
+                    }
                 }
             }
         }

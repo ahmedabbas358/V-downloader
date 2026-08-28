@@ -139,7 +139,7 @@ class SubtitleOrchestrator(
 
                 val result = directRes.fold(
                     onSuccess = { files ->
-                        if (files.isNotEmpty()) {
+                        if (files.isNotEmpty() || playlistIndex > 0) {
                             SubtitleDownloadResult.Success(
                                 downloadedFiles = files,
                                 tracks = emptyList(),
@@ -150,8 +150,16 @@ class SubtitleOrchestrator(
                         }
                     },
                     onFailure = { th ->
-                        lastFailure = if (th is SubtitleFailure) th else SubtitleFailure.fromThrowable(th)
-                        null
+                        if (playlistIndex > 0) {
+                            SubtitleDownloadResult.Success(
+                                downloadedFiles = emptyList(),
+                                tracks = emptyList(),
+                                executionTimeMs = System.currentTimeMillis() - startTime
+                            )
+                        } else {
+                            lastFailure = if (th is SubtitleFailure) th else SubtitleFailure.fromThrowable(th)
+                            null
+                        }
                     }
                 )
 
