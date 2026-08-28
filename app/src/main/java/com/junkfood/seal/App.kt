@@ -97,6 +97,9 @@ class App : Application() {
         clipboard = getSystemService()!!
         connectivityManager = getSystemService()!!
 
+        videoDownloadDir = VIDEO_DIRECTORY.getString().ifEmpty { getExternalDownloadDirectory().absolutePath }
+        audioDownloadDir = AUDIO_DIRECTORY.getString().ifEmpty { getExternalDownloadDirectory().absolutePath }
+
         applicationScope.launch((Dispatchers.IO)) {
             try {
                 UpgradeManager.ensureNativeEnvironment(this@App)

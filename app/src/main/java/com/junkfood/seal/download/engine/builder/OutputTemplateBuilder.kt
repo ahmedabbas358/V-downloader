@@ -72,8 +72,14 @@ object OutputTemplateBuilder {
             when {
                 commandDirectory.isNotBlank() -> commandDirectory
                 privateDirectory -> App.privateDownloadDir
-                isAudioDownload -> App.audioDownloadDir
-                else -> App.videoDownloadDir
+                isAudioDownload -> {
+                    val customAudio = com.junkfood.seal.util.PreferenceUtil.AUDIO_DIRECTORY.getString()
+                    if (customAudio.isNotBlank()) customAudio else App.audioDownloadDir
+                }
+                else -> {
+                    val customVideo = com.junkfood.seal.util.PreferenceUtil.VIDEO_DIRECTORY.getString()
+                    if (customVideo.isNotBlank()) customVideo else App.videoDownloadDir
+                }
             }
         }
     }
@@ -115,21 +121,24 @@ object OutputTemplateBuilder {
             Regex("""[?&]list=([a-zA-Z0-9_-]+)""").find(u)?.groupValues?.get(1)
         }
 
-        val isPlaylist = playlistItem > 0 ||
-                preferences.downloadPlaylist ||
-                listId != null ||
-                allUrlsToCheck.any { it.contains("/playlist", ignoreCase = true) } ||
-                (rawPlaylistName.isNotBlank() && !rawPlaylistName.equals("NA", ignoreCase = true) && !rawPlaylistName.equals("Playlist", ignoreCase = true) && !rawPlaylistName.equals(videoInfo?.title, ignoreCase = true)) ||
-                !videoPlaylistTitle.isNullOrBlank() ||
-                !videoInfo?.playlist.isNullOrBlank() ||
-                !videoInfo?.playlistTitle.isNullOrBlank()
+        // A task is ONLY a playlist if it is explicitly an item of a playlist (playlistItem > 0)
+        // or has a genuine, non-blank playlist title distinct from single video titles.
+        val isRealPlaylist = playlistItem > 0 || (
+            rawPlaylistName.isNotBlank() &&
+            !rawPlaylistName.equals("NA", ignoreCase = true) &&
+            !rawPlaylistName.equals("Playlist", ignoreCase = true) &&
+            !rawPlaylistName.equals(videoInfo?.title, ignoreCase = true)
+        )
 
-        if (!isPlaylist && rawPlaylistName.isBlank()) {
-            return if (preferences.commandDirectory.isNotBlank()) {
+        // Single videos are saved DIRECTLY into the app's base download directory (never in a subfolder).
+        if (!isRealPlaylist) {
+            val baseDir = if (preferences.commandDirectory.isNotBlank()) {
                 File(preferences.commandDirectory)
             } else {
                 File(basePath)
             }
+            if (!baseDir.exists()) baseDir.mkdirs()
+            return baseDir
         }
 
         val cleanPlaylistName = FileUtil.cleanFileName(rawPlaylistName).trim()
@@ -143,7 +152,7 @@ object OutputTemplateBuilder {
             val cmdDir = File(preferences.commandDirectory)
             if (cmdDir.name.equals(folderName, ignoreCase = true) || cmdDir.name.equals(cleanPlaylistName, ignoreCase = true)) {
                 cmdDir
-            } else if (preferences.subdirectoryPlaylistTitle || isSubtitleOnly || isPlaylist) {
+            } else if (preferences.subdirectoryPlaylistTitle || isSubtitleOnly || isRealPlaylist) {
                 File(cmdDir, folderName)
             } else {
                 cmdDir
