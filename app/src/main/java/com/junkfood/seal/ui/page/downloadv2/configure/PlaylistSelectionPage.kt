@@ -188,7 +188,8 @@ fun PlaylistSelectionPage(
                                     com.junkfood.seal.ui.page.downloadv2.configure.DownloadDialogViewModel.Action.FetchFormats(
                                         url = firstUrl,
                                         audioOnly = type == Audio,
-                                        preferences = updatedPreferences
+                                        preferences = updatedPreferences,
+                                        playlistTasks = updatedTasks,
                                     )
                                 )
                             }

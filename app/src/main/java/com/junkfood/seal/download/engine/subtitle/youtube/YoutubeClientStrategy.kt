@@ -36,18 +36,20 @@ data class ExtractionContext(
  */
 object YoutubeClientStrategy {
 
-    // Default primary client chains for normal operation (iOS/mWeb avoids SABR-only streams and bot-checks)
+    // Default primary client chains for normal operation (Web/mWeb/Android enables full auto-captions and public video access)
     private val DEFAULT_CHAIN = listOf(
-        YoutubeClient.IOS,
+        YoutubeClient.WEB,
         YoutubeClient.MWEB,
-        YoutubeClient.WEB
+        YoutubeClient.ANDROID,
+        YoutubeClient.DEFAULT
     )
 
     private val FALLBACK_CHAINS = listOf(
-        listOf(YoutubeClient.IOS, YoutubeClient.MWEB, YoutubeClient.WEB),
-        listOf(YoutubeClient.MWEB, YoutubeClient.WEB),
-        listOf(YoutubeClient.WEB, YoutubeClient.DEFAULT),
-        listOf(YoutubeClient.ANDROID_EMBED, YoutubeClient.WEB, YoutubeClient.DEFAULT)
+        listOf(YoutubeClient.WEB, YoutubeClient.MWEB, YoutubeClient.ANDROID, YoutubeClient.DEFAULT),
+        listOf(YoutubeClient.MWEB, YoutubeClient.WEB, YoutubeClient.DEFAULT),
+        listOf(YoutubeClient.ANDROID, YoutubeClient.WEB, YoutubeClient.DEFAULT),
+        listOf(YoutubeClient.ANDROID_EMBED, YoutubeClient.TV_EMBED, YoutubeClient.WEB, YoutubeClient.DEFAULT),
+        listOf(YoutubeClient.IOS, YoutubeClient.MWEB, YoutubeClient.WEB)
     )
 
     /**
@@ -80,13 +82,14 @@ object YoutubeClientStrategy {
         if (nextAttempt > FALLBACK_CHAINS.size) return null
 
         return when (failure) {
+            is SubtitleFailure.PrivateVideo -> {
+                listOf(YoutubeClient.WEB, YoutubeClient.MWEB, YoutubeClient.TV_EMBED, YoutubeClient.DEFAULT)
+            }
             is SubtitleFailure.Http403 -> {
-                // If Android client got 403, rotate to iOS or Web client
-                listOf(YoutubeClient.IOS, YoutubeClient.WEB)
+                listOf(YoutubeClient.WEB, YoutubeClient.MWEB, YoutubeClient.DEFAULT)
             }
             is SubtitleFailure.PoTokenRequired -> {
-                // If PO Token requested on Android, try MWeb or Web
-                listOf(YoutubeClient.MWEB, YoutubeClient.WEB)
+                listOf(YoutubeClient.MWEB, YoutubeClient.WEB, YoutubeClient.DEFAULT)
             }
             is SubtitleFailure.Http429 -> {
                 // Keep same or backoff

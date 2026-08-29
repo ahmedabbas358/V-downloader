@@ -21,7 +21,7 @@ sealed class SubtitleFailure(
 
     // Video availability
     data object VideoUnavailable : SubtitleFailure("Video is unavailable", isRecoverable = false)
-    data object PrivateVideo : SubtitleFailure("Video is private", isRecoverable = false)
+    data object PrivateVideo : SubtitleFailure("Video is private", isRecoverable = true)
     data object AgeRestricted : SubtitleFailure("Video is age-restricted and requires authentication", isRecoverable = false)
     data object GeoRestricted : SubtitleFailure("Video is geo-restricted in your region", isRecoverable = false)
     data object LiveStreamEnded : SubtitleFailure("Subtitles are not yet processed for this live stream", isRecoverable = false)

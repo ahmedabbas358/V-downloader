@@ -13,9 +13,9 @@ class YoutubeClientStrategyTest {
     @Test
     fun testDefaultClientChain() {
         val chain = YoutubeClientStrategy.getClientChainForAttempt(1)
-        assertTrue(chain.contains(YoutubeClient.IOS))
+        assertTrue(chain.contains(YoutubeClient.WEB))
         val args = YoutubeClientStrategy.buildExtractorArgs(clientChain = chain)
-        assertEquals("youtube:player_client=ios,mweb,web", args)
+        assertEquals("youtube:player_client=web,mweb,android,default", args)
     }
 
     @Test
@@ -25,7 +25,7 @@ class YoutubeClientStrategyTest {
             failure = SubtitleFailure.Http403()
         )
         assertNotNull(nextChain)
-        assertTrue(nextChain!!.contains(YoutubeClient.IOS))
+        assertTrue(nextChain!!.contains(YoutubeClient.WEB))
     }
 
     @Test
@@ -36,5 +36,15 @@ class YoutubeClientStrategyTest {
         )
         assertNotNull(nextChain)
         assertTrue(nextChain!!.contains(YoutubeClient.MWEB))
+    }
+
+    @Test
+    fun testClientRotationOnPrivateVideo() {
+        val nextChain = YoutubeClientStrategy.getNextStrategyForFailure(
+            currentAttempt = 1,
+            failure = SubtitleFailure.PrivateVideo
+        )
+        assertNotNull(nextChain)
+        assertTrue(nextChain!!.contains(YoutubeClient.TV_EMBED))
     }
 }

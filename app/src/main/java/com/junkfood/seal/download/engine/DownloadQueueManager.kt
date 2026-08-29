@@ -231,9 +231,9 @@ class DownloadQueueManager(
                     }.thenBy {
                         if (it.value.downloadState == ReadyWithInfo) 0 else 1
                     }.thenBy {
-                        (it.key.type as? TypeInfo.Playlist)?.index ?: Int.MAX_VALUE
-                    }.thenBy {
                         it.key.timeCreated
+                    }.thenBy {
+                        (it.key.type as? TypeInfo.Playlist)?.index ?: 0
                     }
                 )
                 .firstOrNull { (task, state) ->
@@ -455,10 +455,24 @@ class DownloadQueueManager(
             }.onFailure { throwable ->
                 if (throwable is YoutubeDL.CanceledException) return@onFailure
 
-                if (task.preferences.skipDownload && task.preferences.downloadSubtitle &&
-                    (throwable is com.junkfood.seal.download.engine.subtitle.model.SubtitleFailure.NoSubtitles ||
-                     throwable.message?.contains("No subtitle", ignoreCase = true) == true)) {
-                    Log.w(TAG, "No subtitles available for task ${task.id}, marking as skipped and proceeding to next item.")
+                val isNoSubs = throwable is com.junkfood.seal.download.engine.subtitle.model.SubtitleFailure.NoSubtitles ||
+                        throwable.message?.contains("No subtitle", ignoreCase = true) == true
+                val isRateLimited = SubtitleManager.isRateLimitOrBotError(throwable)
+                val retries = (retryCountMap[task.id] ?: 0) + 1
+                retryCountMap[task.id] = retries
+
+                if (task.preferences.skipDownload && task.preferences.downloadSubtitle && isNoSubs) {
+                    if (retries <= 1) {
+                        Log.w(TAG, "No subtitles on first pass for ${task.id}, retrying with alternate discovery before skipping...")
+                        delay(1000L)
+                        val current = taskStateMap[task]
+                        if (current != null) {
+                            taskStateMap[task] = current.copy(downloadState = ReadyWithInfo)
+                            processQueue()
+                            return@onFailure
+                        }
+                    }
+                    Log.w(TAG, "No subtitles available for task ${task.id} after retry, marking as skipped.")
                     val current = taskStateMap[task]
                     if (current != null) {
                         taskStateMap[task] = current.copy(
@@ -470,10 +484,6 @@ class DownloadQueueManager(
                         return@onFailure
                     }
                 }
-
-                val isRateLimited = SubtitleManager.isRateLimitOrBotError(throwable)
-                val retries = (retryCountMap[task.id] ?: 0) + 1
-                retryCountMap[task.id] = retries
 
                 // 2 internal retries with backoff delay
                 if (retries <= 2 && (throwable !is IllegalStateException || throwable.message?.contains("FFmpeg", ignoreCase = true) != true)) {

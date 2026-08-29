@@ -50,7 +50,7 @@ object SubtitleDownloader {
         tracks: List<SubtitleTrack>,
         destinationDir: File,
         preferences: DownloadPreferences,
-        clientChain: List<YoutubeClient> = listOf(YoutubeClient.ANDROID, YoutubeClient.DEFAULT, YoutubeClient.WEB),
+        clientChain: List<YoutubeClient> = listOf(YoutubeClient.WEB, YoutubeClient.MWEB, YoutubeClient.ANDROID, YoutubeClient.DEFAULT),
         playlistIndex: Int = 0,
         appContext: Context = context,
         onProgress: (SubtitleProgress) -> Unit = {}
@@ -79,7 +79,7 @@ object SubtitleDownloader {
         title: String = "",
         playlistIndex: Int = 0,
         appContext: Context = context,
-        clientChain: List<YoutubeClient> = listOf(YoutubeClient.ANDROID, YoutubeClient.DEFAULT, YoutubeClient.WEB),
+        clientChain: List<YoutubeClient> = listOf(YoutubeClient.WEB, YoutubeClient.MWEB, YoutubeClient.ANDROID, YoutubeClient.DEFAULT),
         onProgress: (SubtitleProgress) -> Unit = {}
     ): Result<List<File>> = withContext(Dispatchers.IO) {
         runCatching {
@@ -384,9 +384,49 @@ object SubtitleDownloader {
                     .trim()
                     .ifBlank { "Video_$videoId" }
 
-                val tempFiles = tempWorkDir.listFiles()?.filter { file ->
+                var tempFiles = tempWorkDir.listFiles()?.filter { file ->
                     file.isFile && !file.name.endsWith(".part") && !file.name.endsWith(".ytdl") && !file.name.endsWith(".tmp") && file.length() > 10L
                 } ?: emptyList()
+
+                // Fallback attempt: if primary attempt returned 0 files and subLangs was specific, retry with broader language scope
+                if (tempFiles.isEmpty() && subLangs != "all") {
+                    Log.d(TAG, "Primary subtitle extraction returned 0 files, retrying with broader language fallback...")
+                    val fallbackRequest = YoutubeDLRequest(url).apply {
+                        addOption("--skip-download")
+                        addOption("--no-playlist")
+                        addOption("--no-mtime")
+                        addOption("--force-overwrites")
+                        addOption("--no-check-certificates")
+                        addOption("--write-subs")
+                        addOption("--write-auto-subs")
+                        addOption("--sub-langs", "all")
+                        addOption("--sub-format", "best/vtt/srt/ass/lrc/srv3/srv2/srv1")
+                        addOption("--convert-subs", targetFormatStr)
+                        addOption("--no-abort-on-error")
+                        addOption("--ignore-errors")
+                        addOption("--extractor-args", "youtube:player_client=web,mweb,android,default")
+
+                        FFmpegManager.getFFmpegExecutable(appContext)?.let { ffmpegFile ->
+                            addOption("--ffmpeg-location", ffmpegFile.absolutePath)
+                        }
+                        if (preferences.cookies) {
+                            NetworkOptionBuilder.applyCookies(this, preferences.userAgentString, appContext)
+                        }
+                        if (preferences.proxy) {
+                            NetworkOptionBuilder.applyProxy(this, preferences.proxyUrl)
+                        }
+                        NetworkOptionBuilder.applyNetworkResilience(this, preferences.forceIpv4, preferences.debug)
+                        addOption("-P", tempWorkDir.absolutePath)
+                        addOption("-o", OutputTemplateBuilder.BASENAME)
+                    }
+                    val fallbackProcessId = "sub_direct_fallback_${videoId}_${System.currentTimeMillis()}"
+                    runCatching {
+                        YoutubeDL.getInstance().execute(fallbackRequest, fallbackProcessId, null)
+                    }
+                    tempFiles = tempWorkDir.listFiles()?.filter { file ->
+                        file.isFile && !file.name.endsWith(".part") && !file.name.endsWith(".ytdl") && !file.name.endsWith(".tmp") && file.length() > 10L
+                    } ?: emptyList()
+                }
 
                 if (tempFiles.isEmpty()) {
                     val existingFiles = findExistingSubtitleFiles(destinationDir, cleanBaseTitle, videoId, targetFormat)

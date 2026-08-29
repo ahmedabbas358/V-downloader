@@ -67,6 +67,9 @@ object NetworkOptionBuilder {
             lowerUrl.contains("x.com") || lowerUrl.contains("twitter.com") -> {
                 addOption("--extractor-args", "twitter:api=syndication")
             }
+            lowerUrl.contains("youtube.com") || lowerUrl.contains("youtu.be") -> {
+                addOption("--extractor-args", com.junkfood.seal.download.engine.subtitle.youtube.YoutubeClientStrategy.buildExtractorArgs())
+            }
         }
 
         // Automatically attach cookies if available in app storage

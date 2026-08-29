@@ -128,10 +128,20 @@ object PostDownloadCoordinator {
             }
 
             // Subtitle embedding fallback: if embedSubtitle was requested and standalone subtitle files were generated
-            if (preferences.embedSubtitle && subPaths.isNotEmpty() && finalPaths.isNotEmpty()) {
+            if (preferences.embedSubtitle && finalPaths.isNotEmpty()) {
                 val primaryMediaPath = finalPaths.first()
                 val primaryMediaFile = File(primaryMediaPath)
-                val subFiles = subPaths.map { File(it) }.filter { it.exists() && it.length() > 5L }
+                val directSubFiles = subPaths.map { File(it) }.filter { it.exists() && it.length() > 5L }
+                val subFiles = if (directSubFiles.isNotEmpty()) {
+                    directSubFiles
+                } else {
+                    val baseNoExt = primaryMediaFile.nameWithoutExtension
+                    primaryMediaFile.parentFile?.listFiles()?.filter { f ->
+                        f.isFile && f.length() > 5L && SUBTITLE_REGEX.containsMatchIn(f.name) &&
+                        (f.nameWithoutExtension.startsWith(baseNoExt) || (videoInfo.id.isNotBlank() && f.name.contains(videoInfo.id)))
+                    } ?: emptyList()
+                }
+
                 if (subFiles.isNotEmpty() && primaryMediaFile.exists()) {
                     val tempEmbeddedFile = File(primaryMediaFile.parentFile, "embedded_${primaryMediaFile.name}")
                     val embedRes = com.junkfood.seal.util.MediaProcessingEngine.embedSubtitlesIntoVideo(

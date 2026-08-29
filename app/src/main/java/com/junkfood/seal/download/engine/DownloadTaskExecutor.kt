@@ -119,55 +119,40 @@ object DownloadTaskExecutor {
             null
         }
 
-        val isSubtitleTask = task.preferences.skipDownload && task.preferences.downloadSubtitle
-        var acquiredSubtitleLock = false
+        var retryCount = 0
+        val maxRetries = 3
+        var result: Result<VideoInfo>? = null
 
-        try {
-            if (isSubtitleTask) {
-                SubtitleManager.subtitleMutex.lock()
-                acquiredSubtitleLock = true
-                delay(50L)
+        while (retryCount <= maxRetries) {
+            if (retryCount > 0) {
+                delay((1000L * retryCount).coerceAtMost(3000L))
             }
 
-            var retryCount = 0
-            val maxRetries = 3
-            var result: Result<VideoInfo>? = null
+            val executionRes = DownloadUtil.fetchVideoInfoFromUrl(
+                url = fetchUrl,
+                playlistIndex = playlistIndex,
+                taskKey = task.id,
+                preferences = task.preferences,
+            )
 
-            while (retryCount <= maxRetries) {
-                if (retryCount > 0) {
-                    delay((1000L * retryCount).coerceAtMost(3000L))
-                }
-
-                val executionRes = DownloadUtil.fetchVideoInfoFromUrl(
-                    url = fetchUrl,
-                    playlistIndex = playlistIndex,
-                    taskKey = task.id,
-                    preferences = task.preferences,
-                )
-
-                if (executionRes.isSuccess) {
+            if (executionRes.isSuccess) {
+                result = executionRes
+                break
+            } else {
+                val th = executionRes.exceptionOrNull()
+                if (th is YoutubeDL.CanceledException) {
                     result = executionRes
                     break
-                } else {
-                    val th = executionRes.exceptionOrNull()
-                    if (th is YoutubeDL.CanceledException) {
-                        result = executionRes
-                        break
-                    }
-                    if (retryCount == maxRetries) {
-                        result = executionRes
-                        break
-                    }
-                    retryCount++
                 }
-            }
-
-            return@withContext result ?: Result.failure(IllegalStateException("لم يتم الحصول على نتيجة"))
-        } finally {
-            if (acquiredSubtitleLock) {
-                SubtitleManager.subtitleMutex.unlock()
+                if (retryCount == maxRetries) {
+                    result = executionRes
+                    break
+                }
+                retryCount++
             }
         }
+
+        return@withContext result ?: Result.failure(IllegalStateException("لم يتم الحصول على نتيجة"))
     }
 
     /**
@@ -354,6 +339,50 @@ object DownloadTaskExecutor {
                 if (retryResult.isFailure) {
                     return@withContext Result.failure(
                         retryResult.exceptionOrNull() ?: IllegalStateException("فشل التحميل")
+                    )
+                }
+            } else if (error?.message?.contains("Video is private", ignoreCase = true) == true ||
+                error?.message?.contains("Private video", ignoreCase = true) == true ||
+                error?.message?.contains("Sign in", ignoreCase = true) == true) {
+                Log.w(TAG, "Encountered player client restriction (${error.message}), retrying with fallback player clients...")
+                val clientFallbackRequest = DownloadCommandBuilder.buildDownloadRequest(
+                    url = videoInfo.originalUrl ?: videoInfo.webpageUrl ?: task.url,
+                    videoInfo = videoInfo,
+                    preferences = task.preferences,
+                    isAudioDownload = isAudioDownload,
+                    playlistItem = playlistItem,
+                    playlistUrl = sourcePlaylistUrl,
+                    fallbackPlaylistTitle = fallbackPlaylistTitle,
+                    isFallback = isFallback,
+                    appContext = appContext,
+                ).apply {
+                    addOption("--extractor-args", "youtube:player_client=web,mweb,android,default,tv_embedded")
+                }
+                val retryClientResult = runCatching {
+                    YoutubeDL.getInstance().execute(
+                        request = clientFallbackRequest,
+                        processId = task.id,
+                        callback = { progressPercentage, _, text ->
+                            val extractedPath = extractPathFromLine(text)
+                            if (extractedPath != null) {
+                                discoveredPaths.add(extractedPath)
+                                Log.d(TAG, "Client retry discovered path: $extractedPath")
+                            }
+                            val isMerging = text.contains("Merger", ignoreCase = true) ||
+                                    text.contains("[ffmpeg]", ignoreCase = true) ||
+                                    text.contains("Merging formats", ignoreCase = true)
+                            val effectiveProgress = if (isMerging) 0.95f else (progressPercentage / 100f).coerceIn(0f, 0.99f)
+                            val currentTime = System.currentTimeMillis()
+                            if (currentTime - lastUpdateTime > 200L || isMerging) {
+                                lastUpdateTime = currentTime
+                                onProgressUpdate(effectiveProgress, if (isMerging) "جاري دمج الصوت والفيديو..." else text)
+                            }
+                        }
+                    )
+                }
+                if (retryClientResult.isFailure) {
+                    return@withContext Result.failure(
+                        retryClientResult.exceptionOrNull() ?: error
                     )
                 }
             } else {

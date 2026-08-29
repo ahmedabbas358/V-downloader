@@ -147,6 +147,48 @@ object DownloadUtil {
             }
         }
 
+        if (result.isFailure) {
+            val th = result.exceptionOrNull()
+            if (th !is YoutubeDL.CanceledException &&
+                (th?.message?.contains("Video is private", ignoreCase = true) == true ||
+                 th?.message?.contains("Private video", ignoreCase = true) == true ||
+                 th?.message?.contains("Sign in", ignoreCase = true) == true)) {
+                val fallbackRequest = DownloadCommandBuilder.buildInfoFetchRequest(
+                    url = url,
+                    preferences = preferences,
+                    playlistIndex = playlistIndex,
+                    isFlatPlaylist = false,
+                ).apply {
+                    addOption("--extractor-args", "youtube:player_client=web,mweb,android,default,tv_embedded")
+                }
+                val fallbackResult = runCatching {
+                    val response = YoutubeDL.getInstance().execute(fallbackRequest, taskKey, null)
+                    val rawOutput = response.out.trim()
+                    val decodedInfo = runCatching {
+                        jsonFormat.decodeFromString<VideoInfo>(rawOutput)
+                    }.recoverCatching {
+                        val firstLine = rawOutput.lineSequence().firstOrNull { it.isNotBlank() } ?: rawOutput
+                        jsonFormat.decodeFromString<VideoInfo>(firstLine)
+                    }.getOrThrow()
+                    if (decodedInfo.formats.isNullOrEmpty() && !decodedInfo.entries.isNullOrEmpty()) {
+                        val firstEntry = decodedInfo.entries.first()
+                        firstEntry.copy(
+                            title = firstEntry.title.ifEmpty { decodedInfo.title },
+                            thumbnail = firstEntry.thumbnail ?: decodedInfo.thumbnail,
+                            webpageUrl = firstEntry.webpageUrl ?: decodedInfo.webpageUrl ?: url,
+                            originalUrl = firstEntry.originalUrl ?: decodedInfo.originalUrl ?: url,
+                            uploader = firstEntry.uploader ?: decodedInfo.uploader,
+                        )
+                    } else {
+                        decodedInfo
+                    }
+                }
+                if (fallbackResult.isSuccess) {
+                    return fallbackResult
+                }
+            }
+        }
+
         return result
     }
 
