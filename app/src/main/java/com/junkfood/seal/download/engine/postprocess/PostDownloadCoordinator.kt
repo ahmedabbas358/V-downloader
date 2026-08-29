@@ -126,6 +126,33 @@ object PostDownloadCoordinator {
                 Log.w(TAG, "No media paths from yt-dlp output. Falling back to directory scan.")
                 fallbackDirectoryScan(fileName, downloadPath, isSubtitleOnly = false, videoId = videoInfo.id)
             }
+
+            // Subtitle embedding fallback: if embedSubtitle was requested and standalone subtitle files were generated
+            if (preferences.embedSubtitle && subPaths.isNotEmpty() && finalPaths.isNotEmpty()) {
+                val primaryMediaPath = finalPaths.first()
+                val primaryMediaFile = File(primaryMediaPath)
+                val subFiles = subPaths.map { File(it) }.filter { it.exists() && it.length() > 5L }
+                if (subFiles.isNotEmpty() && primaryMediaFile.exists()) {
+                    val tempEmbeddedFile = File(primaryMediaFile.parentFile, "embedded_${primaryMediaFile.name}")
+                    val embedRes = com.junkfood.seal.util.MediaProcessingEngine.embedSubtitlesIntoVideo(
+                        videoFile = primaryMediaFile,
+                        subtitleFiles = subFiles,
+                        outputFile = tempEmbeddedFile,
+                        isMkv = preferences.mergeToMkv || primaryMediaFile.extension.equals("mkv", ignoreCase = true)
+                    )
+                    if (embedRes.isSuccess) {
+                        val finalEmbedded = embedRes.getOrNull()
+                        if (finalEmbedded != null && finalEmbedded.exists() && finalEmbedded.length() > 0) {
+                            primaryMediaFile.delete()
+                            finalEmbedded.renameTo(primaryMediaFile)
+                            Log.d(TAG, "Post-download subtitle embedding completed for ${primaryMediaFile.name}")
+                            if (!preferences.keepSubtitle) {
+                                subFiles.forEach { it.delete() }
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // 5. Hard validation — fail honestly if no media was downloaded

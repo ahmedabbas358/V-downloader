@@ -347,9 +347,14 @@ object SubtitleDownloader {
                     addOption("--write-auto-subs")
                     addOption("--sub-langs", subLangs)
                     addOption("--sub-format", "best/vtt/srt/ass/lrc/srv3/srv2/srv1")
+                    addOption("--convert-subs", targetFormatStr)
                     addOption("--add-header", "Accept-Language: " + SubtitleOptionBuilder.buildAcceptLanguageHeader(rawLang))
                     addOption("--no-abort-on-error")
                     addOption("--ignore-errors")
+
+                    // Apply dynamic YouTube client strategy to bypass rate-limits and bot checks
+                    val extractorArgs = YoutubeClientStrategy.buildExtractorArgs()
+                    addOption("--extractor-args", extractorArgs)
 
                     FFmpegManager.getFFmpegExecutable(appContext)?.let { ffmpegFile ->
                         addOption("--ffmpeg-location", ffmpegFile.absolutePath)
@@ -521,17 +526,30 @@ object SubtitleDownloader {
         tempWorkDir: File,
         videoId: String
     ): File? {
-        val targetUrl = track.directUrl ?: track.formats.firstOrNull { it.url.isNotBlank() }?.url ?: return null
+        val vttFormat = track.formats.firstOrNull { it.ext == "vtt" || it.url.contains("fmt=vtt") }
+        val anyFormat = track.formats.firstOrNull { it.url.isNotBlank() }
+        val rawUrl = vttFormat?.url ?: anyFormat?.url ?: track.directUrl ?: return null
+
+        val targetUrl = if (rawUrl.contains("timedtext") && !rawUrl.contains("fmt=vtt")) {
+            if (rawUrl.contains("fmt=")) {
+                rawUrl.replace(Regex("""fmt=(?:srv\d|json3|ttml)"""), "fmt=vtt")
+            } else {
+                "$rawUrl&fmt=vtt"
+            }
+        } else {
+            rawUrl
+        }
+        val ext = if (targetUrl.contains("fmt=vtt") || targetUrl.endsWith(".vtt")) "vtt" else (vttFormat?.ext ?: anyFormat?.ext ?: "vtt")
+        val partFile = File(tempWorkDir, "${videoId}.${track.languageCode}.${ext}.part")
+        val tempFile = File(tempWorkDir, "${videoId}.${track.languageCode}.${ext}")
         return try {
-            val ext = track.formats.firstOrNull { it.url == targetUrl }?.ext ?: "vtt"
-            val partFile = File(tempWorkDir, "${videoId}.${track.languageCode}.${ext}.part")
-            val tempFile = File(tempWorkDir, "${videoId}.${track.languageCode}.${ext}")
             val urlObj = java.net.URL(targetUrl)
             val conn = urlObj.openConnection() as java.net.HttpURLConnection
             try {
                 conn.connectTimeout = 15000
                 conn.readTimeout = 15000
-                conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+                conn.setRequestProperty("User-Agent", NetworkOptionBuilder.MODERN_BROWSER_USER_AGENT)
+                conn.setRequestProperty("Accept-Language", SubtitleOptionBuilder.buildAcceptLanguageHeader(track.languageCode))
                 conn.connect()
                 if (conn.responseCode == 200) {
                     conn.inputStream.use { input ->

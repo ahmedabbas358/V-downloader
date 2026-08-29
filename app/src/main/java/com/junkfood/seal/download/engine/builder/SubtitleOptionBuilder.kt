@@ -1,5 +1,6 @@
 package com.junkfood.seal.download.engine.builder
 
+import com.junkfood.seal.download.engine.subtitle.discovery.LanguageMatcher
 import com.junkfood.seal.util.CONVERT_ASS
 import com.junkfood.seal.util.CONVERT_LRC
 import com.junkfood.seal.util.CONVERT_SRT
@@ -14,6 +15,7 @@ import com.junkfood.seal.util.PreferenceUtil.getString
  *
  * Design Principles:
  * - Always include auto-generated and manual subtitles for maximum coverage.
+ * - Normalize language names (e.g. "العربية" -> "ar") to ISO codes.
  * - Expand bare language codes to include region variants (e.g., "ar" -> "ar,ar-.*,ar-orig,.*-ar").
  * - Always specify --sub-format to prefer SRT and fallback gracefully.
  * - Convert subtitles to the user's preferred format.
@@ -27,23 +29,15 @@ object SubtitleOptionBuilder {
     private const val SUB_FORMAT_PREFERENCE = "srt/best/vtt/ass/lrc/srv3/srv2/srv1"
 
     /**
-     * Builds a yt-dlp --sub-langs value from a raw language string.
-     *
-     * Clean targeting:
-     * - Empty or "all" -> "all"
-     * - Specific code (e.g. "ar") -> "ar,ar-.*,ar-orig,.*-ar" (targets all variations of the language)
-     * - Multiple codes (comma-separated) -> cleaned and joined
-     */
-    /**
      * Builds a yt-dlp --sub-langs value from a raw language string with intelligent language expansion.
      */
     fun buildSubLangsOption(rawLang: String): String {
         val trimmed = rawLang.trim()
         val effectiveLang = when {
             trimmed.isEmpty() -> {
-                val pref = com.junkfood.seal.util.SUBTITLE_LANGUAGE.getString().trim()
+                val pref = runCatching { com.junkfood.seal.util.SUBTITLE_LANGUAGE.getString().trim() }.getOrDefault("")
                 if (pref.isNotEmpty() && !pref.equals("all", ignoreCase = true)) pref
-                else java.util.Locale.getDefault().language.ifBlank { "ar" }
+                else "all"
             }
             else -> trimmed
         }
@@ -53,15 +47,16 @@ object SubtitleOptionBuilder {
         }
 
         val langs = effectiveLang.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-        if (langs.isEmpty()) return java.util.Locale.getDefault().language.ifBlank { "ar" }
+        if (langs.isEmpty()) return "all"
 
         val expanded = mutableSetOf<String>()
-        for (lang in langs) {
+        for (raw in langs) {
+            val lang = LanguageMatcher.normalizeLangCode(raw)
             if (lang.equals("all", ignoreCase = true)) {
                 return "all"
             }
             expanded.add(lang)
-            val base = lang.substringBefore('-').substringBefore('.')
+            val base = LanguageMatcher.getBaseLanguageCode(lang)
             if (base.isNotEmpty()) {
                 expanded.add(base)
                 expanded.add("$base.*")
@@ -81,8 +76,12 @@ object SubtitleOptionBuilder {
      * Builds dynamic Accept-Language HTTP header prioritizing user's selected language(s).
      */
     fun buildAcceptLanguageHeader(rawLang: String): String {
-        val effective = rawLang.trim().ifBlank { com.junkfood.seal.util.SUBTITLE_LANGUAGE.getString().trim() }
-        val langs = effective.split(",").map { it.trim().lowercase() }.filter { it.isNotEmpty() && it != "all" }
+        val effective = rawLang.trim().ifBlank {
+            runCatching { com.junkfood.seal.util.SUBTITLE_LANGUAGE.getString().trim() }.getOrDefault("")
+        }
+        val langs = effective.split(",")
+            .map { LanguageMatcher.normalizeLangCode(it) }
+            .filter { it.isNotEmpty() && it != "all" }
         if (langs.isEmpty()) return "en-US,en;q=0.9,ar;q=0.8,*"
         val headerParts = mutableListOf<String>()
         langs.forEachIndexed { index, lang ->

@@ -389,15 +389,15 @@ object DownloadCommandBuilder {
         isMkv: Boolean = true,
     ) {
         if (options.writeSubs) request.addOption("--write-subs")
-        if (options.writeAutoSubs) request.addOption("--write-auto-subs")
+        if (options.writeAutoSubs || options.embedSubs) request.addOption("--write-auto-subs")
         if (options.subLangs.isNotEmpty()) request.addOption("--sub-langs", options.subLangs)
         if (options.subFormat.isNotEmpty()) request.addOption("--sub-format", options.subFormat)
         if (options.embedSubs) {
             request.addOption("--embed-subs")
-            val fmt = when {
-                options.convertSubs.equals("lrc", ignoreCase = true) -> "srt"
-                options.convertSubs.isNotEmpty() -> options.convertSubs
-                else -> "srt"
+            val fmt = if (isMkv) {
+                if (options.convertSubs.equals("lrc", ignoreCase = true)) "srt" else options.convertSubs.ifEmpty { "srt" }
+            } else {
+                "srt" // MP4 container requires mov_text compatible srt/vtt
             }
             request.addOption("--convert-subs", fmt)
         } else if (options.convertSubs.isNotEmpty()) {

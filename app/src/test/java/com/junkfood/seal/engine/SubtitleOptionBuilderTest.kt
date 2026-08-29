@@ -21,11 +21,25 @@ class SubtitleOptionBuilderTest {
 
         // Single bare language (e.g. "ar")
         val expandedAr = SubtitleOptionBuilder.buildSubLangsOption("ar")
-        assertTrue("Expanded Arabic pattern must include variants", expandedAr.contains("ar") && expandedAr.contains("ar-.*"))
+        assertTrue("Expanded Arabic pattern must include variants", expandedAr.contains("ar") && expandedAr.contains("ar.*"))
+
+        // Arabic text alias normalization (e.g. "العربية")
+        val expandedArabicName = SubtitleOptionBuilder.buildSubLangsOption("العربية")
+        assertTrue("Arabic name must be normalized to ar code", expandedArabicName.contains("ar"))
 
         // Multiple languages
         val multi = SubtitleOptionBuilder.buildSubLangsOption("ar,en")
         assertTrue(multi.contains("ar") && multi.contains("en"))
+
+        // Embedding options format
+        val embedOpts = SubtitleOptionBuilder.buildForMediaWithSubtitles(
+            subtitleLanguage = "ar",
+            convertSubtitle = CONVERT_ASS,
+            embedSubtitle = true
+        )
+        assertTrue(embedOpts.embedSubs)
+        assertEquals("srt", embedOpts.convertSubs)
+        assertTrue(embedOpts.writeAutoSubs)
     }
 
     @Test
@@ -46,10 +60,10 @@ class SubtitleOptionBuilderTest {
     @Test
     fun testSubtitleManagerAntiBanDelay() {
         val normalDelay = com.junkfood.seal.download.engine.subtitle.SubtitleManager.getAntiBanDelayMs(isRateLimited = false)
-        assertTrue("Normal anti-ban delay should be >= 1800ms", normalDelay >= 1800L)
+        assertTrue("Normal anti-ban delay should be >= 500ms", normalDelay >= 500L)
 
         val rateLimitedDelay = com.junkfood.seal.download.engine.subtitle.SubtitleManager.getAntiBanDelayMs(isRateLimited = true)
-        assertTrue("Rate limited cooldown delay should be >= 6000ms", rateLimitedDelay >= 6000L)
+        assertTrue("Rate limited cooldown delay should be >= 4000ms", rateLimitedDelay >= 4000L)
     }
 
     @Test

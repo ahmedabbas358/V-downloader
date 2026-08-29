@@ -15,6 +15,8 @@ import com.junkfood.seal.download.engine.subtitle.provider.SubtitleProvider
 import com.junkfood.seal.download.engine.subtitle.provider.YouTubeSubtitleProvider
 import com.junkfood.seal.download.engine.subtitle.youtube.YoutubeCompatibility
 import com.junkfood.seal.util.DownloadUtil.DownloadPreferences
+import com.junkfood.seal.util.PreferenceUtil.getString
+import com.junkfood.seal.util.SUBTITLE_LANGUAGE
 import com.junkfood.seal.util.VideoInfo
 import java.io.File
 
@@ -47,7 +49,37 @@ class SubtitleOrchestrator(
             kotlinx.coroutines.delay(delay)
         }
 
-        // 1. Direct Fast Execution: single yt-dlp pass with auto-subs and manual subs
+        // 1. Structured Discovery & Direct Stream Download if VideoInfo is available
+        if (videoInfo != null && (videoInfo.subtitles.isNotEmpty() || videoInfo.automaticCaptions.isNotEmpty())) {
+            val inventory = com.junkfood.seal.download.engine.subtitle.discovery.SubtitleDiscovery.discoverInventory(videoInfo)
+            val rawLang = preferences.subtitleLanguage.ifBlank {
+                com.junkfood.seal.util.SUBTITLE_LANGUAGE.getString().ifBlank { "all" }
+            }
+            val matchedTracks = LanguageMatcher.matchTracks(
+                requestedLangs = rawLang,
+                availableTracks = inventory.allTracks,
+                policy = SubtitleTypePolicy.ANY,
+                allowAutoCaptions = true,
+                allowTranslatedSubtitles = true
+            )
+            if (matchedTracks.isNotEmpty()) {
+                val providerRes = youtubeProvider.downloadTracks(
+                    url = url,
+                    videoId = videoId,
+                    tracks = matchedTracks,
+                    destinationDir = destinationDir,
+                    preferences = preferences,
+                    videoTitle = resolvedTitle,
+                    playlistIndex = playlistIndex,
+                    onProgress = onProgress
+                )
+                if (providerRes is SubtitleDownloadResult.Success && providerRes.downloadedFiles.isNotEmpty()) {
+                    return providerRes
+                }
+            }
+        }
+
+        // 2. Direct Fast Execution: single yt-dlp pass with auto-subs and manual subs
         onProgress(SubtitleProgress.Downloading(preferences.subtitleLanguage.ifBlank { "ar,en" }, 0.3f))
         val directRes = com.junkfood.seal.download.engine.subtitle.download.SubtitleDownloader.downloadSubtitlesDirectly(
             url = url,
@@ -68,7 +100,7 @@ class SubtitleOrchestrator(
             )
         }
 
-        // 2. Check if subtitle files already exist in destination
+        // 3. Check if subtitle files already exist in destination
         val targetFormat = com.junkfood.seal.download.engine.subtitle.model.SubtitleOutputFormat.fromExtension(
             SubtitleOptionBuilder.getConvertSubsValue(preferences.convertSubtitle)
         )
