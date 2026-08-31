@@ -163,8 +163,26 @@ object TaskFactory {
                         playlistUrl = playlistUrl
                     )
                 )
+
+                val precomputedInfo = if (isSubOnly && itemUrl.isNotBlank()) {
+                    VideoInfo(
+                        id = entry.id ?: FileCollisionResolver.extractVideoId(itemUrl, fallbackId = "item_$index"),
+                        title = baseTitle,
+                        webpageUrl = itemUrl,
+                        originalUrl = itemUrl,
+                        uploader = entry.uploader ?: entry.channel ?: playlistResult.channel ?: "",
+                        extractor = "Youtube",
+                        extractorKey = "Youtube",
+                        duration = entry.duration,
+                    )
+                } else null
+
                 val state =
-                    Task.State(downloadState = Idle, videoInfo = null, viewState = viewState)
+                    Task.State(
+                        downloadState = if (precomputedInfo != null) ReadyWithInfo else Idle,
+                        videoInfo = precomputedInfo,
+                        viewState = viewState
+                    )
                 TaskWithState(task, state)
             }
 

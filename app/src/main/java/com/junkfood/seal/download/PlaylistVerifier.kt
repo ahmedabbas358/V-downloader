@@ -88,11 +88,11 @@ object PlaylistVerifier {
                 val startsWithIndex = record.name.startsWith("$indexPadded3 - ") ||
                         record.name.startsWith("$indexPadded3-") ||
                         record.name.startsWith("$indexPadded3. ") ||
-                        record.name.startsWith("$indexPadded3_") ||
+                        record.name.startsWith("${indexPadded3}_") ||
                         record.name.startsWith("$indexPadded2 - ") ||
                         record.name.startsWith("$indexPadded2-") ||
                         record.name.startsWith("$indexPadded2. ") ||
-                        record.name.startsWith("$indexPadded2_") ||
+                        record.name.startsWith("${indexPadded2}_") ||
                         record.name.startsWith("$indexStr - ") ||
                         record.name.startsWith("$indexStr-") ||
                         record.name.startsWith("$indexStr. ") ||
