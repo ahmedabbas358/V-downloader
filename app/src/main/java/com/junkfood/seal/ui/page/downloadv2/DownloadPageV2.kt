@@ -42,6 +42,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.List
+import androidx.compose.material.icons.outlined.AudioFile
 import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
@@ -53,9 +54,13 @@ import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Subtitles
 import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.VideoFile
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -86,6 +91,7 @@ import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -583,7 +589,8 @@ fun DownloadPageImplV2(
                             onSearchQueryChange = { searchQuery = it },
                             isSearching = isSearching,
                             onToggleSearch = { isSearching = it },
-                            onMenuOpen = onMenuOpen
+                            onMenuOpen = onMenuOpen,
+                            onShowMenu = { isMenuSheetOpen = true },
                         )
                         SelectionGroupRow(
                             modifier =
@@ -646,6 +653,8 @@ fun DownloadPageImplV2(
                             val audioCount = (filteredMap.size - videoCount - subtitleCount).coerceAtLeast(0)
                             SubHeader(
                                 modifier = Modifier,
+                                activeFilter = activeFilter,
+                                onFilterSelect = { activeFilter = it },
                                 subtitleCount = subtitleCount,
                                 videoCount = videoCount,
                                 audioCount = audioCount,
@@ -1069,7 +1078,8 @@ fun Header(
     onSearchQueryChange: (String) -> Unit = {},
     isSearching: Boolean = false,
     onToggleSearch: (Boolean) -> Unit = {},
-    onMenuOpen: () -> Unit = {}
+    onMenuOpen: () -> Unit = {},
+    onShowMenu: () -> Unit = {},
 ) {
     val windowWidthSizeClass = LocalWindowWidthState.current
     when (windowWidthSizeClass) {
@@ -1079,7 +1089,8 @@ fun Header(
                 searchQuery = searchQuery,
                 onSearchQueryChange = onSearchQueryChange,
                 isSearching = isSearching,
-                onToggleSearch = onToggleSearch
+                onToggleSearch = onToggleSearch,
+                onShowMenu = onShowMenu,
             )
         }
         else -> {
@@ -1089,7 +1100,8 @@ fun Header(
                 onSearchQueryChange = onSearchQueryChange,
                 isSearching = isSearching,
                 onToggleSearch = onToggleSearch,
-                onMenuOpen = onMenuOpen
+                onMenuOpen = onMenuOpen,
+                onShowMenu = onShowMenu,
             )
         }
     }
@@ -1102,7 +1114,8 @@ private fun HeaderCompact(
     onSearchQueryChange: (String) -> Unit,
     isSearching: Boolean,
     onToggleSearch: (Boolean) -> Unit,
-    onMenuOpen: () -> Unit
+    onMenuOpen: () -> Unit,
+    onShowMenu: () -> Unit = {},
 ) {
     Row(modifier = modifier.height(64.dp), verticalAlignment = Alignment.CenterVertically) {
         if (isSearching) {
@@ -1156,8 +1169,15 @@ private fun HeaderCompact(
             )
             IconButton(onClick = { onToggleSearch(true) }) {
                 Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Outlined.Search,
+                    imageVector = Icons.Outlined.Search,
                     contentDescription = "بحث",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            IconButton(onClick = onShowMenu) {
+                Icon(
+                    imageVector = Icons.Outlined.Tune,
+                    contentDescription = "خيارات التحكم والعرض",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -1171,7 +1191,8 @@ private fun HeaderExpanded(
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
     isSearching: Boolean,
-    onToggleSearch: (Boolean) -> Unit
+    onToggleSearch: (Boolean) -> Unit,
+    onShowMenu: () -> Unit = {},
 ) {
     Row(modifier = modifier.height(64.dp), verticalAlignment = Alignment.CenterVertically) {
         Spacer(modifier = Modifier.width(4.dp))
@@ -1201,8 +1222,15 @@ private fun HeaderExpanded(
         } else {
             IconButton(onClick = { onToggleSearch(true) }) {
                 Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Outlined.Search,
+                    imageVector = Icons.Outlined.Search,
                     contentDescription = "بحث",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            IconButton(onClick = onShowMenu) {
+                Icon(
+                    imageVector = Icons.Outlined.Tune,
+                    contentDescription = "خيارات التحكم والعرض",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -1309,12 +1337,57 @@ private fun DownloadQueuePlaceholder(modifier: Modifier = Modifier) {
 }
 
 @Composable
+private fun FilterBadgeChip(
+    icon: ImageVector,
+    count: Int,
+    label: String,
+    isSelected: Boolean,
+    containerColor: Color,
+    contentColor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = containerColor,
+        contentColor = contentColor,
+        border = if (isSelected) androidx.compose.foundation.BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
+        tonalElevation = if (isSelected) 4.dp else 1.dp,
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = contentColor
+            )
+            Text(
+                text = "$count $label",
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    fontSize = 12.5.sp
+                ),
+                color = contentColor
+            )
+        }
+    }
+}
+
+@Composable
 fun SubHeader(
     modifier: Modifier = Modifier,
     containerColor: Color =
         MaterialTheme.colorScheme.run {
             if (LocalDarkTheme.current.isDarkTheme()) surfaceContainer else surfaceContainerLowest
         },
+    activeFilter: Filter = Filter.All,
+    onFilterSelect: (Filter) -> Unit = {},
     subtitleCount: Int = 0,
     videoCount: Int = 0,
     audioCount: Int = 0,
@@ -1322,63 +1395,100 @@ fun SubHeader(
     onToggleView: () -> Unit,
     onShowMenu: () -> Unit,
 ) {
-    val text = buildString {
-        if (subtitleCount > 0) {
-            append("$subtitleCount ترجمة")
-            if (videoCount > 0 || audioCount > 0) {
-                append(", ")
-            }
-        }
-        if (videoCount > 0) {
-            append(pluralStringResource(R.plurals.video_count, videoCount).format(videoCount))
-            if (audioCount > 0) {
-                append(", ")
-            }
-        }
-        if (audioCount > 0) {
-            append(pluralStringResource(R.plurals.audio_count, audioCount).format(audioCount))
-        }
-    }
+    val totalCount = videoCount + audioCount + subtitleCount
 
     Row(
-        modifier = modifier.padding(top = 12.dp, bottom = 12.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // High-contrast interactive type statistics chips
         Row(
-            modifier = Modifier.padding(start = 8.dp),
+            modifier = Modifier
+                .weight(1f)
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(text = text, style = MaterialTheme.typography.labelLarge)
-            Spacer(Modifier.width(4.dp))
+            if (videoCount > 0) {
+                FilterBadgeChip(
+                    icon = Icons.Outlined.VideoFile,
+                    count = videoCount,
+                    label = pluralStringResource(R.plurals.video_count, videoCount).format(videoCount).replace(Regex("^\\d+\\s*"), ""),
+                    isSelected = activeFilter == Filter.Video,
+                    containerColor = if (activeFilter == Filter.Video) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = if (activeFilter == Filter.Video) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                    onClick = { onFilterSelect(if (activeFilter == Filter.Video) Filter.All else Filter.Video) }
+                )
+            }
+            if (audioCount > 0) {
+                FilterBadgeChip(
+                    icon = Icons.Outlined.AudioFile,
+                    count = audioCount,
+                    label = pluralStringResource(R.plurals.audio_count, audioCount).format(audioCount).replace(Regex("^\\d+\\s*"), ""),
+                    isSelected = activeFilter == Filter.Audio,
+                    containerColor = if (activeFilter == Filter.Audio) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = if (activeFilter == Filter.Audio) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSurface,
+                    onClick = { onFilterSelect(if (activeFilter == Filter.Audio) Filter.All else Filter.Audio) }
+                )
+            }
+            if (subtitleCount > 0) {
+                FilterBadgeChip(
+                    icon = Icons.Outlined.Subtitles,
+                    count = subtitleCount,
+                    label = "ترجمة",
+                    isSelected = activeFilter == Filter.Subtitle,
+                    containerColor = if (activeFilter == Filter.Subtitle) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = if (activeFilter == Filter.Subtitle) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
+                    onClick = { onFilterSelect(if (activeFilter == Filter.Subtitle) Filter.All else Filter.Subtitle) }
+                )
+            }
+            if (totalCount == 0) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text(
+                        text = "القائمة فارغة",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
+                }
+            }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(Modifier.width(8.dp))
 
-        FilledIconButton(
-            onClick = onToggleView,
-            modifier = Modifier.clearAndSetSemantics {}.size(32.dp),
-            colors = IconButtonDefaults.filledIconButtonColors(containerColor = containerColor),
+        // Right side view & control actions
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector =
-                    if (isGridView) Icons.AutoMirrored.Outlined.List else Icons.Outlined.GridView,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-            )
-        }
+            FilledTonalIconButton(
+                onClick = onToggleView,
+                modifier = Modifier.size(34.dp),
+                colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = containerColor),
+            ) {
+                Icon(
+                    imageVector = if (isGridView) Icons.AutoMirrored.Outlined.List else Icons.Outlined.GridView,
+                    contentDescription = if (isGridView) "عرض كقائمة" else "عرض كشبكة",
+                    modifier = Modifier.size(17.dp),
+                )
+            }
 
-        Spacer(Modifier.width(4.dp))
-
-        FilledIconButton(
-            onClick = onShowMenu,
-            modifier = Modifier.clearAndSetSemantics {}.size(32.dp),
-            colors = IconButtonDefaults.filledIconButtonColors(containerColor = containerColor),
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.MoreVert,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-            )
+            FilledTonalIconButton(
+                onClick = onShowMenu,
+                modifier = Modifier.size(34.dp),
+                colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = containerColor),
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Tune,
+                    contentDescription = "خيارات التحكم والعرض",
+                    modifier = Modifier.size(17.dp),
+                )
+            }
         }
     }
 }

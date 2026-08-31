@@ -130,7 +130,19 @@ object PlaylistVerifier {
             return match
         }
 
-        fun findByExactName(normalizedTitle: String, exts: Set<String>, playlistTitleNormalized: String = ""): LocalFileRecord? {
+        private fun extractIndexFromFileName(name: String): Int? {
+            val match = Regex("""^#?(\d{1,4})\s*[-._\s]|^\[(\d{1,4})\]|^\((\d{1,4})\)""").find(name.trim())
+            return (match?.groupValues?.get(1)?.ifEmpty { null }
+                ?: match?.groupValues?.get(2)?.ifEmpty { null }
+                ?: match?.groupValues?.get(3)?.ifEmpty { null })?.toIntOrNull()
+        }
+
+        fun findByExactName(
+            targetIndex: Int = 0,
+            normalizedTitle: String,
+            exts: Set<String>,
+            playlistTitleNormalized: String = ""
+        ): LocalFileRecord? {
             if (normalizedTitle.isBlank() || normalizedTitle.length < 3) return null
 
             // Extract unique title keywords excluding common playlist title tokens
@@ -143,13 +155,18 @@ object PlaylistVerifier {
                 val ext = record.name.substringAfterLast('.', "").lowercase(Locale.US)
                 val matchesExt = exts.isEmpty() || exts.contains(ext) || record.isPartial
                 if (!matchesExt) return@firstOrNull false
+
+                // If record has an explicit playlist index prefix (e.g. "043 - "),
+                // it CANNOT match an item with a different targetIndex!
+                val recordIndex = extractIndexFromFileName(record.name)
+                if (recordIndex != null && targetIndex > 0 && recordIndex != targetIndex) {
+                    return@firstOrNull false
+                }
                 
                 val cleanedName = cleanFileNameForMatching(record.name)
                 val normalizedRecordName = normalizeText(cleanedName)
                 if (normalizedRecordName == normalizedTitle) return@firstOrNull true
                 if (normalizedTitle.length >= 6 && normalizedRecordName.equals(normalizedTitle, ignoreCase = true)) return@firstOrNull true
-                if (normalizedTitle.length >= 8 && normalizedRecordName.contains(normalizedTitle)) return@firstOrNull true
-                if (normalizedRecordName.length >= 8 && normalizedTitle.contains(normalizedRecordName)) return@firstOrNull true
 
                 val recordTokens = normalizedRecordName.split(' ').filter { it.length >= 2 }.toSet()
                 val titleTokens = normalizedTitle.split(' ').filter { it.length >= 2 }.toSet()
@@ -165,15 +182,15 @@ object PlaylistVerifier {
                     val shorterSize = minOf(uniqueRecordTokens.size, uniqueTitleTokens.size)
                     val overlapRatio = uniqueIntersection.size.toFloat() / shorterSize.toFloat()
 
-                    // Match if unique title tokens overlap with high fidelity
-                    if (jaccard >= 0.45f || overlapRatio >= 0.6f) {
+                    // Match only if unique title tokens overlap with high fidelity
+                    if (jaccard >= 0.55f || overlapRatio >= 0.7f) {
                         return@firstOrNull true
                     }
-                } else if (recordTokens.isNotEmpty() && titleTokens.isNotEmpty()) {
+                } else if (recordTokens.isNotEmpty() && titleTokens.isNotEmpty() && playlistTokens.isEmpty()) {
                     val intersection = recordTokens.intersect(titleTokens)
                     val union = recordTokens.union(titleTokens)
                     val jaccard = intersection.size.toFloat() / union.size.toFloat()
-                    if (jaccard >= 0.65f) {
+                    if (jaccard >= 0.75f) {
                         return@firstOrNull true
                     }
                 }
@@ -379,6 +396,7 @@ object PlaylistVerifier {
                 }
                 if (matchedRecord == null && identity.expectedTitle.isNotBlank()) {
                     matchedRecord = fileIndex.findByExactName(
+                        targetIndex = index,
                         normalizedTitle = identity.expectedTitle,
                         exts = identity.expectedExts,
                         playlistTitleNormalized = normalizeText(cleanPlaylistName)

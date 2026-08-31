@@ -47,6 +47,7 @@ object MediaStorageScanner {
         isSubtitleOnly: Boolean = false,
         videoId: String? = null,
         windowMinutes: Int = 10,
+        downloadStartTime: Long? = null,
     ): List<String> {
         val cleanTitleStr = title
             .removePrefix("[Subtitle] ")
@@ -54,11 +55,10 @@ object MediaStorageScanner {
             .trim()
         val rawCleaned = FileUtil.cleanFileName(title.removePrefix("[Subtitle] "))
         val cleanedTitle = FileUtil.cleanFileName(cleanTitleStr)
-        val shortTitle = if (cleanedTitle.length > 8) cleanedTitle.take(8) else cleanedTitle
         val normalizedTitle = cleanTitleStr.lowercase(java.util.Locale.US)
             .replace(Regex("[^a-z0-9\\u0600-\\u06FF\\s]"), "").trim()
         val titleWords = normalizedTitle.split("\\s+".toRegex()).filter { it.length >= 2 }
-        val cutoffTime = System.currentTimeMillis() - (windowMinutes * 60 * 1000L)
+        val effectiveCutoff = downloadStartTime ?: (System.currentTimeMillis() - (windowMinutes * 60 * 1000L))
 
         val isGeneric = FileCollisionResolver.isGenericTitle(title)
 
@@ -95,24 +95,23 @@ object MediaStorageScanner {
                 isMatch = true
             }
 
-            // Match by title (ONLY if not generic, or if file is very recent)
+            // Match by title (ONLY if not generic)
             if (!isMatch && !isGeneric) {
-                if (path.contains(cleanTitleStr) || name.contains(cleanedTitle) ||
-                    path.contains(rawCleaned) || name.contains(rawCleaned) ||
-                    (shortTitle.isNotEmpty() && name.contains(shortTitle))) {
+                if ((cleanedTitle.length >= 4 && (path.contains(cleanTitleStr) || name.contains(cleanedTitle))) ||
+                    (rawCleaned.length >= 4 && (path.contains(rawCleaned) || name.contains(rawCleaned)))) {
                     isMatch = true
                 }
-            } else if (!isMatch && isGeneric && file.lastModified() >= cutoffTime) {
-                // For generic titles, only match very recent files by title
-                if (name.contains(cleanedTitle) || path.contains(cleanTitleStr) || name.contains(rawCleaned)) {
+            } else if (!isMatch && isGeneric && file.lastModified() >= effectiveCutoff) {
+                // For generic titles (social media), only match files downloaded during this task session
+                if (cleanedTitle.length >= 4 && (name.contains(cleanedTitle) || path.contains(cleanTitleStr))) {
                     isMatch = true
                 }
             }
 
             // Match by normalized words (ONLY for non-generic titles)
-            if (!isMatch && !isGeneric && titleWords.isNotEmpty()) {
+            if (!isMatch && !isGeneric && titleWords.size >= 2) {
                 val matchedCount = titleWords.count { normalizedName.contains(it) }
-                if (matchedCount >= (titleWords.size * 0.7).toInt().coerceAtLeast(1)) {
+                if (matchedCount >= (titleWords.size * 0.8).toInt().coerceAtLeast(2)) {
                     isMatch = true
                 }
             }
@@ -123,15 +122,15 @@ object MediaStorageScanner {
         .map { it.absolutePath }
         .toMutableList()
 
-        // 2. Fallback: recently modified files within the window
+        // 2. Fallback: recently modified files within the current download session
         if (matchedFiles.isEmpty()) {
-            Log.w(TAG, "No title/ID match for '$title'. Falling back to files modified in last $windowMinutes min.")
+            Log.w(TAG, "No title/ID match for '$title'. Falling back to files modified after cutoff ($effectiveCutoff).")
             val recentlyModified = allFiles.filter { file ->
                 val name = file.name
                 val isSubFile = SUBTITLE_REGEX.containsMatchIn(name)
                 val typeMatches = if (isSubtitleOnly) isSubFile
                     else !isSubFile && !THUMBNAIL_REGEX.containsMatchIn(name)
-                typeMatches && file.lastModified() >= cutoffTime
+                typeMatches && file.lastModified() >= effectiveCutoff
             }
             .sortedByDescending { it.lastModified() }
             .map { it.absolutePath }

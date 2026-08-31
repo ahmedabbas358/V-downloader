@@ -52,6 +52,7 @@ object PostDownloadCoordinator {
         playlistItem: Int = 0,
         fallbackPlaylistTitle: String = "",
         discoveredPaths: List<String> = emptyList(),
+        downloadStartTime: Long? = null,
         appContext: Context = context,
         onProgress: ((Float, String) -> Unit)? = null,
     ): Result<List<String>> = runCatching {
@@ -113,7 +114,7 @@ object PostDownloadCoordinator {
         if (isSubtitleOnly) {
             finalPaths = if (subPaths.isNotEmpty()) subPaths else {
                 Log.w(TAG, "No subtitle paths discovered, falling back to directory scan")
-                fallbackDirectoryScan(fileName, downloadPath, isSubtitleOnly = true, videoId = videoInfo.id)
+                fallbackDirectoryScan(fileName, downloadPath, isSubtitleOnly = true, videoId = videoInfo.id, downloadStartTime = downloadStartTime)
             }
         } else {
             // Media download: use yt-dlp-reported media paths (not subtitles)
@@ -124,7 +125,7 @@ object PostDownloadCoordinator {
                 reportedMedia.onEach { MediaStorageScanner.scanSingleFile(File(it)) }
             } else {
                 Log.w(TAG, "No media paths from yt-dlp output. Falling back to directory scan.")
-                fallbackDirectoryScan(fileName, downloadPath, isSubtitleOnly = false, videoId = videoInfo.id)
+                fallbackDirectoryScan(fileName, downloadPath, isSubtitleOnly = false, videoId = videoInfo.id, downloadStartTime = downloadStartTime)
             }
 
             // Subtitle embedding fallback: if embedSubtitle was requested and standalone subtitle files were generated
@@ -211,6 +212,7 @@ object PostDownloadCoordinator {
         isSubtitleOnly: Boolean,
         videoId: String?,
         windowMinutes: Int = 10,
+        downloadStartTime: Long? = null,
     ): List<String> {
         val result = MediaStorageScanner.scanAndRegister(
             title = title,
@@ -218,6 +220,7 @@ object PostDownloadCoordinator {
             isSubtitleOnly = isSubtitleOnly,
             videoId = videoId,
             windowMinutes = windowMinutes,
+            downloadStartTime = downloadStartTime,
         )
         if (result.isEmpty()) {
             // Try parent directory as additional fallback
@@ -230,6 +233,7 @@ object PostDownloadCoordinator {
                     isSubtitleOnly = isSubtitleOnly,
                     videoId = videoId,
                     windowMinutes = windowMinutes,
+                    downloadStartTime = downloadStartTime,
                 )
             }
         }

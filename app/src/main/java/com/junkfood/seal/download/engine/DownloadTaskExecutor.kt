@@ -167,6 +167,7 @@ object DownloadTaskExecutor {
         onProgressUpdate: (Float, String) -> Unit,
         appContext: Context = context,
     ): Result<List<String>> = withContext(Dispatchers.IO) {
+        val downloadStartTime = System.currentTimeMillis() - 2000L
         if (!com.junkfood.seal.util.UpgradeManager.isPythonRuntimeIntact(appContext)) {
             com.junkfood.seal.util.UpgradeManager.ensureNativeEnvironment(appContext)
         }
@@ -410,6 +411,7 @@ object DownloadTaskExecutor {
             playlistItem = playlistItem,
             fallbackPlaylistTitle = fallbackPlaylistTitle,
             discoveredPaths = discoveredPaths.toList(),
+            downloadStartTime = downloadStartTime,
             appContext = appContext,
             onProgress = { percent, msg ->
                 val scaledProgress = 0.95f + (percent / 100f) * 0.04f
