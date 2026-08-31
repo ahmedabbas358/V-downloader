@@ -203,6 +203,10 @@ object DownloadCommandBuilder {
                 addOption("-v")
             }
 
+            FFmpegManager.getFFmpegExecutable(appContext)?.let { ffmpegFile ->
+                addOption("--ffmpeg-location", ffmpegFile.absolutePath)
+            }
+
             addOption("-o", preferences.newTitle.ifEmpty { OutputTemplateBuilder.buildOutputTemplate(preferences, playlistItem, isFallback) })
         }
 
