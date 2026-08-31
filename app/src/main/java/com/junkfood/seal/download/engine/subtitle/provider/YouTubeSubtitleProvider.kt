@@ -119,7 +119,7 @@ class YouTubeSubtitleProvider : SubtitleProvider {
         ) { _, clientChain ->
             RequestCoordinator.globalSubtitleMutex.withLock {
                 RequestCoordinator.withCoordinatedRequest {
-                    withTimeout(60_000L) {
+                    withTimeout(20_000L) {
                         val res = SubtitleDownloader.downloadSelectedTracks(
                             url = url,
                             videoId = videoId,

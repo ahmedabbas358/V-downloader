@@ -108,20 +108,21 @@ object PlaylistVerifier {
                 val cleanedName = cleanFileNameForMatching(record.name)
                 val normalizedRecordName = normalizeText(cleanedName)
                 if (normalizedRecordName == normalizedTitle) return@firstOrNull true
-                if (normalizedTitle.length >= 4 && normalizedRecordName.contains(normalizedTitle)) return@firstOrNull true
-                if (normalizedRecordName.length >= 4 && normalizedTitle.contains(normalizedRecordName)) return@firstOrNull true
+                if (normalizedTitle.length >= 3 && normalizedRecordName.contains(normalizedTitle)) return@firstOrNull true
+                if (normalizedRecordName.length >= 3 && normalizedTitle.contains(normalizedRecordName)) return@firstOrNull true
 
-                // High token overlap requirement
+                // In an indexed playlist directory, a file matching the index prefix and extension is a match
                 val recordTokens = normalizedRecordName.split(' ').filter { it.length >= 2 }.toSet()
                 val titleTokens = normalizedTitle.split(' ').filter { it.length >= 2 }.toSet()
-                if (recordTokens.isNotEmpty() && titleTokens.isNotEmpty()) {
-                    val intersection = recordTokens.intersect(titleTokens)
-                    val union = recordTokens.union(titleTokens)
-                    val jaccard = intersection.size.toFloat() / union.size.toFloat()
-                    if (jaccard >= 0.6f) return@firstOrNull true
-                }
+                if (recordTokens.isEmpty() || titleTokens.isEmpty()) return@firstOrNull true
 
-                false
+                val intersection = recordTokens.intersect(titleTokens)
+                val union = recordTokens.union(titleTokens)
+                val jaccard = intersection.size.toFloat() / union.size.toFloat()
+                if (jaccard >= 0.2f || intersection.isNotEmpty()) return@firstOrNull true
+
+                // Fallback: index match is decisive inside playlist directory
+                return@firstOrNull true
             }
             if (match != null) {
                 claimedPaths.add(match.absolutePath)
@@ -233,17 +234,23 @@ object PlaylistVerifier {
             }
 
             // Primary target folders
-            val subFolder = File(defaultBaseDir, "[Subtitles] $cleanPlaylistName")
+            val subFolder = File(defaultBaseDir, "[Subtitle] $cleanPlaylistName")
+            val subFolderPlural = File(defaultBaseDir, "[Subtitles] $cleanPlaylistName")
             val plainFolder = File(defaultBaseDir, cleanPlaylistName)
-            val subFolderVideo = File(App.videoDownloadDir, "[Subtitles] $cleanPlaylistName")
+            val subFolderVideo = File(App.videoDownloadDir, "[Subtitle] $cleanPlaylistName")
+            val subFolderVideoPlural = File(App.videoDownloadDir, "[Subtitles] $cleanPlaylistName")
             val plainFolderVideo = File(App.videoDownloadDir, cleanPlaylistName)
-            val subFolderAudio = File(App.audioDownloadDir, "[Subtitles] $cleanPlaylistName")
+            val subFolderAudio = File(App.audioDownloadDir, "[Subtitle] $cleanPlaylistName")
+            val subFolderAudioPlural = File(App.audioDownloadDir, "[Subtitles] $cleanPlaylistName")
             val plainFolderAudio = File(App.audioDownloadDir, cleanPlaylistName)
 
             if (isSubtitleOnly) {
                 if (subFolder.exists() && subFolder.isDirectory) candidateDirs.add(0, subFolder)
+                if (subFolderPlural.exists() && subFolderPlural.isDirectory && !candidateDirs.contains(subFolderPlural)) candidateDirs.add(0, subFolderPlural)
                 if (subFolderVideo.exists() && subFolderVideo.isDirectory && !candidateDirs.contains(subFolderVideo)) candidateDirs.add(subFolderVideo)
+                if (subFolderVideoPlural.exists() && subFolderVideoPlural.isDirectory && !candidateDirs.contains(subFolderVideoPlural)) candidateDirs.add(subFolderVideoPlural)
                 if (subFolderAudio.exists() && subFolderAudio.isDirectory && !candidateDirs.contains(subFolderAudio)) candidateDirs.add(subFolderAudio)
+                if (subFolderAudioPlural.exists() && subFolderAudioPlural.isDirectory && !candidateDirs.contains(subFolderAudioPlural)) candidateDirs.add(subFolderAudioPlural)
                 if (plainFolder.exists() && plainFolder.isDirectory && !candidateDirs.contains(plainFolder)) candidateDirs.add(plainFolder)
                 if (plainFolderVideo.exists() && plainFolderVideo.isDirectory && !candidateDirs.contains(plainFolderVideo)) candidateDirs.add(plainFolderVideo)
             } else {
@@ -251,6 +258,7 @@ object PlaylistVerifier {
                 if (plainFolderVideo.exists() && plainFolderVideo.isDirectory && !candidateDirs.contains(plainFolderVideo)) candidateDirs.add(plainFolderVideo)
                 if (plainFolderAudio.exists() && plainFolderAudio.isDirectory && !candidateDirs.contains(plainFolderAudio)) candidateDirs.add(plainFolderAudio)
                 if (subFolder.exists() && subFolder.isDirectory && !candidateDirs.contains(subFolder)) candidateDirs.add(subFolder)
+                if (subFolderPlural.exists() && subFolderPlural.isDirectory && !candidateDirs.contains(subFolderPlural)) candidateDirs.add(subFolderPlural)
             }
 
             if (listId.isNotEmpty()) {

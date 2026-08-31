@@ -117,7 +117,7 @@ class DownloadQueueManager(
             restoreQueueFromBackup()
 
             snapshotFlow
-                .map { it.trimTaskHistory() }
+                .map { it.trimTaskHistory(maxSize = 500) }
                 .distinctUntilChanged()
                 .collect { taskMap ->
                     PreferenceUtil.encodeTaskListBackup(taskMap)
@@ -736,6 +736,7 @@ class DownloadQueueManager(
             if (cleanPlaylistName.isNotEmpty() && cleanPlaylistName != "Playlist") {
                 if (isSubtitleOnly) {
                     candidateDirs.add(File(baseDir, "[Subtitle] $cleanPlaylistName"))
+                    candidateDirs.add(File(baseDir, "[Subtitles] $cleanPlaylistName"))
                 }
                 candidateDirs.add(File(baseDir, cleanPlaylistName))
             }

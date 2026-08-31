@@ -62,12 +62,16 @@ object SubtitleOptionBuilder {
                 expanded.add("$base.*")
                 expanded.add("$base-orig")
                 expanded.add(".*-$base")
+                expanded.add("$base-en")
+                expanded.add("en-$base")
             }
             if (!lang.contains(".*") && !lang.contains("-")) {
                 expanded.add("$lang.*")
                 expanded.add(".*-$lang")
             }
         }
+        // Always include original language tracks as fallback
+        expanded.add(".*-orig")
 
         return expanded.joinToString(",")
     }

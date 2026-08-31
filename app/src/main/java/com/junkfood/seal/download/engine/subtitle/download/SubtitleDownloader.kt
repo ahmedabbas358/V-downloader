@@ -586,8 +586,8 @@ object SubtitleDownloader {
             val urlObj = java.net.URL(targetUrl)
             val conn = urlObj.openConnection() as java.net.HttpURLConnection
             try {
-                conn.connectTimeout = 15000
-                conn.readTimeout = 15000
+                conn.connectTimeout = 4000
+                conn.readTimeout = 4000
                 conn.setRequestProperty("User-Agent", NetworkOptionBuilder.MODERN_BROWSER_USER_AGENT)
                 conn.setRequestProperty("Accept-Language", SubtitleOptionBuilder.buildAcceptLanguageHeader(track.languageCode))
                 conn.connect()
