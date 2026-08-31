@@ -141,8 +141,8 @@ object PlaylistVerifier {
                 val cleanedName = cleanFileNameForMatching(record.name)
                 val normalizedRecordName = normalizeText(cleanedName)
                 if (normalizedRecordName == normalizedTitle) return@firstOrNull true
-                if (normalizedTitle.length >= 6 && normalizedRecordName.contains(normalizedTitle)) return@firstOrNull true
-                if (normalizedRecordName.length >= 6 && normalizedTitle.contains(normalizedRecordName)) return@firstOrNull true
+                if (normalizedTitle.length >= 4 && normalizedRecordName.contains(normalizedTitle)) return@firstOrNull true
+                if (normalizedRecordName.length >= 4 && normalizedTitle.contains(normalizedRecordName)) return@firstOrNull true
 
                 val recordTokens = normalizedRecordName.split(' ').filter { it.length >= 2 }.toSet()
                 val titleTokens = normalizedTitle.split(' ').filter { it.length >= 2 }.toSet()
@@ -150,7 +150,11 @@ object PlaylistVerifier {
                     val intersection = recordTokens.intersect(titleTokens)
                     val union = recordTokens.union(titleTokens)
                     val jaccard = intersection.size.toFloat() / union.size.toFloat()
-                    if (jaccard >= 0.75f) {
+                    val shorterSize = minOf(recordTokens.size, titleTokens.size)
+                    val overlapRatio = intersection.size.toFloat() / shorterSize.toFloat()
+
+                    // Match if Jaccard similarity is moderate OR if most words of the shorter title are present
+                    if (jaccard >= 0.35f || overlapRatio >= 0.5f || (intersection.size >= 2 && overlapRatio >= 0.4f)) {
                         return@firstOrNull true
                     }
                 }

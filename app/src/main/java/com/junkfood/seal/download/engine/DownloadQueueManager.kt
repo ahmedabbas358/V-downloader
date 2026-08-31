@@ -792,22 +792,25 @@ class DownloadQueueManager(
                     return file.absolutePath
                 }
 
-                // 2. Playlist item matching: require exact index prefix matching AND matching title prefix
+                // 2. Playlist item matching: check index prefix OR title matching
                 if (playlistIndex > 0) {
                     val idxPrefix3 = String.format(Locale.ROOT, "%03d - ", playlistIndex)
                     val idxPrefix2 = String.format(Locale.ROOT, "%02d - ", playlistIndex)
                     val idxPrefix1 = String.format(Locale.ROOT, "%d - ", playlistIndex)
                     val hasMatchingIndexPrefix = fileName.startsWith(idxPrefix3) || fileName.startsWith(idxPrefix2) || fileName.startsWith(idxPrefix1)
 
-                    if (hasMatchingIndexPrefix && cleanTitleStr.length >= 4) {
-                        val titleSnippet = cleanTitleStr.take(15).lowercase(Locale.ROOT)
-                        if (fileName.lowercase(Locale.ROOT).contains(titleSnippet)) {
-                            return file.absolutePath
-                        }
+                    if (hasMatchingIndexPrefix) {
+                        return file.absolutePath
                     }
-                } else if (cleanTitleStr.length >= 8 && fileName.startsWith(cleanTitleStr)) {
-                    // Non-playlist matching: file MUST start with the exact title
-                    return file.absolutePath
+                }
+
+                // 3. Title-based matching (works whether playlist numbering is on or off)
+                if (cleanTitleStr.length >= 4) {
+                    val titleSnippet = cleanTitleStr.take(16).lowercase(Locale.ROOT)
+                    val cleanFileStr = FileUtil.cleanFileName(fileName).lowercase(Locale.ROOT)
+                    if (cleanFileStr.contains(titleSnippet) || (titleSnippet.length >= 6 && titleSnippet.contains(cleanFileStr.substringBeforeLast('.')))) {
+                        return file.absolutePath
+                    }
                 }
             }
         }
