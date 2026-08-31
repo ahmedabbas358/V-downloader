@@ -1,6 +1,7 @@
 package com.junkfood.seal.download
 
 import androidx.annotation.CheckResult
+import com.junkfood.seal.download.engine.resilience.FileCollisionResolver
 import com.junkfood.seal.download.Task.DownloadState.Idle
 import com.junkfood.seal.download.Task.DownloadState.ReadyWithInfo
 import com.junkfood.seal.util.DownloadUtil.DownloadPreferences
@@ -173,7 +174,6 @@ object TaskFactory {
                         uploader = entry.uploader ?: entry.channel ?: playlistResult.channel ?: "",
                         extractor = "Youtube",
                         extractorKey = "Youtube",
-                        duration = entry.duration,
                     )
                 } else null
 
