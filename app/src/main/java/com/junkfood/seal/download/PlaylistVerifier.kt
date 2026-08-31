@@ -535,8 +535,8 @@ object PlaylistVerifier {
 
             val effectiveTargetDir = if (isSubOnly && targetDirectory.isNotBlank()) {
                 val cleanTitle = FileUtil.cleanFileName(item.playlistTitle).trim()
-                if (cleanTitle.isNotEmpty() && !targetDirectory.contains("[Subtitles]")) {
-                    val subFolderName = "[Subtitles] $cleanTitle"
+                if (cleanTitle.isNotEmpty() && !targetDirectory.contains("[Subtitle]") && !targetDirectory.contains("[Subtitles]")) {
+                    val subFolderName = "[Subtitle] $cleanTitle"
                     val dirFile = File(targetDirectory)
                     if (dirFile.name.equals(cleanTitle, ignoreCase = true)) {
                         File(dirFile.parentFile ?: dirFile, subFolderName).absolutePath
