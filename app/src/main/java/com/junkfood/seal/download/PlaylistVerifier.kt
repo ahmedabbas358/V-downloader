@@ -88,18 +88,18 @@ object PlaylistVerifier {
                 val startsWithIndex = record.name.startsWith("$indexPadded3 - ") ||
                         record.name.startsWith("$indexPadded3-") ||
                         record.name.startsWith("$indexPadded3. ") ||
-                        record.name.startsWith("$indexPadded3 ") ||
+                        record.name.startsWith("$indexPadded3_") ||
                         record.name.startsWith("$indexPadded2 - ") ||
                         record.name.startsWith("$indexPadded2-") ||
                         record.name.startsWith("$indexPadded2. ") ||
-                        record.name.startsWith("$indexPadded2 ") ||
+                        record.name.startsWith("$indexPadded2_") ||
                         record.name.startsWith("$indexStr - ") ||
                         record.name.startsWith("$indexStr-") ||
                         record.name.startsWith("$indexStr. ") ||
-                        record.name.startsWith("$indexStr ") ||
                         record.name.startsWith("[$indexStr]") ||
                         record.name.startsWith("($indexStr)") ||
-                        record.name.startsWith("#$indexStr")
+                        record.name.startsWith("#$indexStr ") ||
+                        record.name.startsWith("#$indexPadded2 ")
 
                 if (!startsWithIndex) return@firstOrNull false
 
@@ -119,7 +119,7 @@ object PlaylistVerifier {
                 val intersection = recordTokens.intersect(titleTokens)
                 val union = recordTokens.union(titleTokens)
                 val jaccard = intersection.size.toFloat() / union.size.toFloat()
-                if (jaccard >= 0.2f || intersection.isNotEmpty()) return@firstOrNull true
+                if (jaccard >= 0.15f || intersection.isNotEmpty()) return@firstOrNull true
 
                 // Fallback: index match is decisive inside playlist directory
                 return@firstOrNull true
@@ -130,8 +130,14 @@ object PlaylistVerifier {
             return match
         }
 
-        fun findByExactName(normalizedTitle: String, exts: Set<String>): LocalFileRecord? {
+        fun findByExactName(normalizedTitle: String, exts: Set<String>, playlistTitleNormalized: String = ""): LocalFileRecord? {
             if (normalizedTitle.isBlank() || normalizedTitle.length < 3) return null
+
+            // Extract unique title keywords excluding common playlist title tokens
+            val playlistTokens = if (playlistTitleNormalized.isNotBlank()) {
+                playlistTitleNormalized.split(' ').filter { it.length >= 2 }.toSet()
+            } else emptySet()
+
             val match = files.firstOrNull { record ->
                 if (claimedPaths.contains(record.absolutePath)) return@firstOrNull false
                 val ext = record.name.substringAfterLast('.', "").lowercase(Locale.US)
@@ -141,20 +147,33 @@ object PlaylistVerifier {
                 val cleanedName = cleanFileNameForMatching(record.name)
                 val normalizedRecordName = normalizeText(cleanedName)
                 if (normalizedRecordName == normalizedTitle) return@firstOrNull true
-                if (normalizedTitle.length >= 4 && normalizedRecordName.contains(normalizedTitle)) return@firstOrNull true
-                if (normalizedRecordName.length >= 4 && normalizedTitle.contains(normalizedRecordName)) return@firstOrNull true
+                if (normalizedTitle.length >= 6 && normalizedRecordName.equals(normalizedTitle, ignoreCase = true)) return@firstOrNull true
+                if (normalizedTitle.length >= 8 && normalizedRecordName.contains(normalizedTitle)) return@firstOrNull true
+                if (normalizedRecordName.length >= 8 && normalizedTitle.contains(normalizedRecordName)) return@firstOrNull true
 
                 val recordTokens = normalizedRecordName.split(' ').filter { it.length >= 2 }.toSet()
                 val titleTokens = normalizedTitle.split(' ').filter { it.length >= 2 }.toSet()
-                if (recordTokens.isNotEmpty() && titleTokens.isNotEmpty()) {
+
+                // Filter out common playlist tokens to focus on unique video title tokens
+                val uniqueRecordTokens = if (playlistTokens.isNotEmpty()) recordTokens - playlistTokens else recordTokens
+                val uniqueTitleTokens = if (playlistTokens.isNotEmpty()) titleTokens - playlistTokens else titleTokens
+
+                if (uniqueRecordTokens.isNotEmpty() && uniqueTitleTokens.isNotEmpty()) {
+                    val uniqueIntersection = uniqueRecordTokens.intersect(uniqueTitleTokens)
+                    val uniqueUnion = uniqueRecordTokens.union(uniqueTitleTokens)
+                    val jaccard = uniqueIntersection.size.toFloat() / uniqueUnion.size.toFloat()
+                    val shorterSize = minOf(uniqueRecordTokens.size, uniqueTitleTokens.size)
+                    val overlapRatio = uniqueIntersection.size.toFloat() / shorterSize.toFloat()
+
+                    // Match if unique title tokens overlap with high fidelity
+                    if (jaccard >= 0.45f || overlapRatio >= 0.6f) {
+                        return@firstOrNull true
+                    }
+                } else if (recordTokens.isNotEmpty() && titleTokens.isNotEmpty()) {
                     val intersection = recordTokens.intersect(titleTokens)
                     val union = recordTokens.union(titleTokens)
                     val jaccard = intersection.size.toFloat() / union.size.toFloat()
-                    val shorterSize = minOf(recordTokens.size, titleTokens.size)
-                    val overlapRatio = intersection.size.toFloat() / shorterSize.toFloat()
-
-                    // Match if Jaccard similarity is moderate OR if most words of the shorter title are present
-                    if (jaccard >= 0.35f || overlapRatio >= 0.5f || (intersection.size >= 2 && overlapRatio >= 0.4f)) {
+                    if (jaccard >= 0.65f) {
                         return@firstOrNull true
                     }
                 }
@@ -359,7 +378,11 @@ object PlaylistVerifier {
                     matchedRecord = fileIndex.findByIndexedTitle(index, identity.expectedTitle, identity.expectedExts)
                 }
                 if (matchedRecord == null && identity.expectedTitle.isNotBlank()) {
-                    matchedRecord = fileIndex.findByExactName(identity.expectedTitle, identity.expectedExts)
+                    matchedRecord = fileIndex.findByExactName(
+                        normalizedTitle = identity.expectedTitle,
+                        exts = identity.expectedExts,
+                        playlistTitleNormalized = normalizeText(cleanPlaylistName)
+                    )
                 }
 
                 var auditState = com.junkfood.seal.download.engine.playlist.AuditState.UNKNOWN

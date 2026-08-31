@@ -792,7 +792,7 @@ class DownloadQueueManager(
                     return file.absolutePath
                 }
 
-                // 2. Playlist item matching: check index prefix OR title matching
+                // 2. Playlist item matching: check exact index prefix
                 if (playlistIndex > 0) {
                     val idxPrefix3 = String.format(Locale.ROOT, "%03d - ", playlistIndex)
                     val idxPrefix2 = String.format(Locale.ROOT, "%02d - ", playlistIndex)
@@ -804,11 +804,12 @@ class DownloadQueueManager(
                     }
                 }
 
-                // 3. Title-based matching (works whether playlist numbering is on or off)
-                if (cleanTitleStr.length >= 4) {
-                    val titleSnippet = cleanTitleStr.take(16).lowercase(Locale.ROOT)
-                    val cleanFileStr = FileUtil.cleanFileName(fileName).lowercase(Locale.ROOT)
-                    if (cleanFileStr.contains(titleSnippet) || (titleSnippet.length >= 6 && titleSnippet.contains(cleanFileStr.substringBeforeLast('.')))) {
+                // 3. Full title match (works whether playlist numbering is on or off, without loose substring collision)
+                if (cleanTitleStr.length >= 6) {
+                    val cleanFileStr = FileUtil.cleanFileName(fileName.substringBeforeLast('.')).trim()
+                    if (cleanFileStr.equals(cleanTitleStr, ignoreCase = true) ||
+                        (cleanTitleStr.length >= 12 && cleanFileStr.startsWith(cleanTitleStr, ignoreCase = true)) ||
+                        (cleanFileStr.length >= 12 && cleanTitleStr.startsWith(cleanFileStr, ignoreCase = true))) {
                         return file.absolutePath
                     }
                 }

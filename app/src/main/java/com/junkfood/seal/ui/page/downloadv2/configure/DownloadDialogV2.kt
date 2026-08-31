@@ -809,26 +809,16 @@ private fun ConfigurePage(
                     autoSubtitle = if (selectedType == DownloadType.Subtitle) true else preferences.autoSubtitle,
                     autoTranslatedSubtitles = if (selectedType == DownloadType.Subtitle) true else preferences.autoTranslatedSubtitles,
                 )
-                if (selectedType == DownloadType.Subtitle) {
-                    if (isPlaylist) {
-                        onActionPost(
-                            Action.FetchPlaylistSubtitleFormats(
-                                firstVideoUrl = url,
-                                playlistTasks = emptyList(),
-                                preferences = updatedPrefs,
-                            )
-                        )
-                    } else {
-                        onActionPost(
-                            Action.FetchFormats(
-                                url = url,
-                                audioOnly = false,
-                                preferences = updatedPrefs,
-                            )
-                        )
-                    }
-                } else if (isPlaylist) {
+                if (isPlaylist) {
                     onActionPost(Action.FetchPlaylist(url = url, preferences = updatedPrefs))
+                } else if (selectedType == DownloadType.Subtitle) {
+                    onActionPost(
+                        Action.FetchFormats(
+                            url = url,
+                            audioOnly = false,
+                            preferences = updatedPrefs,
+                        )
+                    )
                 } else {
                     onActionPost(
                         Action.FetchFormats(
