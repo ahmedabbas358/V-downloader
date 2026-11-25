@@ -177,11 +177,11 @@ fun PlaylistSyncDialog(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = stringResource(R.string.app_name) + " - مُزامن ذكي",
+                        text = stringResource(R.string.app_name) + " - " + stringResource(R.string.playlist_sync_subtitle),
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                     )
                     Text(
-                        text = "مقارنة المجلد بالرابط وتحميل المفقود فقط",
+                        text = stringResource(R.string.playlist_sync_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -194,7 +194,7 @@ fun PlaylistSyncDialog(
             OutlinedTextField(
                 value = url,
                 onValueChange = { url = it; scanResult = null },
-                label = { Text("رابط قائمة التشغيل") },
+                label = { Text(stringResource(R.string.playlist_url_label)) },
                 placeholder = { Text("https://www.youtube.com/playlist?list=...") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
@@ -205,7 +205,7 @@ fun PlaylistSyncDialog(
 
             // Content type selection with HORIZONTAL SCROLLING
             Text(
-                text = "نوع المحتوى:",
+                text = stringResource(R.string.content_type_label),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 6.dp)
@@ -256,7 +256,7 @@ fun PlaylistSyncDialog(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (customFolderPath.isNotBlank()) "المجلد المستهدف: $customFolderPath" else "المجلد المستهدف: التلقائي بحسب المحتوى",
+                            text = if (customFolderPath.isNotBlank()) stringResource(R.string.target_folder_custom, customFolderPath) else stringResource(R.string.target_folder_auto),
                             style = MaterialTheme.typography.labelMedium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -265,7 +265,7 @@ fun PlaylistSyncDialog(
                         IconButton(onClick = { folderPickerLauncher.launch(null) }) {
                             Icon(
                                 imageVector = Icons.Default.FolderOpen,
-                                contentDescription = "اختيار مجلد من الهاتف",
+                                contentDescription = stringResource(R.string.pick_folder_device),
                                 modifier = Modifier.size(20.dp),
                                 tint = MaterialTheme.colorScheme.primary
                             )
@@ -273,7 +273,7 @@ fun PlaylistSyncDialog(
                         IconButton(onClick = { showFolderEditField = !showFolderEditField }) {
                             Icon(
                                 imageVector = Icons.Default.Edit,
-                                contentDescription = "كتابة المسار يدوياً",
+                                contentDescription = stringResource(R.string.enter_path_manually),
                                 modifier = Modifier.size(18.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -284,7 +284,7 @@ fun PlaylistSyncDialog(
                         OutlinedTextField(
                             value = customFolderPath,
                             onValueChange = { customFolderPath = it; scanResult = null },
-                            label = { Text("مسار المجلد المحلي (اختياري)") },
+                            label = { Text(stringResource(R.string.local_folder_optional)) },
                             placeholder = { Text("/storage/emulated/0/Download/...") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
@@ -318,14 +318,14 @@ fun PlaylistSyncDialog(
                         Spacer(modifier = Modifier.width(8.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "إعدادات الجودة",
+                                text = stringResource(R.string.quality_settings_title),
                                 style = MaterialTheme.typography.labelLarge
                             )
                             Text(
                                 text = if (selectedType == 0) {
-                                    "الدقة: ${PreferenceStrings.getVideoResolutionDesc(currentPrefs.videoResolution)}"
+                                    stringResource(R.string.resolution_summary, PreferenceStrings.getVideoResolutionDesc(currentPrefs.videoResolution))
                                 } else {
-                                    "جودة الصوت: ${PreferenceStrings.getAudioQualityDesc(currentPrefs.audioQuality)}"
+                                    stringResource(R.string.audio_quality_summary, PreferenceStrings.getAudioQualityDesc(currentPrefs.audioQuality))
                                 },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -337,7 +337,7 @@ fun PlaylistSyncDialog(
                         }) {
                             Icon(
                                 imageVector = Icons.Outlined.Settings,
-                                contentDescription = "تعديل الجودة",
+                                contentDescription = stringResource(R.string.edit_quality),
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         }
@@ -381,7 +381,7 @@ fun PlaylistSyncDialog(
                             }
                             selectedMissingIndices.addAll(autoSelectItems.map { item -> item.index })
                         }.onFailure { th ->
-                            errorMessage = th.localizedMessage ?: "حدث خطأ أثناء فحص ومقارنة عناصر المجلد بالقائمة"
+                            errorMessage = th.localizedMessage ?: context.getString(R.string.playlist_sync_error)
                         }
                     }
                 },
@@ -396,11 +396,11 @@ fun PlaylistSyncDialog(
                         color = MaterialTheme.colorScheme.onPrimary
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("جاري فحص وتدقيق المجلد بالقائمة...")
+                    Text(stringResource(R.string.playlist_sync_scanning))
                 } else {
                     Icon(imageVector = Icons.Default.Refresh, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("فحص ومقارنة الملفات في المجلد")
+                    Text(stringResource(R.string.playlist_sync_scan_btn))
                 }
             }
 
@@ -462,7 +462,7 @@ fun PlaylistSyncDialog(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("تم تنزيله", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
+                                        Text(stringResource(R.string.status_downloaded_label), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
                                     }
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
@@ -480,7 +480,7 @@ fun PlaylistSyncDialog(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(imageVector = Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("المفقود", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
+                                        Text(stringResource(R.string.status_missing_label), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
                                     }
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
@@ -505,12 +505,12 @@ fun PlaylistSyncDialog(
                     Tab(
                         selected = resultTab == 0,
                         onClick = { resultTab = 0 },
-                        text = { Text("المفقود ($totalMissingCount)") }
+                        text = { Text(stringResource(R.string.tab_missing_count, totalMissingCount)) }
                     )
                     Tab(
                         selected = resultTab == 1,
                         onClick = { resultTab = 1 },
-                        text = { Text("المحمّل (${foundItems.size})") }
+                        text = { Text(stringResource(R.string.tab_downloaded_count, foundItems.size)) }
                     )
                 }
 
@@ -526,7 +526,7 @@ fun PlaylistSyncDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "العناصر المحددة للتنزيل: ${selectedMissingIndices.size} / ${allMissingItems.size}",
+                                text = stringResource(R.string.selected_to_download_ratio, selectedMissingIndices.size, allMissingItems.size),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -540,7 +540,7 @@ fun PlaylistSyncDialog(
                                     }
                                 }
                             ) {
-                                Text(if (selectedMissingIndices.size == allMissingItems.size) "إلغاء تحديد الكل" else "تحديد الكل")
+                                Text(stringResource(if (selectedMissingIndices.size == allMissingItems.size) R.string.deselect_all else R.string.select_all))
                             }
                         }
 
@@ -589,7 +589,7 @@ fun PlaylistSyncDialog(
                                         if (item.state != com.junkfood.seal.download.engine.playlist.AuditState.NOT_DOWNLOADED) {
                                             val isUnknown = item.state == com.junkfood.seal.download.engine.playlist.AuditState.UNKNOWN
                                             Text(
-                                                text = if (isUnknown) "الحالة: غير مؤكد (UNKNOWN) - يرجى المراجعة" else "الحالة: ${item.state.name}",
+                                                text = if (isUnknown) stringResource(R.string.item_state_unknown) else stringResource(R.string.item_state_label, item.state.name),
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = if (isUnknown) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
                                                 modifier = Modifier.padding(top = 2.dp)
@@ -607,7 +607,7 @@ fun PlaylistSyncDialog(
                             onClick = {
                                 val toDownload = allMissingItems.filter { selectedMissingIndices.contains(it.index) }
                                 if (toDownload.isEmpty()) {
-                                    ToastUtil.makeToast("يرجى اختيار عنصر واحد على الأقل للتنزيل")
+                                    ToastUtil.makeToast(context.getString(R.string.select_at_least_one))
                                     return@Button
                                 }
                                 scope.launch {
@@ -624,7 +624,7 @@ fun PlaylistSyncDialog(
                                         targetDirectory = customFolderPath.ifBlank { result.targetDirectory },
                                         downloader = downloader
                                     )
-                                    ToastUtil.makeToast("تمت إضافة ${toDownload.size} ملف مفقود إلى قائمة التنزيل")
+                                    ToastUtil.makeToast(context.getString(R.string.added_missing_to_queue, toDownload.size))
                                     onDismissRequest()
                                 }
                             },
@@ -634,7 +634,7 @@ fun PlaylistSyncDialog(
                         ) {
                             Icon(imageVector = Icons.Default.Download, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("استكمال تحميل المحدد فقط (${selectedMissingIndices.size} عنصر)")
+                            Text(stringResource(R.string.download_selected_count, selectedMissingIndices.size))
                         }
                     } else {
                         Surface(
@@ -643,7 +643,7 @@ fun PlaylistSyncDialog(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = "🎉 جميع عناصر قائمة التشغيل مكتملة وموجودة بالكامل في المجلد!",
+                                text = stringResource(R.string.playlist_sync_all_complete),
                                 style = MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier.padding(16.dp),
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -727,7 +727,7 @@ fun PlaylistSyncDialog(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = "لم يتم العثور على أي ملفات من هذه القائمة في هذا المجلد بعد.",
+                                text = stringResource(R.string.playlist_sync_none_found),
                                 style = MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier.padding(16.dp),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant

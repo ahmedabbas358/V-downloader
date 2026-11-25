@@ -61,8 +61,14 @@ class PlaylistSyncWorker(
 
                         NotificationUtil.notifyPlaylistCompletion(
                             id = playlistUrl.hashCode(),
-                            title = "تحديث في قائمة: ${scanResult.playlistTitle}",
-                            text = "يوجد ${missingItems.size} عناصر جديدة متاحة للتنزيل",
+                            title = applicationContext.getString(
+                                com.junkfood.seal.R.string.playlist_sync_notif_title,
+                                scanResult.playlistTitle,
+                            ),
+                            text = applicationContext.getString(
+                                com.junkfood.seal.R.string.playlist_sync_notif_text,
+                                missingItems.size,
+                            ),
                             intent = pendingIntent
                         )
                     }

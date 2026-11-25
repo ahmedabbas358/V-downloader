@@ -326,23 +326,28 @@ object SubtitleConverter {
 
             val isVtt = file.name.endsWith(".vtt", ignoreCase = true)
             val separator = if (isVtt) "." else ","
+            val cueLineRegex =
+                Regex("""(?:(\d{1,2}):)?(\d{2}):(\d{2})([,.])(\d{3})\s*-->\s*(?:(\d{1,2}):)?(\d{2}):(\d{2})([,.])(\d{3})""")
 
             val lines = file.readLines(StandardCharsets.UTF_8)
             val modifiedLines = lines.map { line ->
-                SRT_TIMESTAMP_REGEX.replace(line) { match ->
-                    val h1 = match.groupValues[1].toLong()
+                cueLineRegex.replace(line) { match ->
+                    val h1Str = match.groupValues[1]
+                    val h1 = h1Str.toLongOrNull() ?: 0L
                     val m1 = match.groupValues[2].toLong()
                     val s1 = match.groupValues[3].toLong()
-                    val ms1 = match.groupValues[4].toLong()
+                    val ms1 = match.groupValues[5].toLong()
                     val totalMs1 = ((h1 * 3600 + m1 * 60 + s1) * 1000 + ms1 + offsetMillis).coerceAtLeast(0L)
 
-                    val h2 = match.groupValues[5].toLong()
-                    val m2 = match.groupValues[6].toLong()
-                    val s2 = match.groupValues[7].toLong()
-                    val ms2 = match.groupValues[8].toLong()
+                    val h2Str = match.groupValues[6]
+                    val h2 = h2Str.toLongOrNull() ?: 0L
+                    val m2 = match.groupValues[7].toLong()
+                    val s2 = match.groupValues[8].toLong()
+                    val ms2 = match.groupValues[10].toLong()
                     val totalMs2 = ((h2 * 3600 + m2 * 60 + s2) * 1000 + ms2 + offsetMillis).coerceAtLeast(0L)
 
-                    "${formatTimestamp(totalMs1, separator)} --> ${formatTimestamp(totalMs2, separator)}"
+                    val useShortVtt = isVtt && h1Str.isEmpty() && h2Str.isEmpty() && totalMs1 < 3_600_000L && totalMs2 < 3_600_000L
+                    "${formatTimestamp(totalMs1, separator, forceShort = useShortVtt)} --> ${formatTimestamp(totalMs2, separator, forceShort = useShortVtt)}"
                 }
             }
 
@@ -352,11 +357,15 @@ object SubtitleConverter {
         }
     }
 
-    private fun formatTimestamp(totalMs: Long, separator: String): String {
+    private fun formatTimestamp(totalMs: Long, separator: String, forceShort: Boolean = false): String {
         val hours = totalMs / 3_600_000
         val minutes = (totalMs % 3_600_000) / 60_000
         val seconds = (totalMs % 60_000) / 1000
         val millis = totalMs % 1000
-        return String.format(Locale.US, "%02d:%02d:%02d%s%03d", hours, minutes, seconds, separator, millis)
+        return if (forceShort && hours == 0L) {
+            String.format(Locale.US, "%02d:%02d%s%03d", minutes, seconds, separator, millis)
+        } else {
+            String.format(Locale.US, "%02d:%02d:%02d%s%03d", hours, minutes, seconds, separator, millis)
+        }
     }
 }

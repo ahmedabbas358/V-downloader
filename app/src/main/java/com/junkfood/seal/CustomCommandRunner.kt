@@ -187,7 +187,7 @@ object CustomCommandRunner {
                     if (it && NOTIFICATION.getBoolean() && NotificationUtil.areNotificationsEnabled()) {
                         startService()
                     } else {
-                        stopService()
+                        App.stopServiceIfIdle()
                     }
                 }
         }

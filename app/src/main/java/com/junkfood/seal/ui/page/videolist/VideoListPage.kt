@@ -113,13 +113,17 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.androidx.compose.koinViewModel
 
+private val audioPathRegex = Regex(AUDIO_REGEX)
+
 fun DownloadedVideoInfo.filterByType(
     videoFilter: Boolean = false,
     audioFilter: Boolean = true,
 ): Boolean {
-    return if (!(videoFilter || audioFilter)) true
-    else if (audioFilter) this.videoPath.contains(Regex(AUDIO_REGEX))
-    else !this.videoPath.contains(Regex(AUDIO_REGEX))
+    return when {
+        videoFilter == audioFilter -> true
+        audioFilter -> this.videoPath.contains(audioPathRegex)
+        else -> !this.videoPath.contains(audioPathRegex)
+    }
 }
 
 fun DownloadedVideoInfo.filterSort(

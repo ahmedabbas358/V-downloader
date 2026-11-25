@@ -44,7 +44,9 @@ fun SubtitleAdjustDialog(
     file: File,
     onDismissRequest: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var offsetSeconds by remember { mutableStateOf("1.0") }
+    var isOffsetError by remember { mutableStateOf(false) }
     var isProcessing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -55,7 +57,7 @@ fun SubtitleAdjustDialog(
         },
         title = {
             Text(
-                text = "محاذاة وضبط توقيت الترجمة",
+                text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.subtitle_adjust_title),
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
             )
         },
@@ -76,7 +78,7 @@ fun SubtitleAdjustDialog(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "تقديم أو تأخير التوقيت (بالثواني):",
+                    text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.subtitle_adjust_prompt),
                     style = MaterialTheme.typography.labelLarge
                 )
 
@@ -84,8 +86,12 @@ fun SubtitleAdjustDialog(
 
                 OutlinedTextField(
                     value = offsetSeconds,
-                    onValueChange = { offsetSeconds = it },
-                    label = { Text("قيمة الإزاحة (مثال: 1.5 أو -2.0)") },
+                    onValueChange = {
+                        offsetSeconds = it
+                        isOffsetError = false
+                    },
+                    isError = isOffsetError,
+                    label = { Text(androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.subtitle_offset_label)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -100,20 +106,24 @@ fun SubtitleAdjustDialog(
                         onClick = {
                             val cur = offsetSeconds.toDoubleOrNull() ?: 0.0
                             offsetSeconds = String.format(java.util.Locale.US, "%.1f", cur - 1.0)
+                            isOffsetError = false
                         },
+                        enabled = !isProcessing,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("- 1.0 ث")
+                        Text(androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.shift_minus_1s))
                     }
 
                     OutlinedButton(
                         onClick = {
                             val cur = offsetSeconds.toDoubleOrNull() ?: 0.0
                             offsetSeconds = String.format(java.util.Locale.US, "%.1f", cur + 1.0)
+                            isOffsetError = false
                         },
+                        enabled = !isProcessing,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("+ 1.0 ث")
+                        Text(androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.shift_plus_1s))
                     }
                 }
 
@@ -126,17 +136,22 @@ fun SubtitleAdjustDialog(
                             scope.launch {
                                 isProcessing = true
                                 val vttFile = File(file.parentFile, file.nameWithoutExtension + ".vtt")
-                                SubtitleUtil.convertSrtToVtt(file, vttFile)
-                                ToastUtil.makeToast("تم تحويل الترجمة إلى VTT بنجاح")
+                                val res = SubtitleUtil.convertSrtToVtt(file, vttFile)
                                 isProcessing = false
-                                onDismissRequest()
+                                res.onSuccess {
+                                    ToastUtil.makeToast(context.getString(com.junkfood.seal.R.string.subtitle_convert_vtt_success))
+                                    onDismissRequest()
+                                }.onFailure {
+                                    ToastUtil.makeToast(context.getString(com.junkfood.seal.R.string.subtitle_convert_failed, it.message ?: ""))
+                                }
                             }
                         },
+                        enabled = !isProcessing,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(Icons.Outlined.Transform, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("تحويل إلى صيغة WebVTT (.vtt)")
+                        Text(androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.subtitle_convert_vtt_action))
                     }
                 } else if (file.name.endsWith(".vtt", ignoreCase = true)) {
                     FilledTonalButton(
@@ -144,17 +159,22 @@ fun SubtitleAdjustDialog(
                             scope.launch {
                                 isProcessing = true
                                 val srtFile = File(file.parentFile, file.nameWithoutExtension + ".srt")
-                                SubtitleUtil.convertVttToSrt(file, srtFile)
-                                ToastUtil.makeToast("تم تحويل الترجمة إلى SRT بنجاح")
+                                val res = SubtitleUtil.convertVttToSrt(file, srtFile)
                                 isProcessing = false
-                                onDismissRequest()
+                                res.onSuccess {
+                                    ToastUtil.makeToast(context.getString(com.junkfood.seal.R.string.subtitle_convert_srt_success))
+                                    onDismissRequest()
+                                }.onFailure {
+                                    ToastUtil.makeToast(context.getString(com.junkfood.seal.R.string.subtitle_convert_failed, it.message ?: ""))
+                                }
                             }
                         },
+                        enabled = !isProcessing,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(Icons.Outlined.Transform, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("تحويل إلى صيغة SubRip (.srt)")
+                        Text(androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.subtitle_convert_srt_action))
                     }
                 }
             }
@@ -162,30 +182,39 @@ fun SubtitleAdjustDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    val sec = offsetSeconds.toDoubleOrNull()
+                    val sec = offsetSeconds.trim().toDoubleOrNull()
                     if (sec == null) {
-                        ToastUtil.makeToast("يرجى إدخال قيمة رقمية صحيحة")
+                        isOffsetError = true
+                        ToastUtil.makeToast(context.getString(com.junkfood.seal.R.string.subtitle_invalid_offset))
                         return@Button
                     }
                     val ms = (sec * 1000).toLong()
                     scope.launch {
                         isProcessing = true
-                        SubtitleUtil.shiftSubtitleTiming(file, ms)
-                        ToastUtil.makeToast("تم ضبط توقيت ملف الترجمة بنجاح ($offsetSeconds ثانية)")
+                        val res = SubtitleUtil.shiftSubtitleTiming(file, ms)
                         isProcessing = false
-                        onDismissRequest()
+                        res.onSuccess {
+                            ToastUtil.makeToast(
+                                context.getString(com.junkfood.seal.R.string.subtitle_shift_success, offsetSeconds.trim())
+                            )
+                            onDismissRequest()
+                        }.onFailure {
+                            ToastUtil.makeToast(
+                                context.getString(com.junkfood.seal.R.string.subtitle_shift_failed, it.message ?: "")
+                            )
+                        }
                     }
                 },
                 enabled = !isProcessing
             ) {
                 Icon(Icons.Outlined.AvTimer, contentDescription = null)
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("تطبيق التعديل")
+                Text(androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.apply_changes))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismissRequest) {
-                Text("إلغاء")
+            TextButton(onClick = onDismissRequest, enabled = !isProcessing) {
+                Text(androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.cancel))
             }
         }
     )

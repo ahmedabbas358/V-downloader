@@ -140,10 +140,10 @@ fun MediaPreviewDialog(
                     prepare()
                     playWhenReady = true
                 } else {
-                    playbackError = "الملف غير موجود على مسار التخزين"
+                    playbackError = context.getString(com.junkfood.seal.R.string.preview_file_missing)
                 }
             } catch (e: Exception) {
-                playbackError = e.localizedMessage ?: "فشل في تهيئة المشغل"
+                playbackError = e.localizedMessage ?: context.getString(com.junkfood.seal.R.string.player_init_failed)
             }
 
             addListener(object : Player.Listener {
@@ -175,10 +175,10 @@ fun MediaPreviewDialog(
 
                 override fun onPlayerError(error: PlaybackException) {
                     playbackError = when (error.errorCode) {
-                        PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> "الملف غير موجود أو تم نقله"
-                        PlaybackException.ERROR_CODE_IO_NO_PERMISSION -> "لا توجد صلاحية لقراءة ملف الوسائط"
-                        PlaybackException.ERROR_CODE_DECODER_INIT_FAILED -> "ترميز الفيديو غير مدعوم في المشغل المدمج"
-                        else -> error.message ?: "حدث خطأ أثناء تشغيل الملف"
+                        PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> context.getString(com.junkfood.seal.R.string.player_error_missing)
+                        PlaybackException.ERROR_CODE_IO_NO_PERMISSION -> context.getString(com.junkfood.seal.R.string.player_error_permission)
+                        PlaybackException.ERROR_CODE_DECODER_INIT_FAILED -> context.getString(com.junkfood.seal.R.string.player_error_decoder)
+                        else -> error.message ?: context.getString(com.junkfood.seal.R.string.player_error_generic)
                     }
                     isPlaying = false
                 }
@@ -248,7 +248,7 @@ fun MediaPreviewDialog(
                                 color = MaterialTheme.colorScheme.primaryContainer
                             ) {
                                 Text(
-                                    text = if (isVideo) "فيديو" else "صوت",
+                                    text = if (isVideo) androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.video) else androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.media_type_audio),
                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -256,7 +256,7 @@ fun MediaPreviewDialog(
                             }
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (isVideo) "معاينة الفيديو" else "معاينة المقطع الصوتي",
+                                text = if (isVideo) androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.preview_video) else androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.preview_audio),
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
@@ -277,7 +277,7 @@ fun MediaPreviewDialog(
                             containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
                         )
                     ) {
-                        Icon(Icons.Outlined.Close, contentDescription = "إغلاق")
+                        Icon(Icons.Outlined.Close, contentDescription = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.close))
                     }
                 }
 
@@ -307,7 +307,7 @@ fun MediaPreviewDialog(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = playbackError ?: "خطأ في التشغيل",
+                                text = playbackError ?: androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.playback_error_title),
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.onErrorContainer,
                                 textAlign = TextAlign.Center
@@ -320,7 +320,7 @@ fun MediaPreviewDialog(
                                 ) {
                                     Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("إعادة المحاولة", style = MaterialTheme.typography.labelSmall)
+                                    Text(androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.notif_action_retry), style = MaterialTheme.typography.labelSmall)
                                 }
                                 Button(
                                     onClick = {
@@ -334,7 +334,7 @@ fun MediaPreviewDialog(
                                 ) {
                                     Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("مشغل خارجي", style = MaterialTheme.typography.labelSmall)
+                                    Text(androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.external_player), style = MaterialTheme.typography.labelSmall)
                                 }
                             }
                         }
@@ -502,7 +502,7 @@ fun MediaPreviewDialog(
                             currentPositionMs = newPos
                         }
                     ) {
-                        Icon(Icons.Default.Replay10, contentDescription = "تراجع 10 ثواني", modifier = Modifier.size(28.dp))
+                        Icon(Icons.Default.Replay10, contentDescription = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.replay_10s), modifier = Modifier.size(28.dp))
                     }
 
                     FilledIconButton(
@@ -524,7 +524,7 @@ fun MediaPreviewDialog(
                     ) {
                         Icon(
                             imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = if (isPlaying) "إيقاف مؤقت" else "تشغيل",
+                            contentDescription = androidx.compose.ui.res.stringResource(if (isPlaying) com.junkfood.seal.R.string.pause_playback else com.junkfood.seal.R.string.play_playback),
                             modifier = Modifier.size(32.dp)
                         )
                     }
@@ -536,7 +536,7 @@ fun MediaPreviewDialog(
                             currentPositionMs = newPos
                         }
                     ) {
-                        Icon(Icons.Default.Forward10, contentDescription = "تقديم 10 ثواني", modifier = Modifier.size(28.dp))
+                        Icon(Icons.Default.Forward10, contentDescription = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.forward_10s), modifier = Modifier.size(28.dp))
                     }
 
                     IconButton(
@@ -547,7 +547,7 @@ fun MediaPreviewDialog(
                     ) {
                         Icon(
                             imageVector = if (isMuted) Icons.Default.VolumeOff else Icons.Default.VolumeUp,
-                            contentDescription = if (isMuted) "إلغاء كتم الصوت" else "كتم الصوت"
+                            contentDescription = androidx.compose.ui.res.stringResource(if (isMuted) com.junkfood.seal.R.string.unmute_audio else com.junkfood.seal.R.string.mute_audio)
                         )
                     }
                 }
@@ -563,7 +563,7 @@ fun MediaPreviewDialog(
                         onClick = {
                             FileUtil.openFile(file.absolutePath) {
                                 FileUtil.createIntentForOpeningFile(file.absolutePath)?.let {
-                                    context.startActivity(Intent.createChooser(it, "فتح بواسطة"))
+                                    context.startActivity(Intent.createChooser(it, context.getString(com.junkfood.seal.R.string.open_with)))
                                 }
                             }
                         },
@@ -572,13 +572,13 @@ fun MediaPreviewDialog(
                     ) {
                         Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("مشغل خارجي", style = MaterialTheme.typography.labelMedium)
+                        Text(androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.external_player), style = MaterialTheme.typography.labelMedium)
                     }
 
                     Button(
                         onClick = {
                             FileUtil.createIntentForSharingFile(file.absolutePath)?.let {
-                                context.startActivity(Intent.createChooser(it, "مشاركة الملف"))
+                                context.startActivity(Intent.createChooser(it, context.getString(com.junkfood.seal.R.string.share_file_action)))
                             }
                         },
                         modifier = Modifier.weight(1f),
@@ -586,7 +586,7 @@ fun MediaPreviewDialog(
                     ) {
                         Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("مشاركة", style = MaterialTheme.typography.labelMedium)
+                        Text(androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.share), style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }
@@ -607,10 +607,12 @@ fun SubtitlePreviewDialog(
     var searchQuery by remember { mutableStateOf("") }
 
     LaunchedEffect(file) {
-        try {
-            lines = file.readLines().filter { it.isNotBlank() }
-        } catch (e: Exception) {
-            lines = listOf("تعذر قراءة ملف الترجمة: ${e.message}")
+        lines = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching {
+                file.readLines().filter { it.isNotBlank() }
+            }.getOrElse { e ->
+                listOf(context.getString(R.string.subtitle_read_error, e.message ?: ""))
+            }
         }
     }
 
@@ -658,11 +660,11 @@ fun SubtitlePreviewDialog(
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(
-                                text = "معاينة ملف الترجمة",
+                                text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.subtitle_preview_title),
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                             )
                             Text(
-                                text = "${file.name} • ${lines.size} سطر",
+                                text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.subtitle_lines_count, file.name, lines.size),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
@@ -677,7 +679,7 @@ fun SubtitlePreviewDialog(
                             containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
                         )
                     ) {
-                        Icon(Icons.Outlined.Close, contentDescription = "إغلاق")
+                        Icon(Icons.Outlined.Close, contentDescription = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.close))
                     }
                 }
 
@@ -686,7 +688,7 @@ fun SubtitlePreviewDialog(
                 // Search Bar
                 SealSearchBar(
                     text = searchQuery,
-                    placeholderText = "بحث في نصوص الترجمة...",
+                    placeholderText = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.search_subtitle_lines),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     searchQuery = it
@@ -747,7 +749,7 @@ fun SubtitlePreviewDialog(
                         onClick = {
                             FileUtil.openFile(file.absolutePath) {
                                 FileUtil.createIntentForOpeningFile(file.absolutePath)?.let {
-                                    context.startActivity(Intent.createChooser(it, "فتح بواسطة"))
+                                    context.startActivity(Intent.createChooser(it, context.getString(com.junkfood.seal.R.string.open_with)))
                                 }
                             }
                         },
@@ -756,13 +758,13 @@ fun SubtitlePreviewDialog(
                     ) {
                         Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("فتح في تطبيق", style = MaterialTheme.typography.labelMedium)
+                        Text(androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.open_in_app), style = MaterialTheme.typography.labelMedium)
                     }
 
                     Button(
                         onClick = {
                             FileUtil.createIntentForSharingFile(file.absolutePath)?.let {
-                                context.startActivity(Intent.createChooser(it, "مشاركة الترجمة"))
+                                context.startActivity(Intent.createChooser(it, context.getString(com.junkfood.seal.R.string.share_subtitle)))
                             }
                         },
                         modifier = Modifier.weight(1f),
@@ -770,7 +772,7 @@ fun SubtitlePreviewDialog(
                     ) {
                         Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("مشاركة", style = MaterialTheme.typography.labelMedium)
+                        Text(androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.share), style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }

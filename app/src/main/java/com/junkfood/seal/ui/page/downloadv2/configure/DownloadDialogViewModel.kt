@@ -9,6 +9,8 @@ import com.junkfood.seal.download.Task
 import com.junkfood.seal.download.TaskFactory
 import com.junkfood.seal.util.DownloadUtil
 import com.junkfood.seal.util.PlaylistResult
+import com.junkfood.seal.util.PreferenceUtil.getString
+import com.junkfood.seal.util.PreferenceUtil.updateString
 import com.junkfood.seal.util.VideoInfo
 import com.yausername.youtubedl_android.YoutubeDL
 import kotlinx.coroutines.CoroutineStart
@@ -138,6 +140,7 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
 
         val job = viewModelScope.launch(Dispatchers.IO, start = CoroutineStart.LAZY) {
             try {
+                com.junkfood.seal.util.UpgradeManager.ensureInitialized(com.junkfood.seal.App.context)
                 DownloadUtil.getPlaylistOrVideoInfo(
                     playlistURL = url,
                     downloadPreferences = preferences,
@@ -209,6 +212,7 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
         }
 
         activeJobs[taskKey] = job
+        mSheetValueFlow.update { SheetValue.Expanded }
         mSheetStateFlow.update { SheetState.Loading(taskKey = taskKey, job = job) }
         job.start()
     }
@@ -225,6 +229,7 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
 
         val job = viewModelScope.launch(Dispatchers.IO, start = CoroutineStart.LAZY) {
             try {
+                com.junkfood.seal.util.UpgradeManager.ensureInitialized(com.junkfood.seal.App.context)
                 DownloadUtil.fetchVideoInfoFromUrl(url = url, preferences = preferences)
                     .onSuccess { info ->
                         mSelectionStateFlow.update {
@@ -253,6 +258,7 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
             }
         }
         activeJobs[taskKey] = job
+        mSheetValueFlow.update { SheetValue.Expanded }
         mSheetStateFlow.update { SheetState.Loading(taskKey = taskKey, job = job) }
         job.start()
     }
@@ -269,6 +275,7 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
 
         val job = viewModelScope.launch(Dispatchers.IO, start = CoroutineStart.LAZY) {
             try {
+                com.junkfood.seal.util.UpgradeManager.ensureInitialized(com.junkfood.seal.App.context)
                 val effectiveTasks = if (playlistTasks.isEmpty() && isPlaylistUrl) {
                     val playlistInfoRes = DownloadUtil.getPlaylistOrVideoInfo(url, preferences)
                     val playlistResult = playlistInfoRes.getOrNull()
@@ -341,6 +348,7 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
 
                 val job = viewModelScope.launch(Dispatchers.IO) {
                     try {
+                        com.junkfood.seal.util.UpgradeManager.ensureInitialized(com.junkfood.seal.App.context)
                         DownloadUtil.getPlaylistOrVideoInfo(url, preferences)
                             .onSuccess { info ->
                                 if (info is PlaylistResult && info.entries != null) {
@@ -453,19 +461,23 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
         mSheetValueFlow.update { SheetValue.Hidden }
     }
 
-    // Retrieves the current Config for a given task ID. Currently returns global Config.
+    // Retrieves the current Config pre-populated with current global download settings.
     fun getConfigForTask(taskId: Int): Config {
-        // In a full implementation, you would extract task‑specific preferences.
-        // Here we return the default Config based on current global preferences.
-        return Config()
+        return Config(
+            subtitleLanguage = com.junkfood.seal.util.SUBTITLE_LANGUAGE.getString(),
+            downloadPath = com.junkfood.seal.App.videoDownloadDir,
+        )
     }
 
-    // Applies edited Config changes and persists them. Updates global preferences.
+    // Applies edited Config changes and persists them globally.
     fun applyEditorChanges(taskId: Int, newConfig: Config) {
-        // Persist changes globally.
-        Config.updatePreferences(newValue = newConfig, oldValue = Config())
-        // If task‑specific preferences are needed, they can be updated here.
-        // For now we simply refresh the UI via the existing state flows if required.
+        val current = Config()
+        Config.updatePreferences(newValue = newConfig, oldValue = current)
+        val trimmedPath = newConfig.downloadPath?.trim()
+        if (!trimmedPath.isNullOrEmpty() && trimmedPath != com.junkfood.seal.App.videoDownloadDir) {
+            com.junkfood.seal.App.videoDownloadDir = trimmedPath
+            com.junkfood.seal.util.VIDEO_DIRECTORY.updateString(trimmedPath)
+        }
     }
 
     // ——— Lifecycle ———

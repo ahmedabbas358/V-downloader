@@ -198,6 +198,31 @@ class App : Application() {
          *
          * This method is safe to call from any thread — it posts to the main looper.
          */
+        fun setLanguageContext(activityContext: Context) {
+            // Keep App.context anchored to applicationContext to avoid leaking Activities.
+            if (!::context.isInitialized) {
+                context = activityContext.applicationContext
+            }
+        }
+
+        fun stopServiceIfIdle() {
+            val downloader =
+                org.koin.core.context.GlobalContext.getOrNull()?.getOrNull<DownloaderV2>()
+            val v2Active =
+                downloader?.getTaskStateMap()?.values?.any {
+                    it.downloadState is com.junkfood.seal.download.Task.DownloadState.Running ||
+                        it.downloadState is com.junkfood.seal.download.Task.DownloadState.FetchingInfo ||
+                        it.downloadState is com.junkfood.seal.download.Task.DownloadState.Idle ||
+                        it.downloadState is com.junkfood.seal.download.Task.DownloadState.ReadyWithInfo
+                } == true
+            val customActive =
+                CustomCommandRunner.downloaderState.value !is CustomCommandRunner.State.Idle ||
+                    CustomCommandRunner.processCount.value > 0
+            if (!v2Active && !customActive) {
+                stopService()
+            }
+        }
+
         fun startService() {
             if (isServiceRunning || isStartingService) return
             isStartingService = true

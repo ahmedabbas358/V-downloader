@@ -96,9 +96,18 @@ fun TroubleShootingPage(
 
                 var ytdlpVersion by remember {
                     mutableStateOf(
-                        YoutubeDL.getInstance().version(context.applicationContext)
-                            ?: context.getString(R.string.ytdlp_update)
+                        com.junkfood.seal.util.YT_DLP_VERSION.getString()
+                            .ifEmpty { context.getString(R.string.ytdlp_update) }
                     )
+                }
+                androidx.compose.runtime.LaunchedEffect(Unit) {
+                    val version = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        com.junkfood.seal.util.UpgradeManager.ensureInitialized(context.applicationContext)
+                        runCatching { YoutubeDL.getInstance().version(context.applicationContext) }.getOrNull()
+                    }
+                    if (!version.isNullOrBlank()) {
+                        ytdlpVersion = version
+                    }
                 }
                 PreferenceItem(
                     title = stringResource(id = R.string.ytdlp_update_action),

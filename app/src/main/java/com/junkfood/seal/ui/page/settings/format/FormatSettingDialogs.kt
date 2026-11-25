@@ -314,7 +314,7 @@ private fun AudioFormatSelectField(
                     },
                 )
             }
-            for (i in CONVERT_MP3..CONVERT_M4A) {
+            for (i in com.junkfood.seal.util.CONVERT_MP3..com.junkfood.seal.util.CONVERT_OPUS) {
                 DropdownMenuItem(
                     text = { Text(PreferenceStrings.getAudioConvertDesc(i)) },
                     onClick = {
@@ -509,7 +509,7 @@ fun AudioConversionDialog(
                     text = stringResource(R.string.convert_audio_format_desc),
                     style = MaterialTheme.typography.bodyLarge,
                 )
-                for (i in CONVERT_MP3..CONVERT_M4A) DialogSingleChoiceItem(
+                for (i in com.junkfood.seal.util.CONVERT_MP3..com.junkfood.seal.util.CONVERT_OPUS) DialogSingleChoiceItem(
                     modifier = Modifier,
                     text = PreferenceStrings.getAudioConvertDesc(i),
                     selected = audioFormat == i,
@@ -552,7 +552,7 @@ fun AudioConversionQuickSettingsDialog(onDismissRequest: () -> Unit, onConfirm: 
                 ) {
                     convertAudio = false
                 }
-                for (i in CONVERT_MP3..CONVERT_M4A) DialogSingleChoiceItem(
+                for (i in com.junkfood.seal.util.CONVERT_MP3..com.junkfood.seal.util.CONVERT_OPUS) DialogSingleChoiceItem(
                     modifier = Modifier,
                     text = PreferenceStrings.getAudioConvertDesc(i),
                     selected = audioFormat == i && convertAudio,

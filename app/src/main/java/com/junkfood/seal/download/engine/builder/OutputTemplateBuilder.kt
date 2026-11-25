@@ -103,9 +103,18 @@ object OutputTemplateBuilder {
         val isAudio = isAudioDownload || (preferences.extractAudio && !isSubtitleOnly)
         val basePath = resolveBaseDirectory(preferences, isAudio)
 
+        val extractorFolder =
+            if (preferences.subdirectoryExtractor && !videoInfo?.extractorKey.isNullOrBlank()) {
+                FileUtil.cleanFileName(videoInfo!!.extractorKey).trim()
+            } else {
+                ""
+            }
+        val effectiveBaseDir =
+            if (extractorFolder.isNotEmpty()) File(basePath, extractorFolder) else File(basePath)
+
         // General / single video downloads (playlistItem <= 0) MUST ALWAYS be saved directly in the base app download directory
         if (playlistItem <= 0) {
-            return File(basePath)
+            return effectiveBaseDir
         }
 
         val rawPlaylistName = fallbackPlaylistTitle
@@ -134,7 +143,7 @@ object OutputTemplateBuilder {
 
         val folderName = if (isSubtitleOnly) "[Subtitles] $cleanPlaylistName" else cleanPlaylistName
 
-        return File(basePath, folderName)
+        return File(effectiveBaseDir, folderName)
     }
 
     /**
@@ -146,6 +155,17 @@ object OutputTemplateBuilder {
         fallbackPlaylistTitle: String = "",
         videoPlaylistTitle: String? = null,
     ): String {
-        return ""
+        if (playlistItem <= 0) return ""
+        val cleanName =
+            FileUtil.cleanFileName(
+                fallbackPlaylistTitle.ifBlank { videoPlaylistTitle.orEmpty() }
+            )
+                .removePrefix("[Subtitles] ")
+                .removePrefix("[Subtitle] ")
+                .trim()
+                .ifBlank { "Playlist" }
+        val isSubOnly = preferences.skipDownload && preferences.downloadSubtitle
+        val prefix = if (isSubOnly) "[Subtitles] " else ""
+        return "$prefix$cleanName/"
     }
 }

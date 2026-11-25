@@ -27,16 +27,16 @@ fun NotificationPermissionDialog(
         },
         text = { 
             Text(
-                text = if (isPermanentlyDenied) "الإشعارات معطلة نهائياً. يرجى تفعيلها من إعدادات التطبيق لكي تتمكن من متابعة سير التحميلات في الخلفية." 
+                text = if (isPermanentlyDenied) stringResource(id = R.string.notif_perm_permanently_denied)
                 else stringResource(id = R.string.enable_notifications_desc)
-            ) 
+            )
         },
         title = { Text(text = stringResource(id = R.string.enable_notifications)) },
         confirmButton = {
             Button(onClick = {
                 if (isPermanentlyDenied) onOpenSettings() else onPermissionGranted()
             }) {
-                Text(text = if (isPermanentlyDenied) "فتح الإعدادات" else stringResource(id = R.string.okay))
+                Text(text = stringResource(id = if (isPermanentlyDenied) R.string.open_settings else R.string.okay))
             }
         },
         dismissButton = {

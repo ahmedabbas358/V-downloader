@@ -11,6 +11,40 @@ object MediaProcessingEngine {
 
     private const val TAG = "MediaProcessingEngine"
 
+    fun parseTimestampSeconds(raw: String): Double? {
+        val cleaned = raw.trim()
+        if (cleaned.isEmpty()) return null
+        val plain = cleaned.toDoubleOrNull()
+        if (plain != null) return plain.takeIf { it >= 0.0 }
+        val parts = cleaned.split(":")
+        if (parts.size !in 2..3) return null
+        return runCatching {
+            val seconds = parts.last().toDouble()
+            val minutes = parts[parts.size - 2].toLong()
+            val hours = if (parts.size == 3) parts[0].toLong() else 0L
+            if (hours < 0 || minutes !in 0..59 || seconds < 0.0 || seconds >= 60.0) return null
+            hours * 3600.0 + minutes * 60.0 + seconds
+        }.getOrNull()
+    }
+
+    private fun formatTimestampSeconds(seconds: Double): String =
+        String.format(java.util.Locale.US, "%.3f", seconds.coerceAtLeast(0.0))
+
+    private fun resolveUniqueOutputFile(target: File): File {
+        if (!target.exists()) return target
+        val parent = target.parentFile
+        val base = target.nameWithoutExtension
+        val ext = target.extension
+        var counter = 1
+        while (counter < 10_000) {
+            val name = if (ext.isNotEmpty()) "${base}_$counter.$ext" else "${base}_$counter"
+            val candidate = File(parent, name)
+            if (!candidate.exists()) return candidate
+            counter++
+        }
+        return File(parent, if (ext.isNotEmpty()) "${base}_${System.currentTimeMillis()}.$ext" else "${base}_${System.currentTimeMillis()}")
+    }
+
     /**
      * Fast lossless trimming using FFmpeg stream copy without re-encoding.
      */
@@ -23,19 +57,24 @@ object MediaProcessingEngine {
         runCatching {
             val ffmpeg = FFmpegManager.getFFmpegExecutable(context)
                 ?: throw IllegalStateException("FFmpeg binary not found")
+            val startSec = parseTimestampSeconds(startFormatted)
+                ?: throw IllegalArgumentException("Invalid start time: $startFormatted")
+            val endSec = parseTimestampSeconds(endFormatted)
+                ?: throw IllegalArgumentException("Invalid end time: $endFormatted")
+            require(endSec > startSec) { "End time must be greater than start time" }
 
-            outputFile.parentFile?.mkdirs()
-            if (outputFile.exists()) outputFile.delete()
+            val uniqueOutput = resolveUniqueOutputFile(outputFile)
+            uniqueOutput.parentFile?.mkdirs()
 
             val cmd = mutableListOf(
                 ffmpeg.absolutePath,
                 "-y",
-                "-ss", startFormatted,
-                "-to", endFormatted,
+                "-ss", formatTimestampSeconds(startSec),
                 "-i", inputFile.absolutePath,
+                "-t", formatTimestampSeconds(endSec - startSec),
                 "-c", "copy",
                 "-avoid_negative_ts", "make_zero",
-                outputFile.absolutePath
+                uniqueOutput.absolutePath
             )
 
             Log.d(TAG, "Executing lossless trim: ${cmd.joinToString(" ")}")
@@ -46,10 +85,11 @@ object MediaProcessingEngine {
             val output = process.inputStream.bufferedReader().readText()
             val exitCode = process.waitFor()
 
-            if (exitCode == 0 && outputFile.exists() && outputFile.length() > 0) {
-                Log.d(TAG, "Lossless trim completed successfully: ${outputFile.absolutePath}")
-                outputFile
+            if (exitCode == 0 && uniqueOutput.exists() && uniqueOutput.length() > 0) {
+                Log.d(TAG, "Lossless trim completed successfully: ${uniqueOutput.absolutePath}")
+                uniqueOutput
             } else {
+                uniqueOutput.delete()
                 throw IllegalStateException("FFmpeg trim failed (code $exitCode):\n$output")
             }
         }

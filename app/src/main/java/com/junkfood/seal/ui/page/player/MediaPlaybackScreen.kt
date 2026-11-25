@@ -96,7 +96,7 @@ fun MediaPlaybackScreen(
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "رجوع"
+                contentDescription = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.back)
             )
         }
     }

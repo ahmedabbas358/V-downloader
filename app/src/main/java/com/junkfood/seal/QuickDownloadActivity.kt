@@ -70,13 +70,19 @@ class QuickDownloadActivity : ComponentActivity() {
         }
     }
 
+    private var quickDownloadViewModel: DownloadDialogViewModel? = null
+
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class, ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         intent.getSharedURL()?.let { sharedUrlCached = it }
 
         if (sharedUrlCached.isEmpty()) {
-            android.widget.Toast.makeText(this, "Clipboard does not contain a valid URL", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(
+                this,
+                getString(R.string.paste_fail_msg),
+                android.widget.Toast.LENGTH_SHORT,
+            ).show()
             finish()
             return
         }
@@ -96,6 +102,7 @@ class QuickDownloadActivity : ComponentActivity() {
         }
 
         val viewModel: DownloadDialogViewModel = getViewModel()
+        quickDownloadViewModel = viewModel
         viewModel.postAction(Action.ShowSheet(listOf(sharedUrlCached)))
 
         setContent {
@@ -158,6 +165,7 @@ class QuickDownloadActivity : ComponentActivity() {
                         is SelectionState.PlaylistSelection -> {
                             PlaylistSelectionPage(
                                 state = selectionState,
+                                onActionPost = { viewModel.postAction(it) },
                                 onDismissRequest = {
                                     viewModel.postAction(Action.Reset)
                                     this.finish()
@@ -167,6 +175,16 @@ class QuickDownloadActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val newUrl = intent.getSharedURL()
+        if (!newUrl.isNullOrEmpty()) {
+            sharedUrlCached = newUrl
+            quickDownloadViewModel?.postAction(Action.ShowSheet(listOf(newUrl)))
         }
     }
 }

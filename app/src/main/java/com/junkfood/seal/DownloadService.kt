@@ -113,18 +113,16 @@ class DownloadService : Service() {
         if (!hasBackgroundPermission) {
             Log.d(TAG, "Background permission not granted, terminating downloads on app exit.")
             downloader.getTaskStateMap().forEach { (task, state) ->
-                if (state.downloadState is com.junkfood.seal.download.Task.DownloadState.Running || 
-                    state.downloadState is com.junkfood.seal.download.Task.DownloadState.FetchingInfo) {
+                if (state.downloadState is com.junkfood.seal.download.Task.DownloadState.Running ||
+                    state.downloadState is com.junkfood.seal.download.Task.DownloadState.FetchingInfo
+                ) {
                     downloader.cancel(task)
                 }
             }
-            NotificationUtil.cancelAllNotifications()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                stopForeground(STOP_FOREGROUND_REMOVE)
-            } else {
-                @Suppress("DEPRECATION")
-                stopForeground(true)
-            }
+            androidx.core.app.ServiceCompat.stopForeground(
+                this,
+                androidx.core.app.ServiceCompat.STOP_FOREGROUND_REMOVE,
+            )
             stopSelf()
             App.stopService()
             releaseLocks()
@@ -138,13 +136,10 @@ class DownloadService : Service() {
         super.onDestroy()
         App.isServiceRunning = false
         App.isStartingService = false
-        NotificationUtil.cancelAllNotifications()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            stopForeground(STOP_FOREGROUND_REMOVE)
-        } else {
-            @Suppress("DEPRECATION")
-            stopForeground(true)
-        }
+        androidx.core.app.ServiceCompat.stopForeground(
+            this,
+            androidx.core.app.ServiceCompat.STOP_FOREGROUND_REMOVE,
+        )
         releaseLocks()
     }
 

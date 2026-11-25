@@ -357,6 +357,7 @@ fun DownloadSettingDialog(
                             )
                             val convertToMp3 = stringResource(id = R.string.convert_to, "mp3")
                             val convertToM4a = stringResource(id = R.string.convert_to, "m4a")
+                            val convertToOpus = stringResource(id = R.string.convert_to, "opus")
                             val notConvert = stringResource(id = R.string.not_convert)
 
                             if (type == DownloadType.Audio) {
@@ -370,6 +371,7 @@ fun DownloadSettingDialog(
                                                 when (format) {
                                                     CONVERT_MP3 -> convertToMp3
                                                     CONVERT_M4A -> convertToM4a
+                                                    com.junkfood.seal.util.CONVERT_OPUS -> convertToOpus
                                                     else -> notConvert
                                                 }
                                             }

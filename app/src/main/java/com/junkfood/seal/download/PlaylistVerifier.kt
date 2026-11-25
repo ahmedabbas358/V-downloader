@@ -221,10 +221,16 @@ object PlaylistVerifier {
             )
             val info = infoResult.getOrThrow()
             val playlistInfo = info as? com.junkfood.seal.util.PlaylistResult
-                ?: throw IllegalStateException("الرابط المرفق ليس قائمة تشغيل صالحة")
+                ?: throw IllegalStateException(
+                    runCatching { com.junkfood.seal.App.context.getString(com.junkfood.seal.R.string.error_invalid_playlist_url) }
+                        .getOrElse { "Provided URL is not a valid playlist" }
+                )
             val entries = playlistInfo.entries ?: emptyList()
             if (entries.isEmpty()) {
-                throw IllegalStateException("قائمة التشغيل فارغة أو لا تحتوي على عناصر متاحة")
+                throw IllegalStateException(
+                    runCatching { com.junkfood.seal.App.context.getString(com.junkfood.seal.R.string.error_empty_playlist) }
+                        .getOrElse { "Playlist is empty or has no available items" }
+                )
             }
 
             val isSubtitleOnly = preferences.skipDownload && preferences.downloadSubtitle
@@ -529,8 +535,9 @@ object PlaylistVerifier {
         name = name.replace(Regex("""\.(?:[a-zA-Z]{2,3}(?:-[a-zA-Z0-9_-]+)*|auto|orig|synced)$""", RegexOption.IGNORE_CASE), "")
         // Strip numbering prefixes e.g. "001 - ", "01. ", "1 - ", "#01 ", "[01] ", "(01) ", "001 "
         name = name.replace(Regex("""^(?:#?\d{1,4}\s*[-._)\]\s]\s*|\[\d{1,4}\]\s*|\(\d{1,4}\)\s*)"""), "")
-        // Strip quality tags e.g. [1080p], (720p), .4k.
+        // Strip quality tags e.g. [1080p], (720p), .4k., or trailing " 4k" / " 1080p"
         name = name.replace(Regex("""[\.\[\(]\s*(?:\d{3,4}p|4k|2k|8k|hd|fhd|uhd)\s*[\.\]\)]""", RegexOption.IGNORE_CASE), "")
+        name = name.replace(Regex("""\s+(?:\d{3,4}p|4k|2k|8k|fhd|uhd)\s*$""", RegexOption.IGNORE_CASE), "")
         // Strip media descriptor tags
         name = name.replace(Regex("""[\(\[]\s*(?:official(?:\s+music)?\s+video|official\s+audio|audio|lyrics|music\s+video|مترجم|ترجمة|فيديو\s+كليب|كليب\s+رسمي|حصريا|حصرياً|كامل)\s*[\)\]]""", RegexOption.IGNORE_CASE), "")
         // Strip video IDs in brackets or parens e.g. [dQw4w9WgXcQ]

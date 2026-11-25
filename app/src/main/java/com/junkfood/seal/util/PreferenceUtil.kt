@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -605,15 +606,19 @@ object PreferenceUtil {
         get() = find { it.id == TEMPLATE_ID.getInt() }
 
     fun getTemplate(): CommandTemplate {
-        var template: CommandTemplate? = null
-        runBlocking {
-            for (cnt in 1..5) {
-                template = templateListStateFlow.value.selectedTemplate
-                if (template != null) return@runBlocking
-                delay(100)
+        val currentList = templateListStateFlow.value
+        currentList.selectedTemplate?.let { return it }
+        currentList.firstOrNull()?.let { return it }
+
+        val resolved =
+            runBlocking(Dispatchers.IO) {
+                kotlinx.coroutines.withTimeoutOrNull(300L) {
+                    DatabaseUtil.getTemplateFlow().firstOrNull { it.isNotEmpty() }?.let { list ->
+                        list.selectedTemplate ?: list.firstOrNull()
+                    }
+                }
             }
-        }
-        return template ?: throw NoSuchElementException()
+        return resolved ?: CommandTemplate(id = 0, name = "Default", template = "")
     }
 
     suspend fun initializeTemplateSample() {
@@ -771,7 +776,8 @@ object PreferenceStrings {
     @Composable
     fun getAudioConvertDesc(audioFormatCode: Int = PreferenceUtil.getAudioConvertFormat()): String {
         return when (audioFormatCode) {
-            0 -> stringResource(R.string.convert_to).format("mp3")
+            CONVERT_MP3 -> stringResource(R.string.convert_to).format("mp3")
+            CONVERT_OPUS -> stringResource(R.string.convert_to).format("opus")
             else -> stringResource(R.string.convert_to).format("m4a")
         }
     }
@@ -837,6 +843,8 @@ object PreferenceStrings {
                 convertAudio -> {
                     when (audioConvertFormat) {
                         CONVERT_MP3 -> stringResource(R.string.convert_to, "MP3")
+                        CONVERT_M4A -> stringResource(R.string.convert_to, "M4A")
+                        CONVERT_OPUS -> stringResource(R.string.convert_to, "OPUS")
                         else -> stringResource(R.string.convert_to, "M4A")
                     }
                 }

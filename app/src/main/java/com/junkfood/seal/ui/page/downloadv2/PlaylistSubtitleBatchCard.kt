@@ -205,11 +205,11 @@ fun PlaylistSubtitleBatchCard(
                         }
                         Text(
                             text = when {
-                                isAllCompleted -> "مكتمل ✓"
-                                isRunning -> "جاري التنزيل..."
-                                canceledCount > 0 -> "متوقف"
-                                errorCount > 0 -> "فشل $errorCount"
-                                else -> "في الانتظار"
+                                isAllCompleted -> stringResource(R.string.status_done_check)
+                                isRunning -> stringResource(R.string.status_downloading_ellipsis)
+                                canceledCount > 0 -> stringResource(R.string.status_stopped)
+                                errorCount > 0 -> stringResource(R.string.status_failed_count, errorCount)
+                                else -> stringResource(R.string.status_waiting)
                             },
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Medium,
@@ -234,7 +234,7 @@ fun PlaylistSubtitleBatchCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "تم تنزيل $completedCount من $totalCount مقطع",
+                        text = stringResource(R.string.playlist_progress_summary, completedCount, totalCount),
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurface
@@ -271,7 +271,7 @@ fun PlaylistSubtitleBatchCard(
                     .removePrefix("[Subtitle] ")
                     .replace(Regex("^#\\d+\\s*"), "")
                     .trim()
-                val activeTitle = rawActiveTitle.ifBlank { "مقطع $playlistIndex" }
+                val activeTitle = rawActiveTitle.ifBlank { stringResource(R.string.item_fallback_title, playlistIndex) }
                 val progressText = (activeState.downloadState as? Running)?.progressText.orEmpty()
 
                 Spacer(Modifier.height(12.dp))
@@ -292,7 +292,7 @@ fun PlaylistSubtitleBatchCard(
                         Spacer(Modifier.width(10.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "العملية الجارية: $activeTitle",
+                                text = stringResource(R.string.current_operation_item, activeTitle),
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 maxLines = 1,
@@ -335,7 +335,7 @@ fun PlaylistSubtitleBatchCard(
                     )
                     Spacer(Modifier.width(4.dp))
                     Text(
-                        text = if (isExpanded) "إخفاء التفاصيل" else "عرض قائمة المقاطع ($totalCount)",
+                        text = if (isExpanded) stringResource(R.string.hide_details) else stringResource(R.string.show_items_list, totalCount),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.outline
                     )
@@ -374,7 +374,7 @@ fun PlaylistSubtitleBatchCard(
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.FolderOpen,
-                            contentDescription = "فتح مجلد القائمة",
+                            contentDescription = stringResource(R.string.open_playlist_folder),
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -392,7 +392,7 @@ fun PlaylistSubtitleBatchCard(
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Pause,
-                                contentDescription = "إيقاف مؤقت للكل",
+                                contentDescription = stringResource(R.string.pause_all_items),
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -409,7 +409,7 @@ fun PlaylistSubtitleBatchCard(
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.PlayArrow,
-                                contentDescription = "استئناف الكل",
+                                contentDescription = stringResource(R.string.resume_all_items),
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -432,7 +432,7 @@ fun PlaylistSubtitleBatchCard(
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Cancel,
-                                contentDescription = "إلغاء التنزيل",
+                                contentDescription = stringResource(R.string.cancel_playlist_download),
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -459,7 +459,7 @@ fun PlaylistSubtitleBatchCard(
                             .removePrefix("[Subtitle] ")
                             .replace(Regex("^#\\d+\\s*"), "")
                             .trim()
-                            .ifBlank { "مقطع $itemIndex" }
+                            .ifBlank { stringResource(R.string.item_fallback_title, itemIndex) }
                         val isItemDone = state.downloadState is Completed
                         val isItemRunning = state.downloadState is Running || state.downloadState is FetchingInfo
                         val isItemError = state.downloadState is Error
@@ -497,7 +497,7 @@ fun PlaylistSubtitleBatchCard(
                                 when {
                                     isItemDone -> Icon(
                                         imageVector = Icons.Filled.CheckCircle,
-                                        contentDescription = "تم",
+                                        contentDescription = stringResource(R.string.status_short_done),
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(16.dp)
                                     )
@@ -508,13 +508,13 @@ fun PlaylistSubtitleBatchCard(
                                     )
                                     isItemError -> Icon(
                                         imageVector = Icons.Outlined.ErrorOutline,
-                                        contentDescription = "خطأ",
+                                        contentDescription = stringResource(R.string.status_short_error),
                                         tint = MaterialTheme.colorScheme.error,
                                         modifier = Modifier.size(16.dp)
                                     )
                                     else -> Icon(
                                         imageVector = Icons.Outlined.HourglassEmpty,
-                                        contentDescription = "انتظار",
+                                        contentDescription = stringResource(R.string.status_short_waiting),
                                         tint = MaterialTheme.colorScheme.outlineVariant,
                                         modifier = Modifier.size(14.dp)
                                     )

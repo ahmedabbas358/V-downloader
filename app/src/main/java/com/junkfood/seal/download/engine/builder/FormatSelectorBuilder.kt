@@ -108,7 +108,7 @@ object FormatSelectorBuilder {
             5 -> "bv*[height<=480]+ba/b[height<=480]/bv*+ba/b/best"
             6 -> "bv*[height<=360]+ba/b[height<=360]/bv*+ba/b/best"
             7 -> "wv*+wa/w/b/best"
-            else -> "bv*+ba/b/best"
+            else -> "bv*+ba/b"
         }
     }
 

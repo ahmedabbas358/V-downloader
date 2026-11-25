@@ -169,8 +169,10 @@ object PostDownloadCoordinator {
         // 5. Hard validation — fail honestly if no media was downloaded
         if (!isSubtitleOnly && finalPaths.isEmpty()) {
             throw IllegalStateException(
-                "فشل التنزيل: لم يتم إنتاج ملف وسائط من قِبل أداة التنزيل في: $downloadPath\n" +
-                "تأكد من توفر الرابط وصلاحية الوصول."
+                com.junkfood.seal.App.context.getString(
+                    com.junkfood.seal.R.string.error_no_media_produced,
+                    downloadPath,
+                )
             )
         }
 
@@ -184,7 +186,10 @@ object PostDownloadCoordinator {
 
         if (!isSubtitleOnly && existingFinalPaths.isEmpty() && finalPaths.isNotEmpty()) {
             throw IllegalStateException(
-                "الملف أُبلغ عن تنزيله لكنه غير موجود على القرص: ${finalPaths.first()}"
+                com.junkfood.seal.App.context.getString(
+                    com.junkfood.seal.R.string.error_missing_produced_file,
+                    finalPaths.first(),
+                )
             )
         }
 

@@ -20,7 +20,9 @@ import com.junkfood.seal.ui.component.BackButton
 import com.junkfood.seal.ui.component.PreferenceItem
 import com.junkfood.seal.ui.component.PreferenceSubtitle
 import com.junkfood.seal.util.DOWNLOAD_TYPE_INITIALIZATION
+import com.junkfood.seal.util.PreferenceUtil.getBoolean
 import com.junkfood.seal.util.PreferenceUtil.getInt
+import com.junkfood.seal.util.PreferenceUtil.updateBoolean
 import com.junkfood.seal.util.PreferenceUtil.updateInt
 import com.junkfood.seal.util.USE_PREVIOUS_SELECTION
 
@@ -61,6 +63,27 @@ fun InteractionPreferencePage(modifier: Modifier = Modifier, onBack: () -> Unit)
                         },
                 ) {
                     showDownloadTypeDialog = true
+                }
+            }
+
+            item {
+                PreferenceSubtitle(text = stringResource(id = R.string.player_section))
+            }
+
+            item {
+                var builtInPlayer by
+                    remember {
+                        mutableStateOf(
+                            com.junkfood.seal.util.ENABLE_EXPERIMENTAL_FEATURES.getBoolean()
+                        )
+                    }
+                com.junkfood.seal.ui.component.PreferenceSwitch(
+                    title = stringResource(id = R.string.built_in_media_player),
+                    description = stringResource(id = R.string.built_in_media_player_desc),
+                    isChecked = builtInPlayer,
+                ) {
+                    builtInPlayer = !builtInPlayer
+                    com.junkfood.seal.util.ENABLE_EXPERIMENTAL_FEATURES.updateBoolean(builtInPlayer)
                 }
             }
         }

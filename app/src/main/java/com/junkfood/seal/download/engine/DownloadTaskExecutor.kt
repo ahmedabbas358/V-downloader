@@ -152,7 +152,7 @@ object DownloadTaskExecutor {
             }
         }
 
-        return@withContext result ?: Result.failure(IllegalStateException("لم يتم الحصول على نتيجة"))
+        return@withContext result ?: Result.failure(IllegalStateException(appContext.getString(com.junkfood.seal.R.string.no_result_returned)))
     }
 
     /**
@@ -266,7 +266,7 @@ object DownloadTaskExecutor {
                         else -> (progressPercentage / 100f).coerceIn(0f, 0.99f)
                     }
                     val effectiveText = when {
-                        isMerging -> "جاري دمج الصوت والفيديو..."
+                        isMerging -> appContext.getString(com.junkfood.seal.R.string.merging_audio_video)
                         else -> text
                     }
 
@@ -332,14 +332,14 @@ object DownloadTaskExecutor {
                             val currentTime = System.currentTimeMillis()
                             if (currentTime - lastUpdateTime > 200L || isMerging) {
                                 lastUpdateTime = currentTime
-                                onProgressUpdate(effectiveProgress, if (isMerging) "جاري دمج الصوت والفيديو..." else text)
+                                onProgressUpdate(effectiveProgress, if (isMerging) appContext.getString(com.junkfood.seal.R.string.merging_audio_video) else text)
                             }
                         }
                     )
                 }
                 if (retryResult.isFailure) {
                     return@withContext Result.failure(
-                        retryResult.exceptionOrNull() ?: IllegalStateException("فشل التحميل")
+                        retryResult.exceptionOrNull() ?: IllegalStateException(appContext.getString(com.junkfood.seal.R.string.download_failed_generic))
                     )
                 }
             } else if (error?.message?.contains("Video is private", ignoreCase = true) == true ||
@@ -376,7 +376,7 @@ object DownloadTaskExecutor {
                             val currentTime = System.currentTimeMillis()
                             if (currentTime - lastUpdateTime > 200L || isMerging) {
                                 lastUpdateTime = currentTime
-                                onProgressUpdate(effectiveProgress, if (isMerging) "جاري دمج الصوت والفيديو..." else text)
+                                onProgressUpdate(effectiveProgress, if (isMerging) appContext.getString(com.junkfood.seal.R.string.merging_audio_video) else text)
                             }
                         }
                     )
@@ -387,7 +387,7 @@ object DownloadTaskExecutor {
                     )
                 }
             } else {
-                return@withContext Result.failure(error ?: IllegalStateException("فشل التحميل"))
+                return@withContext Result.failure(error ?: IllegalStateException(appContext.getString(com.junkfood.seal.R.string.download_failed_generic)))
             }
         }
 

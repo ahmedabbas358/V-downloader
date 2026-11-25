@@ -107,7 +107,7 @@ class DownloadQueueManager(
                     if (hasActive && NOTIFICATION.getBoolean() && NotificationUtil.areNotificationsEnabled()) {
                         App.startService()
                     } else {
-                        App.stopService()
+                        App.stopServiceIfIdle()
                     }
                 }
         }
@@ -140,7 +140,15 @@ class DownloadQueueManager(
     }
 
     fun remove(task: Task): Boolean {
-        return taskStateMap.remove(task) != null
+        val removed = taskStateMap.remove(task) != null
+        if (removed) {
+            retryCountMap.remove(task.id)
+            priorityTaskIds.remove(task.id)
+            if (!taskStateMap.hasActiveTasks()) {
+                App.stopServiceIfIdle()
+            }
+        }
+        return removed
     }
 
     fun cancel(task: Task, isPaused: Boolean = false): Boolean {
@@ -180,11 +188,14 @@ class DownloadQueueManager(
 
         if (res) {
             val hasActive = taskStateMap.values.any { state ->
-                state.downloadState is Running || state.downloadState is FetchingInfo
+                state.downloadState is Running ||
+                    state.downloadState is FetchingInfo ||
+                    state.downloadState is Idle ||
+                    state.downloadState is ReadyWithInfo
             }
             if (!hasActive) {
                 NotificationUtil.cancelNotification(NotificationUtil.SUMMARY_NOTIFICATION_ID)
-                App.stopService()
+                App.stopServiceIfIdle()
             }
         }
         return res
@@ -194,6 +205,7 @@ class DownloadQueueManager(
         val state = taskStateMap[task] ?: return
         val currentDownloadState = state.downloadState
         if (currentDownloadState is DownloadState.Restartable) {
+            retryCountMap.remove(task.id)
             val nextState = when (currentDownloadState.action) {
                 Download -> ReadyWithInfo
                 FetchInfo -> Idle
@@ -276,7 +288,9 @@ class DownloadQueueManager(
     }
 
     private fun fetchInfoForTask(task: Task) {
-        val job = scope.launch(Dispatchers.Default) {
+        val current = taskStateMap[task] ?: return
+        val job = scope.launch(Dispatchers.Default, start = kotlinx.coroutines.CoroutineStart.LAZY) {
+            com.junkfood.seal.util.UpgradeManager.ensureInitialized(appContext)
             val result = DownloadTaskExecutor.fetchVideoInfo(task, appContext)
 
             result.onSuccess { videoInfo ->
@@ -350,10 +364,10 @@ class DownloadQueueManager(
             }
         }
 
-        val current = taskStateMap[task] ?: return
         taskStateMap[task] = current.copy(
             downloadState = FetchingInfo(job = job, taskId = task.id)
         )
+        job.start()
     }
 
     private fun startDownloadTask(task: Task) {
@@ -368,7 +382,8 @@ class DownloadQueueManager(
             return
         }
 
-        val job = scope.launch(Dispatchers.Default) {
+        val job = scope.launch(Dispatchers.Default, start = kotlinx.coroutines.CoroutineStart.LAZY) {
+            com.junkfood.seal.util.UpgradeManager.ensureInitialized(appContext)
             val result = DownloadTaskExecutor.executeDownload(
                 task = task,
                 videoInfo = state.videoInfo!!, // guarded: null check is on line 351
@@ -555,13 +570,15 @@ class DownloadQueueManager(
         taskStateMap[task] = state.copy(
             downloadState = Running(job = job, taskId = task.id)
         )
+        job.start()
     }
 
     private fun executeCustomCommandTask(task: Task) {
         val template = (task.type as? TypeInfo.CustomCommand)?.template ?: return
         val state = taskStateMap[task] ?: return
 
-        val job = scope.launch(Dispatchers.Default) {
+        val job = scope.launch(Dispatchers.Default, start = kotlinx.coroutines.CoroutineStart.LAZY) {
+            com.junkfood.seal.util.UpgradeManager.ensureInitialized(appContext)
             val result = DownloadTaskExecutor.executeCustomCommand(
                 task = task,
                 template = template,
@@ -616,6 +633,7 @@ class DownloadQueueManager(
         taskStateMap[task] = state.copy(
             downloadState = Running(job = job, taskId = task.id)
         )
+        job.start()
     }
 
     private fun checkPlaylistCompletion(completedTask: Task) {
@@ -727,7 +745,8 @@ class DownloadQueueManager(
             .trim()
         val cleanPlaylistName = FileUtil.cleanFileName(rawPlaylistTitle).trim()
 
-        val baseDir = OutputTemplateBuilder.resolveBaseDirectory(preferences, preferences.extractAudio)
+        val baseDir = OutputTemplateBuilder.resolveBaseDirectory(preferences, preferences.extractAudio && !isSubtitleOnly)
+        val state = taskStateMap[task]
 
         val candidateDirs = mutableListOf<File>()
         if (preferences.commandDirectory.isNotBlank()) {
@@ -740,10 +759,13 @@ class DownloadQueueManager(
                 }
                 candidateDirs.add(File(baseDir, cleanPlaylistName))
             }
+            val extractorKey = state?.videoInfo?.extractorKey?.takeIf { it.isNotBlank() }
+            if (preferences.subdirectoryExtractor && extractorKey != null) {
+                candidateDirs.add(File(baseDir, FileUtil.cleanFileName(extractorKey)))
+            }
             candidateDirs.add(File(baseDir))
         }
 
-        val state = taskStateMap[task]
         val rawUrl = task.url.ifEmpty { state?.viewState?.url.orEmpty() }
         val extractedId = FileCollisionResolver.extractVideoId(rawUrl, fallbackId = state?.videoInfo?.id.orEmpty()).trim()
 

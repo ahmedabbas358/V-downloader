@@ -39,8 +39,10 @@ fun MediaTrimmerDialog(
     file: File,
     onDismissRequest: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var startTime by remember { mutableStateOf("00:00:00") }
     var endTime by remember { mutableStateOf("00:01:00") }
+    var isError by remember { mutableStateOf(false) }
     var isProcessing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -51,7 +53,7 @@ fun MediaTrimmerDialog(
         },
         title = {
             Text(
-                text = "قص وتشذيب فوري للملف",
+                text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.trim_dialog_title),
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
             )
         },
@@ -72,7 +74,7 @@ fun MediaTrimmerDialog(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "حدد نقطة البداية والنهاية (HH:MM:SS أو بالثواني):",
+                    text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.trim_dialog_range_prompt),
                     style = MaterialTheme.typography.labelMedium
                 )
 
@@ -81,8 +83,12 @@ fun MediaTrimmerDialog(
                 Row(modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(
                         value = startTime,
-                        onValueChange = { startTime = it },
-                        label = { Text("البداية") },
+                        onValueChange = {
+                            startTime = it
+                            isError = false
+                        },
+                        isError = isError,
+                        label = { Text(androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.trim_start_label)) },
                         singleLine = true,
                         leadingIcon = { Icon(Icons.Outlined.Timer, contentDescription = null) },
                         modifier = Modifier.weight(1f)
@@ -92,18 +98,31 @@ fun MediaTrimmerDialog(
 
                     OutlinedTextField(
                         value = endTime,
-                        onValueChange = { endTime = it },
-                        label = { Text("النهاية") },
+                        onValueChange = {
+                            endTime = it
+                            isError = false
+                        },
+                        isError = isError,
+                        label = { Text(androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.trim_end_label)) },
                         singleLine = true,
                         leadingIcon = { Icon(Icons.Outlined.Timer, contentDescription = null) },
                         modifier = Modifier.weight(1f)
                     )
                 }
 
+                if (isError) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.trim_invalid_times),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "⚡ يتم القص بدون إعادة ضغط للحفاظ على 100% من الجودة الأصلية وبسرعة فائقة.",
+                    text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.trim_lossless_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -112,27 +131,34 @@ fun MediaTrimmerDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    if (startTime.isBlank() || endTime.isBlank()) {
-                        ToastUtil.makeToast("يرجى تحديد وقت البداية والنهاية")
+                    val startSec = MediaProcessingEngine.parseTimestampSeconds(startTime)
+                    val endSec = MediaProcessingEngine.parseTimestampSeconds(endTime)
+                    if (startSec == null || endSec == null || endSec <= startSec) {
+                        isError = true
+                        ToastUtil.makeToast(context.getString(com.junkfood.seal.R.string.trim_invalid_times))
                         return@Button
                     }
                     scope.launch {
                         isProcessing = true
                         val trimmedName = "${file.nameWithoutExtension}_trimmed.${file.extension}"
-                        val outputFile = File(file.parentFile, trimmedName)
+                        val targetOutput = File(file.parentFile, trimmedName)
                         val result = MediaProcessingEngine.trimMediaLossless(
                             inputFile = file,
                             startFormatted = startTime.trim(),
                             endFormatted = endTime.trim(),
-                            outputFile = outputFile
+                            outputFile = targetOutput
                         )
                         isProcessing = false
-                        result.onSuccess {
-                            FileUtil.scanFileToMediaLibrary(outputFile)
-                            ToastUtil.makeToast("تم قص الملف وحفظه بنجاح: ${outputFile.name}")
+                        result.onSuccess { trimmedFile ->
+                            FileUtil.scanFileToMediaLibrary(trimmedFile)
+                            ToastUtil.makeToast(
+                                context.getString(com.junkfood.seal.R.string.trim_success, trimmedFile.name)
+                            )
                             onDismissRequest()
                         }.onFailure {
-                            ToastUtil.makeToast("فشل قص الملف: ${it.message}")
+                            ToastUtil.makeToast(
+                                context.getString(com.junkfood.seal.R.string.trim_failed, it.message ?: "")
+                            )
                         }
                     }
                 },
@@ -140,12 +166,15 @@ fun MediaTrimmerDialog(
             ) {
                 Icon(Icons.Outlined.ContentCut, contentDescription = null)
                 Spacer(modifier = Modifier.width(6.dp))
-                Text(if (isProcessing) "جار القص..." else "قص وحفظ")
+                Text(
+                    if (isProcessing) androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.trim_in_progress)
+                    else androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.trim_and_save)
+                )
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismissRequest) {
-                Text("إلغاء")
+            TextButton(onClick = onDismissRequest, enabled = !isProcessing) {
+                Text(androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.cancel))
             }
         }
     )

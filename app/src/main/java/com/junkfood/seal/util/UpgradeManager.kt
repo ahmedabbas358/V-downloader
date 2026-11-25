@@ -28,6 +28,23 @@ object UpgradeManager {
     // Stale temporary/download artifacts to purge on upgrade (safe to delete)
     private val STALE_EXTENSIONS = setOf(".part", ".ytdl", ".tmp", ".aria2")
     private val STALE_PREFIXES = setOf("sub_temp_", "sub_direct_")
+    private val initLock = Any()
+
+    @Volatile
+    var isNativeReady: Boolean = false
+        private set
+
+    /**
+     * Suspends until the native binaries and Python runtime are initialized.
+     * Safe to invoke from any coroutine before calling YoutubeDL/FFmpeg/Aria2c.
+     */
+    suspend fun ensureInitialized(context: Context): Boolean {
+        if (isNativeReady) return true
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            ensureNativeEnvironment(context.applicationContext)
+            isNativeReady
+        }
+    }
 
     /**
      * Checks if the Python runtime and its essential support libraries (including libandroid-support.so)
@@ -49,13 +66,16 @@ object UpgradeManager {
      * a clean, self-healing re-extraction.
      */
     fun ensureNativeEnvironment(context: Context) {
-        val runtimeIntact = isPythonRuntimeIntact(context)
-        if (!runtimeIntact) {
-            Log.w(TAG, "Native Python environment or libandroid-support.so is missing/corrupted. Repairing...")
-            repairNativeEnvironment(context)
-        } else {
-            // Normal initialization
-            initNativeLibrariesSafely(context)
+        synchronized(initLock) {
+            if (isNativeReady && isPythonRuntimeIntact(context)) return
+            val runtimeIntact = isPythonRuntimeIntact(context)
+            if (!runtimeIntact) {
+                Log.w(TAG, "Native Python environment or libandroid-support.so is missing/corrupted. Repairing...")
+                repairNativeEnvironment(context)
+            } else {
+                // Normal initialization
+                initNativeLibrariesSafely(context)
+            }
         }
     }
 
@@ -97,8 +117,10 @@ object UpgradeManager {
     }
 
     private fun initNativeLibrariesSafely(context: Context) {
+        var ytReady = false
         try {
             YoutubeDL.init(context)
+            ytReady = true
             Log.i(TAG, "YoutubeDL initialized")
         } catch (e: Exception) {
             Log.e(TAG, "YoutubeDL.init failed", e)
@@ -115,9 +137,11 @@ object UpgradeManager {
         } catch (e: Exception) {
             Log.e(TAG, "Aria2c.init failed", e)
         }
+        isNativeReady = ytReady
     }
 
     private fun resetInitializedFlags() {
+        isNativeReady = false
         listOf(
             YoutubeDL::class.java,
             FFmpeg::class.java,

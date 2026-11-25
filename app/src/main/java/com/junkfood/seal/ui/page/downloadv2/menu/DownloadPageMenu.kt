@@ -137,13 +137,13 @@ fun DownloadPageMenuSheet(
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = when (activeFilter) {
-                        Filter.All -> "إدارة قائمة التنزيلات الشاملة (الجميع)"
-                        Filter.Downloading -> "إدارة التنزيلات الجارية والنشطة"
-                        Filter.Canceled -> "إدارة التنزيلات المُلغاة والفاشلة"
-                        Filter.Finished -> "إدارة التنزيلات المكتملة"
-                        Filter.Video -> "إدارة مقاطع الفيديو المنزلة"
-                        Filter.Audio -> "إدارة الملفات الصوتية المنزلة"
-                        Filter.Subtitle -> "إدارة ملفات الترجمة"
+                        Filter.All -> androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.menu_filter_desc_all)
+                        Filter.Downloading -> androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.menu_filter_desc_downloading)
+                        Filter.Canceled -> androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.menu_filter_desc_canceled)
+                        Filter.Finished -> androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.menu_filter_desc_finished)
+                        Filter.Video -> androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.menu_filter_desc_video)
+                        Filter.Audio -> androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.menu_filter_desc_audio)
+                        Filter.Subtitle -> androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.menu_filter_desc_subtitle)
                     },
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -152,16 +152,17 @@ fun DownloadPageMenuSheet(
         }
 
         // Section 1: Contextual Actions based on active Tab
+        val sectionName = when (activeFilter) {
+            Filter.All -> androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.filter_all)
+            Filter.Downloading -> androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.filter_downloading)
+            Filter.Canceled -> androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.filter_canceled)
+            Filter.Finished -> androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.filter_finished)
+            Filter.Video -> androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.video_filter)
+            Filter.Audio -> androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.audio_filter)
+            Filter.Subtitle -> androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.subtitle_filter)
+        }
         Text(
-            text = "إجراءات قسم " + when (activeFilter) {
-                Filter.All -> "الجميع"
-                Filter.Downloading -> "جار التحميل"
-                Filter.Canceled -> "تم الإلغاء"
-                Filter.Finished -> "انتهى"
-                Filter.Video -> "الفيديو"
-                Filter.Audio -> "الصوتيات"
-                Filter.Subtitle -> "الترجمات"
-            },
+            text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.menu_section_actions, sectionName),
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
@@ -169,30 +170,30 @@ fun DownloadPageMenuSheet(
 
         when (activeFilter) {
             Filter.All -> {
-                MenuActionItem(icon = Icons.Outlined.SelectAll, text = "تحديد جميع العناصر في القائمة", onClick = onSelectAll)
-                MenuActionItem(icon = Icons.Outlined.Pause, text = "إيقاف جميع التنزيلات النشطة", onClick = onPauseAll)
-                MenuActionItem(icon = Icons.Outlined.PlayArrow, text = "استئناف وإعادة محاولة الكل", onClick = onResumeAll)
-                MenuActionItem(icon = Icons.Outlined.DeleteSweep, text = "حذف التنزيلات المكتملة فقط", onClick = onDeleteCompleted)
-                MenuActionItem(icon = Icons.Outlined.ErrorOutline, text = "حذف التنزيلات الفاشلة والمُلغاة", onClick = onDeleteFailed)
-                MenuActionItem(icon = Icons.Outlined.ClearAll, text = "مسح سجل السجل بالكامل", onClick = onClearHistory)
+                MenuActionItem(icon = Icons.Outlined.SelectAll, text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.menu_select_all_list), onClick = onSelectAll)
+                MenuActionItem(icon = Icons.Outlined.Pause, text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.menu_pause_active), onClick = onPauseAll)
+                MenuActionItem(icon = Icons.Outlined.PlayArrow, text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.menu_resume_and_retry_all), onClick = onResumeAll)
+                MenuActionItem(icon = Icons.Outlined.DeleteSweep, text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.menu_delete_completed), onClick = onDeleteCompleted)
+                MenuActionItem(icon = Icons.Outlined.ErrorOutline, text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.menu_delete_failed), onClick = onDeleteFailed)
+                MenuActionItem(icon = Icons.Outlined.ClearAll, text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.menu_clear_all_history), onClick = onClearHistory)
             }
             Filter.Downloading -> {
-                MenuActionItem(icon = Icons.Outlined.SelectAll, text = "تحديد جميع التنزيلات الجارية", onClick = onSelectAll)
-                MenuActionItem(icon = Icons.Outlined.Pause, text = "إيقاف جميع التنزيلات مؤقتاً", onClick = onPauseAll)
-                MenuActionItem(icon = Icons.Outlined.PlayArrow, text = "استئناف جميع التنزيلات", onClick = onResumeAll)
-                MenuActionItem(icon = Icons.Outlined.Refresh, text = "إعادة محاولة التنزيلات التعلقة", onClick = onRetryFailed)
-                MenuActionItem(icon = Icons.Outlined.Cancel, text = "إلغاء التنزيلات الجارية", onClick = onCancelSelected)
+                MenuActionItem(icon = Icons.Outlined.SelectAll, text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.menu_select_active), onClick = onSelectAll)
+                MenuActionItem(icon = Icons.Outlined.Pause, text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.menu_pause_all), onClick = onPauseAll)
+                MenuActionItem(icon = Icons.Outlined.PlayArrow, text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.menu_resume_all), onClick = onResumeAll)
+                MenuActionItem(icon = Icons.Outlined.Refresh, text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.menu_retry_paused), onClick = onRetryFailed)
+                MenuActionItem(icon = Icons.Outlined.Cancel, text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.menu_cancel_active), onClick = onCancelSelected)
             }
             Filter.Canceled -> {
-                MenuActionItem(icon = Icons.Outlined.SelectAll, text = "تحديد العناصر المُلغاة", onClick = onSelectAll)
-                MenuActionItem(icon = Icons.Outlined.Refresh, text = "إعادة محاولة وتنزيل جميع المُلغاة", onClick = onRetryAll)
-                MenuActionItem(icon = Icons.Outlined.DeleteForever, text = "حذف جميع التنزيلات المُلغاة", onClick = onDeleteAll)
+                MenuActionItem(icon = Icons.Outlined.SelectAll, text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.menu_select_canceled), onClick = onSelectAll)
+                MenuActionItem(icon = Icons.Outlined.Refresh, text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.menu_retry_all_canceled), onClick = onRetryAll)
+                MenuActionItem(icon = Icons.Outlined.DeleteForever, text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.menu_delete_all_canceled), onClick = onDeleteAll)
             }
             Filter.Finished, Filter.Video, Filter.Audio, Filter.Subtitle -> {
-                MenuActionItem(icon = Icons.Outlined.SelectAll, text = "تحديد العناصر المعروضة", onClick = onSelectAll)
-                MenuActionItem(icon = Icons.Outlined.Refresh, text = "إعادة تنزيل جميع العناصر المعروضة", onClick = onRedownloadAll)
-                MenuActionItem(icon = Icons.Outlined.ClearAll, text = "مسح العناصر المعروضة من السجل", onClick = onDeleteHistory)
-                MenuActionItem(icon = Icons.Outlined.DeleteForever, text = "حذف الملفات والسجل بالكامل", onClick = onDeleteFiles)
+                MenuActionItem(icon = Icons.Outlined.SelectAll, text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.menu_select_visible), onClick = onSelectAll)
+                MenuActionItem(icon = Icons.Outlined.Refresh, text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.menu_redownload_visible), onClick = onRedownloadAll)
+                MenuActionItem(icon = Icons.Outlined.ClearAll, text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.menu_clear_visible_history), onClick = onDeleteHistory)
+                MenuActionItem(icon = Icons.Outlined.DeleteForever, text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.menu_delete_visible_files), onClick = onDeleteFiles)
             }
         }
 
@@ -200,19 +201,19 @@ fun DownloadPageMenuSheet(
 
         // Section 2: Sort Options
         Text(
-            text = "ترتيب العناصر حسب:",
+            text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.sort_items_by),
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
         )
         val sortOptions = listOf(
-            SortOption.DateNewest to "الأحدث تاريخاً (الأحدث أولاً)",
-            SortOption.DateOldest to "الأقدم تاريخاً (الأقدم أولاً)",
-            SortOption.NameAZ to "الاسم (أ - ي)",
-            SortOption.NameZA to "الاسم (ي - أ)",
-            SortOption.SizeLargest to "الحجم (الأكبر أولاً)",
-            SortOption.SizeSmallest to "الحجم (الأصغر أولاً)",
-            SortOption.Status to "بحسب حالة التنزيل"
+            SortOption.DateNewest to androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.sort_date_newest),
+            SortOption.DateOldest to androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.sort_date_oldest),
+            SortOption.NameAZ to androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.sort_name_az),
+            SortOption.NameZA to androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.sort_name_za),
+            SortOption.SizeLargest to androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.sort_size_largest),
+            SortOption.SizeSmallest to androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.sort_size_smallest),
+            SortOption.Status to androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.sort_by_status)
         )
         sortOptions.forEach { (option, label) ->
             MenuRadioItem(
@@ -226,36 +227,36 @@ fun DownloadPageMenuSheet(
 
         // Section 3: View & Display Options
         Text(
-            text = "خيارات عرض البطاقات والمعلومات:",
+            text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.view_card_options),
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
         )
 
         MenuRadioItem(
-            text = "عرض شبكي (بطاقات كبيرة)",
+            text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.view_grid_cards),
             selected = viewOptions.isGridView,
             onClick = { onViewOptionsChange(viewOptions.copy(isGridView = true)) }
         )
         MenuRadioItem(
-            text = "عرض قائمة (سطري مدمج)",
+            text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.view_compact_list),
             selected = !viewOptions.isGridView,
             onClick = { onViewOptionsChange(viewOptions.copy(isGridView = false)) }
         )
 
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "إظهار / إخفاء تفاصيل البطاقات:",
+            text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.show_hide_card_details),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp)
         )
 
-        MenuSwitchItem(text = "إظهار حجم الملف", checked = viewOptions.showSize, onCheckedChange = { onViewOptionsChange(viewOptions.copy(showSize = it)) })
-        MenuSwitchItem(text = "إظهار جودة/دقة المقطع", checked = viewOptions.showQuality, onCheckedChange = { onViewOptionsChange(viewOptions.copy(showQuality = it)) })
-        MenuSwitchItem(text = "إظهار تاريخ الإضافة", checked = viewOptions.showDate, onCheckedChange = { onViewOptionsChange(viewOptions.copy(showDate = it)) })
-        MenuSwitchItem(text = "إظهار مدة الفيديو", checked = viewOptions.showDuration, onCheckedChange = { onViewOptionsChange(viewOptions.copy(showDuration = it)) })
-        MenuSwitchItem(text = "إظهار مصدر/قناة المقطع", checked = viewOptions.showSource, onCheckedChange = { onViewOptionsChange(viewOptions.copy(showSource = it)) })
+        MenuSwitchItem(text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.show_file_size), checked = viewOptions.showSize, onCheckedChange = { onViewOptionsChange(viewOptions.copy(showSize = it)) })
+        MenuSwitchItem(text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.show_quality), checked = viewOptions.showQuality, onCheckedChange = { onViewOptionsChange(viewOptions.copy(showQuality = it)) })
+        MenuSwitchItem(text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.show_date_added), checked = viewOptions.showDate, onCheckedChange = { onViewOptionsChange(viewOptions.copy(showDate = it)) })
+        MenuSwitchItem(text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.show_video_duration), checked = viewOptions.showDuration, onCheckedChange = { onViewOptionsChange(viewOptions.copy(showDuration = it)) })
+        MenuSwitchItem(text = androidx.compose.ui.res.stringResource(com.junkfood.seal.R.string.show_source_channel), checked = viewOptions.showSource, onCheckedChange = { onViewOptionsChange(viewOptions.copy(showSource = it)) })
     }
 }
 

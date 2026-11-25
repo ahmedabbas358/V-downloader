@@ -122,7 +122,7 @@ object FileUtil {
                         setDataAndType(treeUri, DocumentsContract.Document.MIME_TYPE_DIR)
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
-                    val chooser = Intent.createChooser(treeIntent, "فتح المجلد / Open with").apply {
+                    val chooser = Intent.createChooser(treeIntent, context.getString(com.junkfood.seal.R.string.open_directory_with)).apply {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
                     context.startActivity(chooser)
@@ -197,7 +197,7 @@ object FileUtil {
                 try {
                     val resolved = context.packageManager.queryIntentActivities(intent, 0)
                     if (resolved.isNotEmpty()) {
-                        val chooser = Intent.createChooser(intent, "فتح المجلد / Open directory with").apply {
+                        val chooser = Intent.createChooser(intent, context.getString(com.junkfood.seal.R.string.open_directory_with)).apply {
                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         }
                         context.startActivity(chooser)

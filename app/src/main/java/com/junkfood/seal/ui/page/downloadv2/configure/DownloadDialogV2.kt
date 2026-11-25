@@ -451,35 +451,47 @@ private fun DownloadDialogContent(
                                     Regex("""[?&]list=([a-zA-Z0-9_-]+)""").find(u)?.groupValues?.get(1)
                                 }
                                 val fallbackTitle = if (!listId.isNullOrBlank()) "Playlist_$listId" else "Playlist"
-                                onActionPost(
-                                    Action.FetchPlaylistSubtitleFormats(
-                                        firstVideoUrl = firstUrl,
+                                val batchTasks = state.urlList.mapIndexed { index, itemUrl ->
+                                    val task = com.junkfood.seal.download.Task(
+                                        url = itemUrl,
                                         preferences = updatedPrefs,
-                                        playlistTasks = state.urlList.mapIndexed { index, itemUrl ->
-                                            val task = com.junkfood.seal.download.Task(
-                                                url = itemUrl,
-                                                preferences = updatedPrefs,
-                                                type = com.junkfood.seal.download.Task.TypeInfo.Playlist(
-                                                    index = index + 1,
-                                                    playlistTitle = fallbackTitle,
-                                                    playlistUrl = firstUrl,
-                                                )
-                                            )
-                                            val itemState = com.junkfood.seal.download.Task.State(
-                                                downloadState = com.junkfood.seal.download.Task.DownloadState.Idle,
-                                                videoInfo = null,
-                                                viewState = com.junkfood.seal.download.Task.ViewState(
-                                                    url = itemUrl,
-                                                    title = "",
-                                                    durationMs = 0L,
-                                                    fileSizeApproxBytes = 0L,
-                                                    thumbnailUrl = "",
-                                                )
-                                            )
-                                            TaskFactory.TaskWithState(task, itemState)
-                                        }
+                                        type = com.junkfood.seal.download.Task.TypeInfo.Playlist(
+                                            index = index + 1,
+                                            playlistTitle = fallbackTitle,
+                                            playlistUrl = firstUrl,
+                                        )
                                     )
-                                )
+                                    val itemState = com.junkfood.seal.download.Task.State(
+                                        downloadState = com.junkfood.seal.download.Task.DownloadState.Idle,
+                                        videoInfo = null,
+                                        viewState = com.junkfood.seal.download.Task.ViewState(
+                                            url = itemUrl,
+                                            title = "",
+                                            durationMs = 0L,
+                                            fileSizeApproxBytes = 0L,
+                                            thumbnailUrl = "",
+                                        )
+                                    )
+                                    TaskFactory.TaskWithState(task, itemState)
+                                }
+                                if (selectedDownloadType == DownloadType.Subtitle) {
+                                    onActionPost(
+                                        Action.FetchPlaylistSubtitleFormats(
+                                            firstVideoUrl = firstUrl,
+                                            preferences = updatedPrefs,
+                                            playlistTasks = batchTasks,
+                                        )
+                                    )
+                                } else {
+                                    onActionPost(
+                                        Action.FetchFormats(
+                                            url = firstUrl,
+                                            audioOnly = selectedDownloadType == Audio,
+                                            preferences = updatedPrefs,
+                                            playlistTasks = batchTasks,
+                                        )
+                                    )
+                                }
                             }
                         } else {
                             onActionPost(
@@ -1019,7 +1031,7 @@ private fun AdditionalSettings(
                             AUTO_TRANSLATED_SUBTITLES.updateBoolean(!autoTranslatedSubtitles)
                             onPreferenceUpdate()
                         },
-                        label = "ترجمة تلقائية مترجمة",
+                        label = stringResource(R.string.auto_translated_label),
                     )
                 }
 
@@ -1076,7 +1088,7 @@ private fun AdditionalSettings(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "تنسيق الترجمة:",
+                        text = stringResource(R.string.subtitle_format_label),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1352,8 +1364,8 @@ private fun Custom(
     }
 
     val desc = when (downloadType) {
-        Audio -> "تخصيص تنسيقات وجودة الصوت المتاحة (MP3, M4A, Opus, FLAC, WAV)"
-        DownloadType.Subtitle -> "اختيار لغات وتنسيقات الترجمة المتاحة (SRT, VTT, ASS)"
+        Audio -> stringResource(R.string.audio_format_sheet_desc)
+        DownloadType.Subtitle -> stringResource(R.string.subtitle_format_sheet_desc)
         else -> stringResource(R.string.custom_format_selection_desc)
     }
 
@@ -1602,7 +1614,13 @@ fun SubtitleLanguagePickerDialog(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.padding(bottom = 12.dp)
                     ) {
-                        val presets = listOf("ar" to "العربية", "en" to "English", "fr" to "Français", "es" to "Español", "" to "الكل (All)")
+                        val presets = listOf(
+                            "ar" to "العربية",
+                            "en" to "English",
+                            "fr" to "Français",
+                            "es" to "Español",
+                            "" to stringResource(R.string.all_languages_option),
+                        )
                         presets.forEach { (code, label) ->
                             val isSelected = if (code.isEmpty()) selectedCodes.isEmpty() else selectedCodes.contains(code)
                             FilterChip(

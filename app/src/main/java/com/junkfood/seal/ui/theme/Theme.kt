@@ -58,18 +58,14 @@ fun SealTheme(
     }
 
         val colorScheme = dynamicColorScheme(!darkTheme).run {
-            val alphaFactor = 0.92f // Subtle glassmorphism transparency
-            val adjustedScheme = if (isHighContrastModeEnabled && darkTheme) {
+            if (isHighContrastModeEnabled && darkTheme) {
                 copy(
-                    surface = Color.Black.copy(alpha = alphaFactor),
+                    surface = Color.Black,
                     background = Color.Black
                 )
             } else {
-                copy(
-                    surface = surface.copy(alpha = alphaFactor)
-                )
+                this
             }
-            adjustedScheme
         }
 
     val textStyle =

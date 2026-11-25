@@ -158,9 +158,8 @@ object DownloadCommandBuilder {
             )
             pathBuilder.append(targetDir.absolutePath)
 
-            if (preferences.subdirectoryExtractor) {
-                pathBuilder.append("/${videoInfo.extractorKey}")
-            }
+            // Subdirectory by extractor is already resolved by OutputTemplateBuilder.resolveTargetDirectory
+            if (!targetDir.exists()) targetDir.mkdirs()
 
             if (preferences.sdcard) {
                 val tempDir = appContext.getSdcardTempDir(videoInfo.id)
@@ -203,11 +202,20 @@ object DownloadCommandBuilder {
                 addOption("-v")
             }
 
-            FFmpegManager.getFFmpegExecutable(appContext)?.let { ffmpegFile ->
-                addOption("--ffmpeg-location", ffmpegFile.absolutePath)
-            }
-
-            addOption("-o", preferences.newTitle.ifEmpty { OutputTemplateBuilder.buildOutputTemplate(preferences, playlistItem, isFallback) })
+            val outputTemplate =
+                if (preferences.newTitle.isNotBlank()) {
+                    val trimmed = preferences.newTitle.trim()
+                    if (trimmed.contains("%(")) {
+                        trimmed
+                    } else {
+                        val sanitized = com.junkfood.seal.util.FileUtil.cleanFileName(trimmed)
+                        if (sanitized.isNotBlank()) "$sanitized.%(ext)s"
+                        else OutputTemplateBuilder.buildOutputTemplate(preferences, playlistItem, isFallback)
+                    }
+                } else {
+                    OutputTemplateBuilder.buildOutputTemplate(preferences, playlistItem, isFallback)
+                }
+            addOption("-o", outputTemplate)
         }
 
         return request

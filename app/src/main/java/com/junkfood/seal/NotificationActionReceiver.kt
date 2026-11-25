@@ -103,11 +103,13 @@ class NotificationActionReceiver : BroadcastReceiver(), KoinComponent {
 
         val hasActive = downloader.getTaskStateMap().values.any { state ->
             state.downloadState is com.junkfood.seal.download.Task.DownloadState.Running ||
-            state.downloadState is com.junkfood.seal.download.Task.DownloadState.FetchingInfo
+                state.downloadState is com.junkfood.seal.download.Task.DownloadState.FetchingInfo ||
+                state.downloadState is com.junkfood.seal.download.Task.DownloadState.Idle ||
+                state.downloadState is com.junkfood.seal.download.Task.DownloadState.ReadyWithInfo
         }
         if (!hasActive) {
             NotificationUtil.cancelNotification(NotificationUtil.SUMMARY_NOTIFICATION_ID)
-            App.stopService()
+            App.stopServiceIfIdle()
         }
     }
 

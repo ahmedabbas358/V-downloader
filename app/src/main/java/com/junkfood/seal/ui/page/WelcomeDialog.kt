@@ -90,7 +90,7 @@ fun WelcomeDialog(onClick: () -> Unit) {
                     )
                     IconDescription(
                         icon = Icons.Outlined.ContentPaste,
-                        title = "لصق ومشاركة الروابط",
+                        title = stringResource(R.string.paste_and_share_links),
                         description = stringResource(R.string.paste_desc),
                     )
                     IconDescription(

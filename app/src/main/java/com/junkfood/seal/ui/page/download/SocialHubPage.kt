@@ -293,6 +293,25 @@ private fun UniversalExtractorView(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text(stringResource(R.string.search)) },
+            leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Icon(Icons.Outlined.Clear, contentDescription = stringResource(R.string.clear))
+                    }
+                }
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(14.dp),
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
         // Platform Directory Search & Filter Chips
         Row(
             modifier = Modifier

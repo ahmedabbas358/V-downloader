@@ -286,7 +286,7 @@ fun DownloadPageV2(
             UiAction.Resume -> downloader.restart(task)
             UiAction.Prioritize -> {
                 downloader.prioritize(task)
-                context.makeToast("تم رفع أولوية التنزيل إلى القمة")
+                context.makeToast(context.getString(R.string.priority_moved_to_top))
             }
             is UiAction.CopyErrorReport -> {
                 clipboardManager.setText(
@@ -646,11 +646,11 @@ fun DownloadPageImplV2(
                     if (filteredMap.isNotEmpty()) {
                         item(span = { GridItemSpan(maxLineSpan) }) {
                             val subtitleCount = filteredMap.count { it.first.preferences.skipDownload && it.first.preferences.downloadSubtitle }
-                            val videoCount = filteredMap.count {
-                                !it.second.viewState.videoFormats.isNullOrEmpty() &&
-                                    !it.first.preferences.skipDownload
+                            val audioCount = filteredMap.count {
+                                !(it.first.preferences.skipDownload && it.first.preferences.downloadSubtitle) &&
+                                    it.first.preferences.extractAudio
                             }
-                            val audioCount = (filteredMap.size - videoCount - subtitleCount).coerceAtLeast(0)
+                            val videoCount = (filteredMap.size - audioCount - subtitleCount).coerceAtLeast(0)
                             SubHeader(
                                 modifier = Modifier,
                                 activeFilter = activeFilter,
@@ -835,7 +835,17 @@ fun DownloadPageImplV2(
                     closeMenu()
                 },
                 onDeleteFiles = {
-                    // Requires additional access, this is simplified for now
+                    val pathsToDelete =
+                        filteredMap.mapNotNull { (_, state) ->
+                            (state.downloadState as? Task.DownloadState.Completed)?.filePath
+                        }
+                    if (pathsToDelete.isNotEmpty()) {
+                        scope.launch(Dispatchers.IO) {
+                            pathsToDelete.forEach { path ->
+                                runCatching { FileUtil.deleteFile(path) }
+                            }
+                        }
+                    }
                     filteredMap.forEach { onActionPost(it.first, UiAction.Delete) }
                     closeMenu()
                 }
@@ -853,30 +863,35 @@ fun DownloadPageImplV2(
 
     if (selectedTask != null) {
         val task = selectedTask!!
-        val (downloadState, _, viewState) = taskDownloadStateMap[task] ?: return
-        SealModalBottomSheet(
-            sheetState = sheetState,
-            contentPadding = PaddingValues(),
-            onDismissRequest = {
-                scope.launch { sheetState.hide() }.invokeOnCompletion { selectedTask = null }
-            },
-        ) {
-            SheetContent(
-                task = task,
-                downloadState = downloadState,
-                viewState = viewState,
+        val currentState = taskDownloadStateMap[task]
+        if (currentState == null) {
+            LaunchedEffect(task) { selectedTask = null }
+        } else {
+            val (downloadState, _, viewState) = currentState
+            SealModalBottomSheet(
+                sheetState = sheetState,
+                contentPadding = PaddingValues(),
                 onDismissRequest = {
                     scope.launch { sheetState.hide() }.invokeOnCompletion { selectedTask = null }
                 },
-                onActionPost = { t, a ->
-                    when (a) {
-                        is UiAction.AdjustSubtitle -> adjustingSubtitleFile = java.io.File(a.filePath)
-                        is UiAction.PreviewMedia -> previewMediaFile = java.io.File(a.filePath)
-                        is UiAction.TrimMedia -> trimMediaFile = java.io.File(a.filePath)
-                        else -> onActionPost(t, a)
-                    }
-                },
-            )
+            ) {
+                SheetContent(
+                    task = task,
+                    downloadState = downloadState,
+                    viewState = viewState,
+                    onDismissRequest = {
+                        scope.launch { sheetState.hide() }.invokeOnCompletion { selectedTask = null }
+                    },
+                    onActionPost = { t, a ->
+                        when (a) {
+                            is UiAction.AdjustSubtitle -> adjustingSubtitleFile = java.io.File(a.filePath)
+                            is UiAction.PreviewMedia -> previewMediaFile = java.io.File(a.filePath)
+                            is UiAction.TrimMedia -> trimMediaFile = java.io.File(a.filePath)
+                            else -> onActionPost(t, a)
+                        }
+                    },
+                )
+            }
         }
     }
 
@@ -888,10 +903,20 @@ fun DownloadPageImplV2(
     }
 
     if (previewMediaFile != null) {
-        com.junkfood.seal.ui.component.MediaPreviewDialog(
-            file = previewMediaFile!!,
-            onDismissRequest = { previewMediaFile = null }
-        )
+        val previewFile = previewMediaFile!!
+        val isSubtitle =
+            previewFile.extension.lowercase() in setOf("srt", "vtt", "ass", "lrc")
+        if (isSubtitle) {
+            com.junkfood.seal.ui.component.SubtitlePreviewDialog(
+                file = previewFile,
+                onDismissRequest = { previewMediaFile = null },
+            )
+        } else {
+            com.junkfood.seal.ui.component.MediaPreviewDialog(
+                file = previewFile,
+                onDismissRequest = { previewMediaFile = null },
+            )
+        }
     }
 
     if (trimMediaFile != null) {
@@ -927,7 +952,7 @@ private fun SelectionHeader(
         }
         Spacer(modifier = Modifier.width(4.dp))
         Text(
-            text = "تم تحديد $selectedCount عناصر",
+            text = stringResource(R.string.selected_count, selectedCount),
             color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.titleLarge.copy(
                 fontSize = 18.sp,
@@ -945,7 +970,7 @@ private fun SelectionHeader(
         IconButton(onClick = onResumeSelected) {
             Icon(
                 imageVector = androidx.compose.material.icons.Icons.Outlined.Refresh,
-                contentDescription = "إعادة التنزيل",
+                contentDescription = stringResource(R.string.redownload),
                 tint = MaterialTheme.colorScheme.onSurface,
             )
         }
@@ -997,7 +1022,7 @@ private fun SelectionBottomBar(
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.height(2.dp))
-                Text("تحديد الكل", style = MaterialTheme.typography.labelSmall)
+                Text(stringResource(R.string.select_all), style = MaterialTheme.typography.labelSmall)
             }
 
             Column(
@@ -1014,7 +1039,7 @@ private fun SelectionBottomBar(
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.height(2.dp))
-                Text("إيقاف", style = MaterialTheme.typography.labelSmall)
+                Text(stringResource(R.string.pause), style = MaterialTheme.typography.labelSmall)
             }
 
             Column(
@@ -1031,7 +1056,7 @@ private fun SelectionBottomBar(
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.height(2.dp))
-                Text("استئناف", style = MaterialTheme.typography.labelSmall)
+                Text(stringResource(R.string.resume), style = MaterialTheme.typography.labelSmall)
             }
 
             Column(
@@ -1048,7 +1073,7 @@ private fun SelectionBottomBar(
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.height(2.dp))
-                Text("إلغاء", style = MaterialTheme.typography.labelSmall)
+                Text(stringResource(R.string.cancel), style = MaterialTheme.typography.labelSmall)
             }
 
             Column(
@@ -1065,7 +1090,7 @@ private fun SelectionBottomBar(
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.height(2.dp))
-                Text("حذف", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                Text(stringResource(R.string.delete), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
             }
         }
     }
@@ -1122,14 +1147,14 @@ private fun HeaderCompact(
             IconButton(onClick = { onToggleSearch(false); onSearchQueryChange("") }) {
                 Icon(
                     imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Outlined.ArrowBack,
-                    contentDescription = "إغلاق البحث",
+                    contentDescription = stringResource(R.string.close),
                     tint = MaterialTheme.colorScheme.onSurface
                 )
             }
             androidx.compose.material3.TextField(
                 value = searchQuery,
                 onValueChange = onSearchQueryChange,
-                placeholder = { Text("بحث بالعنوان أو القناة...", style = MaterialTheme.typography.bodyMedium) },
+                placeholder = { Text(stringResource(R.string.search_hint), style = MaterialTheme.typography.bodyMedium) },
                 singleLine = true,
                 modifier = Modifier.weight(1f),
                 colors = androidx.compose.material3.TextFieldDefaults.colors(
@@ -1143,7 +1168,7 @@ private fun HeaderCompact(
                 IconButton(onClick = { onSearchQueryChange("") }) {
                     Icon(
                         imageVector = Icons.Outlined.Close,
-                        contentDescription = "مسح",
+                        contentDescription = stringResource(R.string.clear),
                         tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
@@ -1170,14 +1195,14 @@ private fun HeaderCompact(
             IconButton(onClick = { onToggleSearch(true) }) {
                 Icon(
                     imageVector = Icons.Outlined.Search,
-                    contentDescription = "بحث",
+                    contentDescription = stringResource(R.string.search),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             IconButton(onClick = onShowMenu) {
                 Icon(
                     imageVector = Icons.Outlined.Tune,
-                    contentDescription = "خيارات التحكم والعرض",
+                    contentDescription = stringResource(R.string.menu_control_options),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -1206,7 +1231,7 @@ private fun HeaderExpanded(
             androidx.compose.material3.TextField(
                 value = searchQuery,
                 onValueChange = onSearchQueryChange,
-                placeholder = { Text("بحث...") },
+                placeholder = { Text(stringResource(R.string.search)) },
                 singleLine = true,
                 modifier = Modifier.width(280.dp),
                 colors = androidx.compose.material3.TextFieldDefaults.colors(
@@ -1223,14 +1248,14 @@ private fun HeaderExpanded(
             IconButton(onClick = { onToggleSearch(true) }) {
                 Icon(
                     imageVector = Icons.Outlined.Search,
-                    contentDescription = "بحث",
+                    contentDescription = stringResource(R.string.search),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             IconButton(onClick = onShowMenu) {
                 Icon(
                     imageVector = Icons.Outlined.Tune,
-                    contentDescription = "خيارات التحكم والعرض",
+                    contentDescription = stringResource(R.string.menu_control_options),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -1259,7 +1284,7 @@ fun FABs(
         ) {
             Icon(
                 imageVector = Icons.Outlined.Sync,
-                contentDescription = "مُزامن قوائم التشغيل الذكي"
+                contentDescription = stringResource(R.string.smart_playlist_sync)
             )
         }
         FloatingActionButton(
@@ -1437,7 +1462,7 @@ fun SubHeader(
                 FilterBadgeChip(
                     icon = Icons.Outlined.Subtitles,
                     count = subtitleCount,
-                    label = "ترجمة",
+                    label = stringResource(R.string.subtitle_filter),
                     isSelected = activeFilter == Filter.Subtitle,
                     containerColor = if (activeFilter == Filter.Subtitle) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
                     contentColor = if (activeFilter == Filter.Subtitle) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
@@ -1450,7 +1475,7 @@ fun SubHeader(
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Text(
-                        text = "القائمة فارغة",
+                        text = stringResource(R.string.empty_queue),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
@@ -1473,7 +1498,7 @@ fun SubHeader(
             ) {
                 Icon(
                     imageVector = if (isGridView) Icons.AutoMirrored.Outlined.List else Icons.Outlined.GridView,
-                    contentDescription = if (isGridView) "عرض كقائمة" else "عرض كشبكة",
+                    contentDescription = stringResource(if (isGridView) R.string.show_as_list else R.string.show_as_grid),
                     modifier = Modifier.size(17.dp),
                 )
             }
@@ -1485,7 +1510,7 @@ fun SubHeader(
             ) {
                 Icon(
                     imageVector = Icons.Outlined.Tune,
-                    contentDescription = "خيارات التحكم والعرض",
+                    contentDescription = stringResource(R.string.menu_control_options),
                     modifier = Modifier.size(17.dp),
                 )
             }

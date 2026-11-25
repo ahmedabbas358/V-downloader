@@ -224,20 +224,22 @@ fun AutoUpdateUnavailableDialog(onDismissRequest: () -> Unit = {}) {
     val annotatedString = buildAnnotatedString {
         append(text)
         val startIndex = text.indexOf(hyperLinkText)
-        val endIndex = startIndex + hyperLinkText.length
-        addUrlAnnotation(
-            UrlAnnotation("https://github.com/ahmedabbas358/V-downloader/releases/latest"),
-            start = startIndex,
-            end = endIndex,
-        )
-        addStyle(
-            SpanStyle(
-                color = MaterialTheme.colorScheme.tertiary,
-                textDecoration = TextDecoration.Underline,
-            ),
-            start = startIndex,
-            end = endIndex,
-        )
+        if (startIndex >= 0) {
+            val endIndex = startIndex + hyperLinkText.length
+            addUrlAnnotation(
+                UrlAnnotation("https://github.com/ahmedabbas358/V-downloader/releases/latest"),
+                start = startIndex,
+                end = endIndex,
+            )
+            addStyle(
+                SpanStyle(
+                    color = MaterialTheme.colorScheme.tertiary,
+                    textDecoration = TextDecoration.Underline,
+                ),
+                start = startIndex,
+                end = endIndex,
+            )
+        }
     }
     AlertDialog(
         onDismissRequest = onDismissRequest,

@@ -252,16 +252,21 @@ object UpdateUtil {
                                 outputStream.channel
                                 outputStream.write(data, 0, bytes)
                                 progressBytes += bytes
-                                emit(
-                                    DownloadStatus.Progress(
-                                        percent = ((progressBytes * 100) / totalBytes).toInt()
+                                if (totalBytes > 0L) {
+                                    emit(
+                                        DownloadStatus.Progress(
+                                            percent = ((progressBytes * 100L) / totalBytes).toInt().coerceIn(0, 100)
+                                        )
                                     )
-                                )
+                                } else {
+                                    emit(DownloadStatus.Progress(percent = 0))
+                                }
                             }
 
                             when {
-                                progressBytes < totalBytes -> throw Exception("missing bytes")
-                                progressBytes > totalBytes -> throw Exception("too many bytes")
+                                totalBytes > 0L && progressBytes < totalBytes -> throw Exception("missing bytes")
+                                totalBytes > 0L && progressBytes > totalBytes -> throw Exception("too many bytes")
+                                totalBytes <= 0L && progressBytes <= 0L -> throw Exception("empty download")
                                 else -> deleteFile = false
                             }
                         }

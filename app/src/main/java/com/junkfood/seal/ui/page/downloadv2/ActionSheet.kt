@@ -131,7 +131,7 @@ private fun AdjustSubtitleButton(modifier: Modifier = Modifier, onClick: () -> U
         containerColor = LocalFixedColorRoles.current.secondaryFixed,
         contentColor = LocalFixedColorRoles.current.onSecondaryFixedVariant,
         imageVector = Icons.Outlined.Subtitles,
-        text = "ضبط التوقيت",
+        text = stringResource(R.string.adjust_timing),
         onClick = onClick,
     )
 }
@@ -143,7 +143,7 @@ private fun PrioritizeButton(modifier: Modifier = Modifier, onClick: () -> Unit)
         containerColor = LocalFixedColorRoles.current.primaryFixed,
         contentColor = LocalFixedColorRoles.current.onPrimaryFixedVariant,
         imageVector = Icons.Outlined.KeyboardDoubleArrowUp,
-        text = "أولوية قصوى",
+        text = stringResource(R.string.prioritize_download),
         onClick = onClick,
     )
 }
@@ -155,7 +155,7 @@ private fun PreviewButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
         containerColor = LocalFixedColorRoles.current.tertiaryFixed,
         contentColor = LocalFixedColorRoles.current.onTertiaryFixedVariant,
         imageVector = Icons.Outlined.PlayCircleOutline,
-        text = "معاينة",
+        text = stringResource(R.string.preview_media),
         onClick = onClick,
     )
 }
@@ -167,7 +167,7 @@ private fun TrimButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
         containerColor = LocalFixedColorRoles.current.secondaryFixed,
         contentColor = LocalFixedColorRoles.current.onSecondaryFixedVariant,
         imageVector = Icons.Outlined.ContentCut,
-        text = "قص وتشذيب",
+        text = stringResource(R.string.trim_media),
         onClick = onClick,
     )
 }
@@ -358,16 +358,23 @@ fun LazyListScope.ActionButtons(
                 }
             }
             val path = downloadState.filePath
-            if (!path.isNullOrBlank()) {
+            val isLocalFile = !path.isNullOrBlank() && !path.startsWith("content://") && File(path).exists()
+            val isSubtitleFile = path != null && (
+                path.endsWith(".srt", ignoreCase = true) ||
+                    path.endsWith(".vtt", ignoreCase = true) ||
+                    path.endsWith(".ass", ignoreCase = true) ||
+                    path.endsWith(".lrc", ignoreCase = true)
+            )
+            if (isLocalFile) {
                 item(key = "OpenFolderButton") {
                     OpenFolderButton(modifier = Modifier.animateItem()) {
-                        val folder = File(path).parentFile?.absolutePath ?: App.videoDownloadDir
+                        val folder = File(path!!).parentFile?.absolutePath ?: App.videoDownloadDir
                         FileUtil.openDirectory(folder)
                         onDismissRequest()
                     }
                 }
             }
-            if (path != null && !viewState.isSubOnly && (FileUtil.isVideoFile(path) || FileUtil.isAudioFile(path))) {
+            if (isLocalFile && (FileUtil.isVideoFile(path!!) || FileUtil.isAudioFile(path) || isSubtitleFile)) {
                 item(key = "PreviewButton") {
                     PreviewButton(modifier = Modifier.animateItem()) {
                         onActionPost(task, UiAction.PreviewMedia(path))
@@ -380,7 +387,7 @@ fun LazyListScope.ActionButtons(
                     onActionPost(task, UiAction.ShareFile(downloadState.filePath))
                 }
             }
-            if (path != null && (FileUtil.isVideoFile(path) || FileUtil.isAudioFile(path))) {
+            if (isLocalFile && (FileUtil.isVideoFile(path!!) || FileUtil.isAudioFile(path))) {
                 item(key = "TrimButton") {
                     TrimButton(modifier = Modifier.animateItem()) {
                         onActionPost(task, UiAction.TrimMedia(path))
@@ -388,7 +395,7 @@ fun LazyListScope.ActionButtons(
                     }
                 }
             }
-            if (path != null && (path.endsWith(".srt", ignoreCase = true) || path.endsWith(".vtt", ignoreCase = true) || viewState.isSubOnly)) {
+            if (isLocalFile && (path!!.endsWith(".srt", ignoreCase = true) || path.endsWith(".vtt", ignoreCase = true) || viewState.isSubOnly)) {
                 item(key = "AdjustSubtitleButton") {
                     AdjustSubtitleButton(modifier = Modifier.animateItem()) {
                         onActionPost(task, UiAction.AdjustSubtitle(path))
