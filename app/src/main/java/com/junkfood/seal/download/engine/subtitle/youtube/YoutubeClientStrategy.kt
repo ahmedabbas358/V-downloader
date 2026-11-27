@@ -57,10 +57,15 @@ object YoutubeClientStrategy {
      */
     fun buildExtractorArgs(
         context: ExtractionContext = ExtractionContext(),
-        clientChain: List<YoutubeClient> = getClientChainForAttempt(context.attemptNumber)
+        clientChain: List<YoutubeClient> = getClientChainForAttempt(context.attemptNumber),
+        skipTranslatedSubs: Boolean = false,
     ): String {
         val clientString = clientChain.joinToString(",") { it.identifier }
-        return "youtube:player_client=$clientString"
+        return if (skipTranslatedSubs) {
+            "youtube:player_client=$clientString;skip=translated_subs"
+        } else {
+            "youtube:player_client=$clientString"
+        }
     }
 
     /**

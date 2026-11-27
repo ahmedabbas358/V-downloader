@@ -31,15 +31,26 @@ class SubtitleOptionBuilderTest {
         val multi = SubtitleOptionBuilder.buildSubLangsOption("ar,en")
         assertTrue(multi.contains("ar") && multi.contains("en"))
 
-        // Embedding options format
+        // Embedding options respect explicit autoSubtitle flag instead of forcing auto-captions
         val embedOpts = SubtitleOptionBuilder.buildForMediaWithSubtitles(
             subtitleLanguage = "ar",
             convertSubtitle = CONVERT_ASS,
+            autoSubtitle = false,
+            autoTranslatedSubtitles = false,
             embedSubtitle = true
         )
         assertTrue(embedOpts.embedSubs)
         assertEquals("srt", embedOpts.convertSubs)
-        assertTrue(embedOpts.writeAutoSubs)
+        assertFalse("Embedding alone must not force auto-generated captions", embedOpts.writeAutoSubs)
+
+        val embedWithAuto = SubtitleOptionBuilder.buildForMediaWithSubtitles(
+            subtitleLanguage = "ar",
+            convertSubtitle = CONVERT_ASS,
+            autoSubtitle = true,
+            embedSubtitle = true
+        )
+        assertTrue(embedWithAuto.embedSubs)
+        assertTrue(embedWithAuto.writeAutoSubs)
     }
 
     @Test

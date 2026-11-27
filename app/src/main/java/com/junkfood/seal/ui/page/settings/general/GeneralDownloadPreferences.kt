@@ -31,6 +31,7 @@ import androidx.compose.material.icons.outlined.PlaylistAddCheck
 import androidx.compose.material.icons.outlined.Print
 import androidx.compose.material.icons.outlined.PrintDisabled
 import androidx.compose.material.icons.outlined.RemoveDone
+import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Update
 import androidx.compose.material.icons.outlined.Visibility
@@ -83,6 +84,7 @@ import com.junkfood.seal.ui.component.PreferenceSwitch
 import com.junkfood.seal.ui.component.PreferenceSwitchWithDivider
 import com.junkfood.seal.ui.component.SealDialog
 import com.junkfood.seal.ui.page.download.NotificationPermissionDialog
+import com.junkfood.seal.util.ALLOW_REDOWNLOAD
 import com.junkfood.seal.util.CONFIGURE
 import com.junkfood.seal.util.CUSTOM_COMMAND
 import com.junkfood.seal.util.DEBUG
@@ -411,6 +413,21 @@ fun GeneralDownloadPreferences(onNavigateBack: () -> Unit, navigateToTemplate: (
                             DOWNLOAD_ARCHIVE.updateBoolean(useDownloadArchive)
                         },
                         enabled = isPermissionGranted,
+                    )
+                }
+
+                item {
+                    var allowRedownload by ALLOW_REDOWNLOAD.booleanState
+                    PreferenceSwitch(
+                        title = stringResource(id = R.string.allow_redownload),
+                        description = stringResource(id = R.string.allow_redownload_desc),
+                        icon = Icons.Outlined.RestartAlt,
+                        isChecked = allowRedownload,
+                        enabled = !isCustomCommandEnabled,
+                        onClick = {
+                            allowRedownload = !allowRedownload
+                            ALLOW_REDOWNLOAD.updateBoolean(allowRedownload)
+                        },
                     )
                 }
 

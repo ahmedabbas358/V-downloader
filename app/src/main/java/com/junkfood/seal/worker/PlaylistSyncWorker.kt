@@ -27,7 +27,9 @@ class PlaylistSyncWorker(
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val savedLinks = PreferenceUtil.getSavedLinks()
-        val playlistLinks = savedLinks.filter { it.contains("list=", ignoreCase = true) }
+        val playlistLinks = savedLinks.filter {
+            it.contains("list=", ignoreCase = true) || it.contains("/playlist", ignoreCase = true)
+        }
 
         if (playlistLinks.isEmpty()) {
             return@withContext Result.success()
@@ -51,6 +53,7 @@ class PlaylistSyncWorker(
 
                         val intent = Intent(applicationContext, MainActivity::class.java).apply {
                             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                            putExtra("open_playlist_sync_url", playlistUrl)
                         }
                         val pendingIntent = PendingIntent.getActivity(
                             applicationContext,

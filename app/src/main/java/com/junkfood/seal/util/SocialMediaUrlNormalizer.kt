@@ -25,7 +25,8 @@ object SocialMediaUrlNormalizer {
         "igsh", "si", "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
         "fbclid", "mibextid", "feature", "s", "t", "ref", "ref_src", "app", "context",
         "share_id", "xmt", "is_from_webapp", "sender_device", "sender_web_id",
-        "rdid", "share_url", "sub_confirmation"
+        "rdid", "share_url", "sub_confirmation", "_r", "_t", "checksum", "sec_uid",
+        "u_code", "preview_pb", "sharer_language", "sfnsn", "eav", "paipv"
     )
 
     private val URL_REGEX = Pattern.compile(
@@ -97,18 +98,18 @@ object SocialMediaUrlNormalizer {
                 return "$scheme://$host$path$queryPart"
             }
 
-            // 4. Twitter / X Normalization
-            if (host == "x.com" || host.contains("twitter.com")) {
+            // 4. Twitter / X Normalization (handles vxtwitter/fxtwitter/fixupx mirror links too)
+            if (host == "x.com" || host.contains("twitter.com") || host == "vxtwitter.com" || host == "fxtwitter.com" || host == "fixupx.com" || host == "twittpr.com") {
                 val cleanQuery = cleanQueryString(rawQuery)
                 val queryPart = if (cleanQuery.isNotEmpty()) "?$cleanQuery" else ""
-                return "$scheme://$host$path$queryPart"
+                return "$scheme://x.com$path$queryPart"
             }
 
-            // 5. Threads Normalization
-            if (host.contains("threads.net")) {
+            // 5. Threads Normalization (supports both threads.net and threads.com)
+            if (host.contains("threads.net") || host.contains("threads.com")) {
                 val cleanQuery = cleanQueryString(rawQuery)
                 val queryPart = if (cleanQuery.isNotEmpty()) "?$cleanQuery" else ""
-                return "$scheme://$host$path$queryPart"
+                return "$scheme://www.threads.net$path$queryPart"
             }
 
             // 6. YouTube Normalization

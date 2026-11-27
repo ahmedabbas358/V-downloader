@@ -803,4 +803,10 @@
     <string name="playlist_auto_sync_toggle">Background playlist monitor (Wi-Fi)</string>
     <string name="playlist_auto_sync_desc">Periodically check saved playlists on unmetered Wi-Fi and notify of new items</string>
     <string name="required_tokens_hint">Required: %1$s, %2$s</string>
+    <string name="allow_redownload">Allow re-download</string>
+    <string name="allow_redownload_desc">Bypass local duplicate and archive checks to download a fresh copy when desired</string>
+    <string name="already_downloaded_hint">Downloaded before — tap to allow re-downloading another copy</string>
+    <string name="already_downloaded_toggle_on">Re-download enabled (overwrite existing)</string>
+    <string name="redownload_playlist_items">Re-download playlist items</string>
+    <string name="subtitle_preset_summary">Language: %1$s • Format: %2$s</string>
 </resources>

@@ -256,7 +256,9 @@ private fun UniversalExtractorView(
                             IconButton(onClick = {
                                 val clip = clipboardManager.getText()?.text?.trim().orEmpty()
                                 if (clip.isNotBlank()) {
-                                    val clean = com.junkfood.seal.util.findURLsFromString(clip, firstMatchOnly = true).firstOrNull() ?: clip
+                                    val clean = com.junkfood.seal.util.SocialMediaUrlNormalizer.extractAndNormalizeUrls(clip, firstMatchOnly = true).firstOrNull()
+                                        ?: com.junkfood.seal.util.findURLsFromString(clip, firstMatchOnly = true).firstOrNull()
+                                        ?: clip
                                     urlInput = clean
                                 }
                             }) {
@@ -347,7 +349,9 @@ private fun UniversalExtractorView(
                         .aspectRatio(1.1f)
                         .hapticClickable {
                             val clip = clipboardManager.getText()?.text?.trim().orEmpty()
-                            val detected = com.junkfood.seal.util.findURLsFromString(clip, firstMatchOnly = true).firstOrNull() ?: clip
+                            val detected = com.junkfood.seal.util.SocialMediaUrlNormalizer.extractAndNormalizeUrls(clip, firstMatchOnly = true).firstOrNull()
+                                ?: com.junkfood.seal.util.findURLsFromString(clip, firstMatchOnly = true).firstOrNull()
+                                ?: clip
                             if (detected.isNotBlank() && Patterns.WEB_URL.matcher(detected).matches()) {
                                 urlInput = detected
                                 context.makeToast(context.getString(R.string.pasted_from_clipboard, detected))

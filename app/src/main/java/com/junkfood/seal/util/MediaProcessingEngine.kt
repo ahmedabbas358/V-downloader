@@ -160,20 +160,28 @@ object MediaProcessingEngine {
                 "-i", videoFile.absolutePath,
             )
 
+            val ext = videoFile.extension.lowercase()
+            val validSubtitles = if (ext == "webm") {
+                subtitleFiles.filter { it.extension.equals("vtt", ignoreCase = true) }
+                    .ifEmpty { subtitleFiles }
+            } else {
+                subtitleFiles
+            }
+
             // Add input for each subtitle file
-            subtitleFiles.forEach { subFile ->
+            validSubtitles.forEach { subFile ->
                 cmd.add("-i")
                 cmd.add(subFile.absolutePath)
             }
 
-            // Stream copy video and audio
+            // Stream copy video and audio safely
             cmd.add("-map")
-            cmd.add("0:v")
+            cmd.add("0:v:0?")
             cmd.add("-map")
             cmd.add("0:a?")
 
             // Map all subtitles
-            subtitleFiles.forEachIndexed { index, _ ->
+            validSubtitles.forEachIndexed { index, _ ->
                 cmd.add("-map")
                 cmd.add("${index + 1}:s")
             }
@@ -181,14 +189,21 @@ object MediaProcessingEngine {
             cmd.add("-c")
             cmd.add("copy")
 
-            if (!isMkv) {
-                // For MP4 container, set subtitle codec to mov_text
-                cmd.add("-c:s")
-                cmd.add("mov_text")
+            when {
+                isMkv || ext == "mkv" -> { /* copy SRT/VTT/ASS directly */ }
+                ext == "webm" -> {
+                    cmd.add("-c:s")
+                    cmd.add("webvtt")
+                }
+                else -> {
+                    // For MP4/M4V/MOV containers, set subtitle codec to mov_text
+                    cmd.add("-c:s")
+                    cmd.add("mov_text")
+                }
             }
 
             // Add metadata for language if extracted from filename (e.g. title.ar.srt -> ar)
-            subtitleFiles.forEachIndexed { index, subFile ->
+            validSubtitles.forEachIndexed { index, subFile ->
                 val langMatch = Regex("""\.([a-zA-Z]{2,3}(?:-[a-zA-Z0-9_-]+)?)\.[a-zA-Z0-9]+$""").find(subFile.name)
                 val lang = langMatch?.groupValues?.get(1)?.substringBefore('-') ?: "und"
                 cmd.add("-metadata:s:s:$index")

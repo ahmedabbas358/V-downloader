@@ -113,7 +113,9 @@ class QuickDownloadActivity : ComponentActivity() {
         val viewModel: DownloadDialogViewModel = getViewModel()
         quickDownloadViewModel = viewModel
         if (sharedUrlCached.isNotEmpty()) {
-            viewModel.postAction(Action.ShowSheet(listOf(sharedUrlCached)))
+            val forceRedownload = intent.getBooleanExtra("force_redownload", false)
+            if (forceRedownload) intent.removeExtra("force_redownload")
+            viewModel.postAction(Action.ShowSheet(listOf(sharedUrlCached), forceRedownload = forceRedownload))
         } else {
             // Allow Android 10+ window-focus clipboard read and manual paste fallback
             viewModel.postAction(Action.ShowSheet(null))
@@ -215,7 +217,9 @@ class QuickDownloadActivity : ComponentActivity() {
         val newUrl = intent.getSharedURL()
         if (!newUrl.isNullOrEmpty()) {
             sharedUrlCached = newUrl
-            quickDownloadViewModel?.postAction(Action.ShowSheet(listOf(newUrl)))
+            val forceRedownload = intent.getBooleanExtra("force_redownload", false)
+            if (forceRedownload) intent.removeExtra("force_redownload")
+            quickDownloadViewModel?.postAction(Action.ShowSheet(listOf(newUrl), forceRedownload = forceRedownload))
         } else if (intent.action == "com.junkfood.seal.action.QUICK_DOWNLOAD") {
             sharedUrlCached = ""
             quickDownloadViewModel?.postAction(Action.ShowSheet(null))

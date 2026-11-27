@@ -29,6 +29,8 @@ interface DownloaderV2 {
 
     fun restart(task: Task)
 
+    fun redownload(task: Task) = restart(task)
+
     fun pause(task: Task): Boolean
 
     /** Enqueue a [Task] with an empty [Task.State]. */
@@ -56,6 +58,8 @@ internal object FakeDownloaderV2 : DownloaderV2 {
     override fun pause(task: Task): Boolean = false
 
     override fun restart(task: Task) = Unit
+
+    override fun redownload(task: Task) = Unit
 
     override fun enqueue(task: Task) = Unit
 
@@ -87,6 +91,9 @@ class DownloaderV2Impl(
 
     override fun restart(task: Task) =
         engine.restart(task)
+
+    override fun redownload(task: Task) =
+        engine.redownload(task)
 
     override fun enqueue(task: Task) =
         engine.enqueue(task)

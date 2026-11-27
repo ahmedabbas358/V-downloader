@@ -796,4 +796,10 @@
     <string name="playlist_auto_sync_toggle">مراقبة قوائم التشغيل في الخلفية (Wi-Fi)</string>
     <string name="playlist_auto_sync_desc">فحص القوائم المحفوظة دورياً عبر Wi-Fi وإشعارك عند توفر عناصر جديدة</string>
     <string name="required_tokens_hint">مطلوب: %1$s، %2$s</string>
+    <string name="allow_redownload">السماح بإعادة التنزيل</string>
+    <string name="allow_redownload_desc">تجاوز فحص التكرار المحلي والأرشيف لتنزيل نسخة جديدة عند رغبتك</string>
+    <string name="already_downloaded_hint">تم تنزيله مسبقاً — انقر للسماح بتنزيل نسخة أخرى</string>
+    <string name="already_downloaded_toggle_on">إعادة التنزيل مفعّلة (استبدال الموجود)</string>
+    <string name="redownload_playlist_items">إعادة تنزيل عناصر القائمة</string>
+    <string name="subtitle_preset_summary">اللغة: %1$s • الصيغة: %2$s</string>
 </resources>

@@ -61,6 +61,9 @@ class DownloadEngine(
     fun restart(task: Task) =
         queueManager.restart(task)
 
+    fun redownload(task: Task) =
+        queueManager.redownload(task)
+
     fun remove(task: Task): Boolean =
         queueManager.remove(task)
 

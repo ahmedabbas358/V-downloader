@@ -63,11 +63,13 @@ import com.junkfood.seal.ui.component.SealModalBottomSheet
 import com.junkfood.seal.ui.page.download.PlaylistSelectionDialog
 import com.junkfood.seal.ui.page.downloadv2.configure.DownloadDialogViewModel.SelectionState
 import com.junkfood.seal.ui.page.settings.format.AudioQuickSettingsDialog
+import com.junkfood.seal.ui.page.settings.format.SubtitleQuickSettingsDialog
 import com.junkfood.seal.ui.page.settings.format.VideoQuickSettingsDialog
 import com.junkfood.seal.util.AUDIO_CONVERSION_FORMAT
 import com.junkfood.seal.util.AUDIO_CONVERT
 import com.junkfood.seal.util.AUDIO_FORMAT
 import com.junkfood.seal.util.AUDIO_QUALITY
+import com.junkfood.seal.util.CONVERT_SUBTITLE
 import com.junkfood.seal.util.DownloadType
 import com.junkfood.seal.util.DownloadType.Audio
 import com.junkfood.seal.util.DownloadType.Video
@@ -76,6 +78,8 @@ import com.junkfood.seal.util.PlaylistResult
 import com.junkfood.seal.util.PreferenceUtil
 import com.junkfood.seal.util.PreferenceUtil.updateBoolean
 import com.junkfood.seal.util.PreferenceUtil.updateInt
+import com.junkfood.seal.util.PreferenceUtil.updateString
+import com.junkfood.seal.util.SUBTITLE_LANGUAGE
 import com.junkfood.seal.util.USE_CUSTOM_AUDIO_PRESET
 import com.junkfood.seal.util.VIDEO_FORMAT
 import com.junkfood.seal.util.VIDEO_QUALITY
@@ -95,6 +99,7 @@ fun PlaylistSelectionPage(
     }
     var showVideoPresetDialog by remember { mutableStateOf(false) }
     var showAudioPresetDialog by remember { mutableStateOf(false) }
+    var showSubtitlePresetDialog by remember { mutableStateOf(false) }
     var taskList by remember { mutableStateOf(emptyList<TaskFactory.TaskWithState>()) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -143,6 +148,8 @@ fun PlaylistSelectionPage(
 
                         Video -> showVideoPresetDialog = true
 
+                        DownloadType.Subtitle -> showSubtitlePresetDialog = true
+
                         else -> {}
                     }
                 },
@@ -153,8 +160,8 @@ fun PlaylistSelectionPage(
                         extractAudio = type == Audio,
                         skipDownload = type == DownloadType.Subtitle,
                         downloadSubtitle = if (type == DownloadType.Subtitle) true else preferences.downloadSubtitle,
-                        autoSubtitle = if (type == DownloadType.Subtitle) true else preferences.autoSubtitle,
-                        autoTranslatedSubtitles = if (type == DownloadType.Subtitle) true else preferences.autoTranslatedSubtitles,
+                        autoSubtitle = preferences.autoSubtitle,
+                        autoTranslatedSubtitles = preferences.autoTranslatedSubtitles,
                     )
                     
                     val isSubOnly = type == DownloadType.Subtitle
@@ -254,6 +261,24 @@ fun PlaylistSelectionPage(
                 AUDIO_FORMAT.updateInt(preferredFormat)
                 preferences = DownloadUtil.DownloadPreferences.createFromPreferences()
             },
+        )
+    }
+
+    if (showSubtitlePresetDialog) {
+        var lang by remember(preferences) { mutableStateOf(preferences.subtitleLanguage) }
+        var format by remember(preferences) { mutableIntStateOf(preferences.convertSubtitle) }
+
+        SubtitleQuickSettingsDialog(
+            subtitleLanguage = lang,
+            convertSubtitle = format,
+            onLanguageSelect = { lang = it },
+            onFormatSelect = { format = it },
+            onSave = {
+                SUBTITLE_LANGUAGE.updateString(lang)
+                CONVERT_SUBTITLE.updateInt(format)
+                preferences = DownloadUtil.DownloadPreferences.createFromPreferences()
+            },
+            onDismissRequest = { showSubtitlePresetDialog = false },
         )
     }
 }

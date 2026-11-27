@@ -80,16 +80,22 @@ import com.junkfood.seal.download.DownloaderV2
 import com.junkfood.seal.download.PlaylistVerifier
 import com.junkfood.seal.ui.component.SealModalBottomSheet
 import com.junkfood.seal.ui.page.settings.format.AudioQuickSettingsDialog
+import com.junkfood.seal.ui.page.settings.format.SubtitleQuickSettingsDialog
 import com.junkfood.seal.ui.page.settings.format.VideoQuickSettingsDialog
 import com.junkfood.seal.util.AUDIO_CONVERSION_FORMAT
 import com.junkfood.seal.util.AUDIO_CONVERT
 import com.junkfood.seal.util.AUDIO_FORMAT
 import com.junkfood.seal.util.AUDIO_QUALITY
+import com.junkfood.seal.util.AUTO_SUBTITLE
+import com.junkfood.seal.util.AUTO_TRANSLATED_SUBTITLES
+import com.junkfood.seal.util.CONVERT_SUBTITLE
 import com.junkfood.seal.util.DownloadUtil.DownloadPreferences
 import com.junkfood.seal.util.FileUtil
 import com.junkfood.seal.util.PreferenceStrings
 import com.junkfood.seal.util.PreferenceUtil.updateBoolean
 import com.junkfood.seal.util.PreferenceUtil.updateInt
+import com.junkfood.seal.util.PreferenceUtil.updateString
+import com.junkfood.seal.util.SUBTITLE_LANGUAGE
 import com.junkfood.seal.util.ToastUtil
 import com.junkfood.seal.util.USE_CUSTOM_AUDIO_PRESET
 import com.junkfood.seal.util.VIDEO_FORMAT
@@ -120,10 +126,11 @@ fun PlaylistSyncDialog(
     var scanResult by remember { mutableStateOf<com.junkfood.seal.download.engine.playlist.PlaylistAuditResult?>(null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    // Quality settings state
+    // Quality & subtitle settings state
     var currentPrefs by remember { mutableStateOf(preferences) }
     var showVideoPresetDialog by remember { mutableStateOf(false) }
     var showAudioPresetDialog by remember { mutableStateOf(false) }
+    var showSubtitlePresetDialog by remember { mutableStateOf(false) }
 
     // Directory Override with SAF Picker
     var customFolderPath by remember { mutableStateOf("") }
@@ -147,11 +154,9 @@ fun PlaylistSyncDialog(
             } catch (e: Exception) {
                 e.printStackTrace()
             }
-            val resolvedPath = FileUtil.getRealPath(it)
-            if (resolvedPath.isNotBlank()) {
-                customFolderPath = resolvedPath
-                scanResult = null
-            }
+            val directPath = FileUtil.resolveDirectPathOrNull(it)
+            customFolderPath = directPath ?: it.toString()
+            scanResult = null
         }
     }
 
@@ -301,18 +306,16 @@ fun PlaylistSyncDialog(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Quality settings summary
-            if (selectedType != 2) {
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+            // Quality & Subtitle preset summary
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp)
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.HighQuality,
@@ -323,22 +326,31 @@ fun PlaylistSyncDialog(
                         Spacer(modifier = Modifier.width(8.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = stringResource(R.string.quality_settings_title),
+                                text = stringResource(
+                                    if (selectedType == 2) R.string.subtitle else R.string.quality_settings_title
+                                ),
                                 style = MaterialTheme.typography.labelLarge
                             )
                             Text(
-                                text = if (selectedType == 0) {
-                                    stringResource(R.string.resolution_summary, PreferenceStrings.getVideoResolutionDesc(currentPrefs.videoResolution))
-                                } else {
-                                    stringResource(R.string.audio_quality_summary, PreferenceStrings.getAudioQualityDesc(currentPrefs.audioQuality))
+                                text = when (selectedType) {
+                                    0 -> stringResource(R.string.resolution_summary, PreferenceStrings.getVideoResolutionDesc(currentPrefs.videoResolution))
+                                    1 -> stringResource(R.string.audio_quality_summary, PreferenceStrings.getAudioQualityDesc(currentPrefs.audioQuality))
+                                    else -> stringResource(
+                                        R.string.subtitle_preset_summary,
+                                        currentPrefs.subtitleLanguage.ifBlank { stringResource(R.string.all_languages_option) },
+                                        PreferenceStrings.getSubtitleConversionFormat(currentPrefs.convertSubtitle)
+                                    )
                                 },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         IconButton(onClick = {
-                            if (selectedType == 0) showVideoPresetDialog = true
-                            else showAudioPresetDialog = true
+                            when (selectedType) {
+                                0 -> showVideoPresetDialog = true
+                                1 -> showAudioPresetDialog = true
+                                else -> showSubtitlePresetDialog = true
+                            }
                         }) {
                             Icon(
                                 imageVector = Icons.Outlined.Settings,
@@ -347,9 +359,37 @@ fun PlaylistSyncDialog(
                             )
                         }
                     }
+                    if (selectedType == 2 || (selectedType == 0 && currentPrefs.downloadSubtitle)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 6.dp)
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilterChip(
+                                selected = currentPrefs.autoSubtitle,
+                                onClick = {
+                                    AUTO_SUBTITLE.updateBoolean(!currentPrefs.autoSubtitle)
+                                    currentPrefs = DownloadPreferences.createFromPreferences()
+                                    scanResult = null
+                                },
+                                label = { Text(stringResource(R.string.auto_subtitle)) }
+                            )
+                            FilterChip(
+                                selected = currentPrefs.autoTranslatedSubtitles,
+                                onClick = {
+                                    AUTO_TRANSLATED_SUBTITLES.updateBoolean(!currentPrefs.autoTranslatedSubtitles)
+                                    currentPrefs = DownloadPreferences.createFromPreferences()
+                                    scanResult = null
+                                },
+                                label = { Text(stringResource(R.string.auto_translated_label)) }
+                            )
+                        }
+                    }
                 }
-                Spacer(modifier = Modifier.height(10.dp))
             }
+            Spacer(modifier = Modifier.height(10.dp))
 
             // Auto background Wi-Fi playlist sync toggle
             var autoSyncEnabled by remember { mutableStateOf(AUTO_PLAYLIST_SYNC.getBoolean()) }
@@ -654,17 +694,21 @@ fun PlaylistSyncDialog(
                                     return@Button
                                 }
                                 scope.launch {
+                                    val selectedTarget = customFolderPath.ifBlank { result.targetDirectory }
+                                    val isSafTarget = selectedTarget.startsWith("content://", ignoreCase = true)
                                     val itemsWithQuality = toDownload.map { item ->
                                         item.copy(
                                             preferences = effectivePrefs.copy(
-                                                commandDirectory = customFolderPath.ifBlank { result.targetDirectory },
-                                                subdirectoryPlaylistTitle = false
+                                                sdcard = if (isSafTarget) true else effectivePrefs.sdcard,
+                                                sdcardUri = if (isSafTarget) selectedTarget else effectivePrefs.sdcardUri,
+                                                commandDirectory = if (isSafTarget) "" else selectedTarget,
+                                                subdirectoryPlaylistTitle = selectedType == 2
                                             )
                                         )
                                     }
                                     PlaylistVerifier.enqueueMissingItems(
                                         missingItems = itemsWithQuality,
-                                        targetDirectory = customFolderPath.ifBlank { result.targetDirectory },
+                                        targetDirectory = selectedTarget,
                                         downloader = downloader
                                     )
                                     ToastUtil.makeToast(context.getString(R.string.added_missing_to_queue, toDownload.size))
@@ -840,6 +884,25 @@ fun PlaylistSyncDialog(
                 AUDIO_FORMAT.updateInt(preferredFormat)
                 currentPrefs = DownloadPreferences.createFromPreferences()
             },
+        )
+    }
+
+    if (showSubtitlePresetDialog) {
+        var lang by remember(currentPrefs) { mutableStateOf(currentPrefs.subtitleLanguage) }
+        var format by remember(currentPrefs) { mutableIntStateOf(currentPrefs.convertSubtitle) }
+
+        SubtitleQuickSettingsDialog(
+            subtitleLanguage = lang,
+            convertSubtitle = format,
+            onLanguageSelect = { lang = it },
+            onFormatSelect = { format = it },
+            onSave = {
+                SUBTITLE_LANGUAGE.updateString(lang)
+                CONVERT_SUBTITLE.updateInt(format)
+                currentPrefs = DownloadPreferences.createFromPreferences()
+                scanResult = null
+            },
+            onDismissRequest = { showSubtitlePresetDialog = false },
         )
     }
 }

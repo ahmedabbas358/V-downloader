@@ -5,6 +5,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import com.junkfood.seal.App
+import com.junkfood.seal.download.engine.builder.OutputTemplateBuilder
 import com.junkfood.seal.download.engine.identity.ContentType
 import com.junkfood.seal.download.engine.identity.MatchConfidence
 import com.junkfood.seal.download.engine.playlist.PlaylistManifest
@@ -121,8 +122,8 @@ object PlaylistVerifier {
                 val jaccard = intersection.size.toFloat() / union.size.toFloat()
                 if (jaccard >= 0.15f || intersection.isNotEmpty()) return@firstOrNull true
 
-                // Fallback: index match is decisive inside playlist directory
-                return@firstOrNull true
+                // If both title token sets exist and share nothing, do not claim a different video just by index
+                false
             }
             if (match != null) {
                 claimedPaths.add(match.absolutePath)
@@ -250,7 +251,7 @@ object PlaylistVerifier {
             val playlistTitle = playlistInfo.title ?: "Playlist"
             val cleanPlaylistName = FileUtil.cleanFileName(playlistTitle).trim().ifBlank { "Playlist" }
             val listId = Regex("""[?&]list=([a-zA-Z0-9_-]+)""").find(cleanUrl)?.groupValues?.get(1).orEmpty()
-            val defaultBaseDir = if (isAudioOnly) File(App.audioDownloadDir) else File(App.videoDownloadDir)
+            val defaultBaseDir = OutputTemplateBuilder.resolveBaseDirectory(preferences, isAudioOnly)
 
             // Step 1: Collect ALL candidate search directories
             val candidateDirs = mutableListOf<File>()
@@ -353,10 +354,21 @@ object PlaylistVerifier {
                 }
             }
 
-            if (targetDocumentDir != null && targetDocumentDir.exists() && targetDocumentDir.isDirectory) {
-                targetDocumentDir.listFiles().forEach { docFile ->
-                    if (docFile.isFile) {
-                        val name = docFile.name ?: return@forEach
+            fun scanDocDir(docDir: DocumentFile, depth: Int = 0) {
+                if (depth > 2) return
+                docDir.listFiles().forEach { docFile ->
+                    val name = docFile.name ?: return@forEach
+                    if (docFile.isDirectory) {
+                        val normDir = normalizeText(cleanFileNameForMatching(name))
+                        val normTarget = normalizeText(cleanPlaylistName)
+                        if (depth == 0 ||
+                            normDir == normTarget ||
+                            (normTarget.length >= 4 && normDir.contains(normTarget)) ||
+                            name.contains("[Subtitle", ignoreCase = true)
+                        ) {
+                            scanDocDir(docFile, depth + 1)
+                        }
+                    } else if (docFile.isFile) {
                         val length = docFile.length()
                         val isPartial = name.endsWith(".part", ignoreCase = true) || name.endsWith(".ytdl", ignoreCase = true)
                         if (isPartial || length >= minFileSize) {
@@ -364,6 +376,10 @@ object PlaylistVerifier {
                         }
                     }
                 }
+            }
+
+            if (targetDocumentDir != null && targetDocumentDir.exists() && targetDocumentDir.isDirectory) {
+                scanDocDir(targetDocumentDir)
             }
 
             candidateDirs.forEach { scanDir(it) }
@@ -570,10 +586,19 @@ object PlaylistVerifier {
         if (missingItems.isEmpty()) return@withContext
         val isSubOnly = missingItems.firstOrNull()?.preferences?.run { skipDownload && downloadSubtitle } == true
         val isAudioOnly = missingItems.firstOrNull()?.preferences?.run { extractAudio && !skipDownload } == true
+        val isSafTarget = targetDirectory.startsWith("content://", ignoreCase = true)
 
         missingItems.forEach { item ->
             if (item.state == com.junkfood.seal.download.engine.playlist.AuditState.DOWNLOADED) {
                 return@forEach
+            }
+
+            if (item.state == com.junkfood.seal.download.engine.playlist.AuditState.PARTIAL ||
+                item.state == com.junkfood.seal.download.engine.playlist.AuditState.CORRUPTED
+            ) {
+                runCatching {
+                    item.matchedFile?.takeIf { it.exists() && it.isFile }?.delete()
+                }
             }
 
             val baseTitle = item.title
@@ -585,7 +610,9 @@ object PlaylistVerifier {
             }
             if (itemUrl.isBlank()) return@forEach
 
-            val effectiveTargetDir = if (isSubOnly && targetDirectory.isNotBlank()) {
+            val effectiveTargetDir = if (isSafTarget) {
+                targetDirectory
+            } else if (isSubOnly && targetDirectory.isNotBlank()) {
                 val cleanTitle = FileUtil.cleanFileName(item.playlistTitle).trim()
                 if (cleanTitle.isNotEmpty() && !targetDirectory.contains("[Subtitle]") && !targetDirectory.contains("[Subtitles]")) {
                     val subFolderName = "[Subtitle] $cleanTitle"
@@ -606,12 +633,15 @@ object PlaylistVerifier {
                 downloadPlaylist = false,
                 playlistNumbering = true,
                 useDownloadArchive = false,
+                forceRedownload = true,
                 skipDownload = isSubOnly,
                 downloadSubtitle = if (isSubOnly) true else item.preferences.downloadSubtitle,
-                autoSubtitle = if (isSubOnly) true else item.preferences.autoSubtitle,
-                autoTranslatedSubtitles = if (isSubOnly) true else item.preferences.autoTranslatedSubtitles,
+                autoSubtitle = item.preferences.autoSubtitle,
+                autoTranslatedSubtitles = item.preferences.autoTranslatedSubtitles,
                 extractAudio = if (isSubOnly) false else isAudioOnly,
-                commandDirectory = effectiveTargetDir.ifBlank { item.preferences.commandDirectory },
+                sdcard = if (isSafTarget) true else item.preferences.sdcard,
+                sdcardUri = if (isSafTarget) effectiveTargetDir else item.preferences.sdcardUri,
+                commandDirectory = if (isSafTarget) "" else effectiveTargetDir.ifBlank { item.preferences.commandDirectory },
                 subdirectoryPlaylistTitle = isSubOnly || item.preferences.subdirectoryPlaylistTitle,
             )
 

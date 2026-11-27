@@ -97,8 +97,11 @@ import com.junkfood.seal.ui.page.download.VideoSelectionSlider
 import com.junkfood.seal.ui.page.settings.general.DialogCheckBoxItem
 import com.junkfood.seal.ui.theme.SealTheme
 import com.junkfood.seal.ui.theme.generateLabelColor
+import com.junkfood.seal.util.AUTO_SUBTITLE
+import com.junkfood.seal.util.AUTO_TRANSLATED_SUBTITLES
 import com.junkfood.seal.util.EXTRACT_AUDIO
 import com.junkfood.seal.util.Format
+import com.junkfood.seal.util.KEEP_SUBTITLE_FILES
 import com.junkfood.seal.util.MERGE_MULTI_AUDIO_STREAM
 import com.junkfood.seal.util.PreferenceUtil.getBoolean
 import com.junkfood.seal.util.PreferenceUtil.getInt
@@ -128,6 +131,9 @@ private data class FormatConfig(
     val skipDownload: Boolean = false,
     val subtitleFormat: Int = com.junkfood.seal.util.CONVERT_SUBTITLE.getInt(),
     val embedSubtitle: Boolean = com.junkfood.seal.util.EMBED_SUBTITLE.getBoolean(),
+    val keepSubtitle: Boolean = com.junkfood.seal.util.KEEP_SUBTITLE_FILES.getBoolean(),
+    val autoSubtitle: Boolean = com.junkfood.seal.util.AUTO_SUBTITLE.getBoolean(),
+    val autoTranslatedSubtitles: Boolean = com.junkfood.seal.util.AUTO_TRANSLATED_SUBTITLES.getBoolean(),
 )
 
 @Composable
@@ -251,11 +257,13 @@ fun FormatPage(
                             formatIdString = if (isSubOnly) "" else playlistFormatId,
                             extractAudio = if (isSubOnly) false else (taskWithState.task.preferences.extractAudio || isAudioOnlyPlaylist),
                             mergeAudioStream = if (isSubOnly) false else mergeAudioStreamPlaylist,
-                            downloadSubtitle = if (isSubOnly) true else (hasSelectedSubs || taskWithState.task.preferences.downloadSubtitle),
+                            downloadSubtitle = if (isSubOnly) true else (hasSelectedSubs || embedSubtitle || taskWithState.task.preferences.downloadSubtitle),
                             convertSubtitle = subtitleFormat,
                             embedSubtitle = if (isSubOnly || isAudioOnlyPlaylist) false else embedSubtitle,
-                            autoSubtitle = true,
-                            autoTranslatedSubtitles = true,
+                            keepSubtitle = keepSubtitle,
+                            mergeToMkv = taskWithState.task.preferences.mergeToMkv || (!isSubOnly && !isAudioOnlyPlaylist && embedSubtitle),
+                            autoSubtitle = if (selectedAutoCaptions.isNotEmpty()) true else autoSubtitle,
+                            autoTranslatedSubtitles = autoTranslatedSubtitles,
                             subtitleLanguage = if (subLangString.isNotEmpty()) subLangString else taskWithState.task.preferences.subtitleLanguage,
                             splitByChapter = if (isSubOnly) false else splitByChapter,
                             newTitle = newTitle,
@@ -281,6 +289,9 @@ fun FormatPage(
                     skipDownload = skipDownload,
                     subtitleFormat = subtitleFormat,
                     embedSubtitle = embedSubtitle,
+                    keepSubtitle = keepSubtitle,
+                    autoSubtitle = autoSubtitle,
+                    autoTranslatedSubtitles = autoTranslatedSubtitles,
                 )
                 val finalTask = if (isAudioSelected && !skipDownload) {
                     createdTaskWithState.copy(
@@ -557,6 +568,9 @@ private fun FormatPageImpl(
     }
 
     var embedSubtitleState by remember { mutableStateOf(com.junkfood.seal.util.EMBED_SUBTITLE.getBoolean()) }
+    var keepSubtitleState by remember { mutableStateOf(KEEP_SUBTITLE_FILES.getBoolean()) }
+    var autoSubtitleState by remember { mutableStateOf(AUTO_SUBTITLE.getBoolean()) }
+    var autoTranslatedState by remember { mutableStateOf(AUTO_TRANSLATED_SUBTITLES.getBoolean()) }
 
     val isAnyDialogShown = showSubtitleSelectionDialog || showVideoClipDialog || showRenameDialog
 
@@ -601,6 +615,9 @@ private fun FormatPageImpl(
                                 skipDownload = isSubtitleOnly,
                                 subtitleFormat = subtitleFormat,
                                 embedSubtitle = embedSubtitleState,
+                                keepSubtitle = keepSubtitleState,
+                                autoSubtitle = autoSubtitleState,
+                                autoTranslatedSubtitles = autoTranslatedState,
                             )
                         )
                     },
@@ -773,6 +790,51 @@ private fun FormatPageImpl(
                                     onCheckedChange = { embedSubtitleState = it },
                                 )
                             }
+                            if (embedSubtitleState) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                ) {
+                                    Text(
+                                        text = stringResource(id = R.string.keep_subtitle_files),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    androidx.compose.material3.Switch(
+                                        checked = keepSubtitleState,
+                                        onCheckedChange = { keepSubtitleState = it },
+                                    )
+                                }
+                            }
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                        ) {
+                            Text(
+                                text = stringResource(id = R.string.auto_subtitle),
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.weight(1f),
+                            )
+                            androidx.compose.material3.Switch(
+                                checked = autoSubtitleState,
+                                onCheckedChange = { autoSubtitleState = it },
+                            )
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                        ) {
+                            Text(
+                                text = stringResource(id = R.string.auto_translated_label),
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.weight(1f),
+                            )
+                            androidx.compose.material3.Switch(
+                                checked = autoTranslatedState,
+                                onCheckedChange = { autoTranslatedState = it },
+                            )
                         }
 
                         Row(

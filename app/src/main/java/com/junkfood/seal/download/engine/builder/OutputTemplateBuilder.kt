@@ -101,19 +101,29 @@ object OutputTemplateBuilder {
     ): File {
         val isSubtitleOnly = preferences.skipDownload && preferences.downloadSubtitle
         val isAudio = isAudioDownload || (preferences.extractAudio && !isSubtitleOnly)
-        val basePath = resolveBaseDirectory(preferences, isAudio)
 
-        val extractorFolder =
-            if (preferences.subdirectoryExtractor && !videoInfo?.extractorKey.isNullOrBlank()) {
-                FileUtil.cleanFileName(videoInfo!!.extractorKey).trim()
-            } else {
-                ""
-            }
-        val effectiveBaseDir =
+        val customCmdDir = preferences.commandDirectory.trim()
+        val hasDirectCustomDir =
+            customCmdDir.isNotBlank() &&
+                !customCmdDir.startsWith("content://", ignoreCase = true) &&
+                !preferences.sdcard &&
+                !preferences.privateDirectory
+
+        val effectiveBaseDir = if (hasDirectCustomDir) {
+            File(customCmdDir)
+        } else {
+            val basePath = resolveBaseDirectory(preferences, isAudio)
+            val extractorFolder =
+                if (preferences.subdirectoryExtractor && !videoInfo?.extractorKey.isNullOrBlank()) {
+                    FileUtil.cleanFileName(videoInfo!!.extractorKey).trim()
+                } else {
+                    ""
+                }
             if (extractorFolder.isNotEmpty()) File(basePath, extractorFolder) else File(basePath)
+        }
 
-        // General / single video downloads (playlistItem <= 0) MUST ALWAYS be saved directly in the base app download directory
-        if (playlistItem <= 0) {
+        // General / single video downloads (playlistItem <= 0) or disabled playlist subfolder
+        if (playlistItem <= 0 || !preferences.subdirectoryPlaylistTitle) {
             return effectiveBaseDir
         }
 
@@ -142,6 +152,14 @@ object OutputTemplateBuilder {
             }
 
         val folderName = if (isSubtitleOnly) "[Subtitles] $cleanPlaylistName" else cleanPlaylistName
+
+        // Avoid double-nesting if custom directory already points to this playlist folder
+        if (hasDirectCustomDir &&
+            (effectiveBaseDir.name.equals(folderName, ignoreCase = true) ||
+                effectiveBaseDir.name.equals(cleanPlaylistName, ignoreCase = true))
+        ) {
+            return effectiveBaseDir
+        }
 
         return File(effectiveBaseDir, folderName)
     }

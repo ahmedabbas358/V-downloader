@@ -54,4 +54,20 @@ class FormatSelectorBuilderTest {
         val playlistSelectorBest = FormatSelectorBuilder.buildPlaylistFormatSelector(0)
         assertEquals("bestvideo+bestaudio/best", playlistSelectorBest)
     }
+
+    @Test
+    fun testAudioFormatSorterIncludesAllQualityTiers() {
+        val prefs = com.junkfood.seal.util.DownloadUtil.DownloadPreferences.EMPTY.copy(
+            useCustomAudioPreset = true,
+            audioFormat = com.junkfood.seal.util.OPUS,
+            audioQuality = com.junkfood.seal.util.ULTRA_LOW,
+        )
+        assertEquals("acodec:opus,abr~32", FormatSelectorBuilder.toAudioFormatSorter(prefs))
+
+        val highM4a = prefs.copy(
+            audioFormat = com.junkfood.seal.util.M4A,
+            audioQuality = com.junkfood.seal.util.HIGH,
+        )
+        assertEquals("acodec:aac,abr~192", FormatSelectorBuilder.toAudioFormatSorter(highM4a))
+    }
 }

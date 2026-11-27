@@ -12,6 +12,7 @@ import com.junkfood.seal.util.FileUtil
 import com.junkfood.seal.util.FileUtil.getFileName
 import com.junkfood.seal.util.FileUtil.getSdcardTempDir
 import com.junkfood.seal.util.FileUtil.moveFilesToSdcard
+import com.junkfood.seal.util.FileUtil.copyFilesToSdcard
 import com.junkfood.seal.util.VideoInfo
 import com.junkfood.seal.util.toHttpsUrl
 import java.io.File
@@ -69,11 +70,36 @@ object PostDownloadCoordinator {
             Log.d(TAG, "Raw discoveredPaths: $discoveredPaths")
         }
 
-        // 1. SD Card path — handled separately
+        // 1. SD Card path — supports media, embed-subtitle + keep-subtitle, and standalone subtitles
         if (preferences.sdcard) {
+            val tempDir = appContext.getSdcardTempDir(videoInfo.id)
+            if (isSubtitleOnly && tempDir.listFiles().isNullOrEmpty() && discoveredPaths.isNotEmpty()) {
+                val subFiles = discoveredPaths.map { File(it) }.filter { it.exists() && it.isFile }
+                val movedPaths = copyFilesToSdcard(
+                    files = subFiles,
+                    sdcardUri = sdcardUri,
+                    forceOverwrite = preferences.forceRedownload,
+                ).getOrThrow()
+                if (preferences.privateMode) return@runCatching emptyList()
+                insertInfoIntoDownloadHistory(videoInfo, movedPaths)
+                return@runCatching movedPaths
+            }
+            if (preferences.embedSubtitle && !isSubtitleOnly && tempDir.exists()) {
+                val allTempFiles = tempDir.walkTopDown().filter { it.isFile }.toList()
+                val primaryMedia = allTempFiles.firstOrNull { MEDIA_REGEX.containsMatchIn(it.name) }
+                val subFiles = allTempFiles.filter { SUBTITLE_REGEX.containsMatchIn(it.name) && it.length() > 5L }
+                if (primaryMedia != null && subFiles.isNotEmpty()) {
+                    maybeEmbedSubtitlesLocally(
+                        primaryMediaFile = primaryMedia,
+                        subFiles = subFiles,
+                        preferences = preferences,
+                    )
+                }
+            }
             val movedPaths = moveFilesToSdcard(
-                tempPath = appContext.getSdcardTempDir(videoInfo.id),
+                tempPath = tempDir,
                 sdcardUri = sdcardUri,
+                forceOverwrite = preferences.forceRedownload,
             ).getOrThrow()
             if (preferences.privateMode) return@runCatching emptyList()
             if (preferences.splitByChapter) insertSplitChapterIntoHistory(videoInfo, movedPaths)
@@ -105,9 +131,6 @@ object PostDownloadCoordinator {
             Pair(validDiscovered, emptyList<String>())
         }
 
-        // Register subtitles with MediaStore (fire-and-forget)
-        subPaths.forEach { MediaStorageScanner.scanSingleFile(File(it)) }
-
         // 4. Determine final paths — discoveredPaths are authoritative
         var finalPaths: List<String>
 
@@ -122,7 +145,7 @@ object PostDownloadCoordinator {
 
             finalPaths = if (reportedMedia.isNotEmpty()) {
                 Log.d(TAG, "Using yt-dlp reported media paths: $reportedMedia")
-                reportedMedia.onEach { MediaStorageScanner.scanSingleFile(File(it)) }
+                reportedMedia
             } else {
                 Log.w(TAG, "No media paths from yt-dlp output. Falling back to directory scan.")
                 fallbackDirectoryScan(fileName, downloadPath, isSubtitleOnly = false, videoId = videoInfo.id, downloadStartTime = downloadStartTime)
@@ -144,26 +167,22 @@ object PostDownloadCoordinator {
                 }
 
                 if (subFiles.isNotEmpty() && primaryMediaFile.exists()) {
-                    val tempEmbeddedFile = File(primaryMediaFile.parentFile, "embedded_${primaryMediaFile.name}")
-                    val embedRes = com.junkfood.seal.util.MediaProcessingEngine.embedSubtitlesIntoVideo(
-                        videoFile = primaryMediaFile,
-                        subtitleFiles = subFiles,
-                        outputFile = tempEmbeddedFile,
-                        isMkv = preferences.mergeToMkv || primaryMediaFile.extension.equals("mkv", ignoreCase = true)
+                    val updatedMedia = maybeEmbedSubtitlesLocally(
+                        primaryMediaFile = primaryMediaFile,
+                        subFiles = subFiles,
+                        preferences = preferences,
                     )
-                    if (embedRes.isSuccess) {
-                        val finalEmbedded = embedRes.getOrNull()
-                        if (finalEmbedded != null && finalEmbedded.exists() && finalEmbedded.length() > 0) {
-                            primaryMediaFile.delete()
-                            finalEmbedded.renameTo(primaryMediaFile)
-                            Log.d(TAG, "Post-download subtitle embedding completed for ${primaryMediaFile.name}")
-                            if (!preferences.keepSubtitle) {
-                                subFiles.forEach { it.delete() }
-                            }
-                        }
+                    if (updatedMedia.absolutePath != primaryMediaFile.absolutePath) {
+                        finalPaths = listOf(updatedMedia.absolutePath) + finalPaths.drop(1)
                     }
                 }
             }
+        }
+
+        // Register surviving media and subtitle files with MediaStore after any embedding/cleanup
+        finalPaths.forEach { MediaStorageScanner.scanSingleFile(File(it)) }
+        if (!isSubtitleOnly) {
+            subPaths.filter { File(it).exists() }.forEach { MediaStorageScanner.scanSingleFile(File(it)) }
         }
 
         // 5. Hard validation — fail honestly if no media was downloaded
@@ -243,6 +262,52 @@ object PostDownloadCoordinator {
             }
         }
         return result
+    }
+
+    private suspend fun maybeEmbedSubtitlesLocally(
+        primaryMediaFile: File,
+        subFiles: List<File>,
+        preferences: DownloadPreferences,
+    ): File {
+        val isMkvTarget = preferences.mergeToMkv || primaryMediaFile.extension.equals("mkv", ignoreCase = true)
+        val targetExt = if (isMkvTarget) "mkv" else primaryMediaFile.extension.ifBlank { "mp4" }
+        val tempEmbeddedFile = File(
+            primaryMediaFile.parentFile,
+            "embedded_${primaryMediaFile.nameWithoutExtension}.$targetExt",
+        )
+        val finalTargetFile = if (primaryMediaFile.extension.equals(targetExt, ignoreCase = true)) {
+            primaryMediaFile
+        } else {
+            File(primaryMediaFile.parentFile, "${primaryMediaFile.nameWithoutExtension}.$targetExt")
+        }
+
+        val embedRes = com.junkfood.seal.util.MediaProcessingEngine.embedSubtitlesIntoVideo(
+            videoFile = primaryMediaFile,
+            subtitleFiles = subFiles,
+            outputFile = tempEmbeddedFile,
+            isMkv = isMkvTarget,
+        )
+        if (embedRes.isSuccess) {
+            val produced = embedRes.getOrNull()
+            if (produced != null && produced.exists() && produced.length() > 0) {
+                primaryMediaFile.delete()
+                if (finalTargetFile.exists() && finalTargetFile.absolutePath != primaryMediaFile.absolutePath) {
+                    finalTargetFile.delete()
+                }
+                if (!produced.renameTo(finalTargetFile)) {
+                    produced.copyTo(finalTargetFile, overwrite = true)
+                    produced.delete()
+                }
+                Log.d(TAG, "Post-download subtitle embedding completed for ${finalTargetFile.name}")
+                if (!preferences.keepSubtitle) {
+                    subFiles.forEach { it.delete() }
+                }
+                return finalTargetFile
+            }
+        } else {
+            tempEmbeddedFile.delete()
+        }
+        return primaryMediaFile
     }
 
     /**

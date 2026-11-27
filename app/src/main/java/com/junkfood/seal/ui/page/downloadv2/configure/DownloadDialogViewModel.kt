@@ -7,9 +7,11 @@ import com.junkfood.seal.database.objects.CommandTemplate
 import com.junkfood.seal.download.DownloaderV2
 import com.junkfood.seal.download.Task
 import com.junkfood.seal.download.TaskFactory
+import com.junkfood.seal.util.ALLOW_REDOWNLOAD
 import com.junkfood.seal.util.DownloadUtil
 import com.junkfood.seal.util.PlaylistResult
 import com.junkfood.seal.util.PreferenceUtil.getString
+import com.junkfood.seal.util.PreferenceUtil.updateBoolean
 import com.junkfood.seal.util.PreferenceUtil.updateString
 import com.junkfood.seal.util.VideoInfo
 import com.yausername.youtubedl_android.YoutubeDL
@@ -51,7 +53,7 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
 
     sealed interface Action {
         data object HideSheet : Action
-        data class ShowSheet(val urlList: List<String>? = null) : Action
+        data class ShowSheet(val urlList: List<String>? = null, val forceRedownload: Boolean = false) : Action
         data class ProceedWithURLs(val urlList: List<String>) : Action
         data object Reset : Action
         data class FetchPlaylist(
@@ -84,10 +86,22 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
     private val mSelectionStateFlow = MutableStateFlow<SelectionState>(SelectionState.Idle)
     private val mSheetStateFlow = MutableStateFlow<SheetState>(SheetState.InputUrl)
     private val mSheetValueFlow = MutableStateFlow<SheetValue>(SheetValue.Hidden)
+    private val mPendingPlaylistSyncUrl = MutableStateFlow<String?>(null)
 
     val selectionStateFlow = mSelectionStateFlow.asStateFlow()
     val sheetStateFlow = mSheetStateFlow.asStateFlow()
     val sheetValueFlow = mSheetValueFlow.asStateFlow()
+    val pendingPlaylistSyncUrl = mPendingPlaylistSyncUrl.asStateFlow()
+
+    fun openPlaylistSync(url: String) {
+        if (url.isNotBlank()) {
+            mPendingPlaylistSyncUrl.value = url
+        }
+    }
+
+    fun consumePlaylistSyncUrl() {
+        mPendingPlaylistSyncUrl.value = null
+    }
 
     // تتبع العمليات الجارية لمنع التكرار وللتنظيف الآمن
     private val activeJobs = mutableMapOf<String, Job>()
@@ -419,6 +433,9 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
     }
 
     private fun showDialog(action: Action.ShowSheet) {
+        if (action.forceRedownload) {
+            ALLOW_REDOWNLOAD.updateBoolean(true)
+        }
         val urlList = action.urlList
         if (!urlList.isNullOrEmpty()) {
             mSheetStateFlow.update { SheetState.Configure(sanitizeUrls(urlList)) }

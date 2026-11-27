@@ -49,4 +49,32 @@ class OutputTemplateBuilderTest {
         )
         assertEquals("[Subtitles] My Playlist/", prefix)
     }
+
+    @Test
+    fun testExplicitCommandDirectoryDoesNotDoubleNestPlaylistSubfolder() {
+        val tempRoot = System.getProperty("java.io.tmpdir")
+        val sameFolderPath = java.io.File(tempRoot, "My Playlist").absolutePath
+        val prefsSameFolder = DownloadPreferences.EMPTY.copy(
+            commandDirectory = sameFolderPath,
+            downloadPlaylist = true,
+            subdirectoryPlaylistTitle = true,
+        )
+        val resolvedSame = OutputTemplateBuilder.resolveTargetDirectory(
+            preferences = prefsSameFolder,
+            isAudioDownload = false,
+            playlistItem = 3,
+            fallbackPlaylistTitle = "My Playlist",
+        )
+        assertEquals(sameFolderPath, resolvedSame.absolutePath)
+
+        val customRootPath = java.io.File(tempRoot, "SealCustomRoot").absolutePath
+        val prefsCustomRoot = prefsSameFolder.copy(commandDirectory = customRootPath)
+        val resolvedNested = OutputTemplateBuilder.resolveTargetDirectory(
+            preferences = prefsCustomRoot,
+            isAudioDownload = false,
+            playlistItem = 3,
+            fallbackPlaylistTitle = "My Playlist",
+        )
+        assertEquals(java.io.File(customRootPath, "My Playlist").absolutePath, resolvedNested.absolutePath)
+    }
 }

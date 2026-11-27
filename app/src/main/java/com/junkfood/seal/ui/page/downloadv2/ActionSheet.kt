@@ -125,6 +125,18 @@ private fun ResumeButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
 }
 
 @Composable
+private fun RedownloadButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    ActionSheetPrimaryButton(
+        modifier = modifier,
+        containerColor = LocalFixedColorRoles.current.tertiaryFixed,
+        contentColor = LocalFixedColorRoles.current.onTertiaryFixedVariant,
+        imageVector = Icons.Outlined.RestartAlt,
+        text = stringResource(R.string.redownload),
+        onClick = onClick,
+    )
+}
+
+@Composable
 private fun AdjustSubtitleButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
     ActionSheetPrimaryButton(
         modifier = modifier,
@@ -401,6 +413,12 @@ fun LazyListScope.ActionButtons(
                         onActionPost(task, UiAction.AdjustSubtitle(path))
                         onDismissRequest()
                     }
+                }
+            }
+            item(key = "RedownloadButton") {
+                RedownloadButton(modifier = Modifier.animateItem()) {
+                    onActionPost(task, UiAction.Redownload)
+                    onDismissRequest()
                 }
             }
         }

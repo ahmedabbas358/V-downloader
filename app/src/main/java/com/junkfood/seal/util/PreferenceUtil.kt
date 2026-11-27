@@ -64,6 +64,7 @@ const val SUBDIRECTORY_PLAYLIST_TITLE = "subdirectory_playlist_title"
 const val PLAYLIST = "playlist"
 const val PLAYLIST_NUMBERING = "playlist_numbering"
 const val AUTO_PLAYLIST_SYNC = "auto_playlist_sync"
+const val ALLOW_REDOWNLOAD = "allow_redownload"
 private const val LANGUAGE = "language"
 const val NOTIFICATION = "notification"
 private const val THEME_COLOR = "theme_color"
@@ -458,6 +459,7 @@ private val BooleanPreferenceDefaults =
         USE_CUSTOM_AUDIO_PRESET to false,
         ENABLE_EXPERIMENTAL_FEATURES to false,
         AUTO_PLAYLIST_SYNC to false,
+        ALLOW_REDOWNLOAD to false,
     )
 
 private val IntPreferenceDefaults =

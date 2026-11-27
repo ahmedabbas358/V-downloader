@@ -37,9 +37,20 @@ class MainActivity : AppCompatActivity() {
 
 
         App.setLanguageContext(this)
+        intent.getStringExtra("open_playlist_sync_url")?.let { syncUrl ->
+            intent.removeExtra("open_playlist_sync_url")
+            dialogViewModel.openPlaylistSync(syncUrl)
+        }
         intent.getSharedURL()?.let { url ->
             if (url.isNotEmpty()) {
-                dialogViewModel.postAction(DownloadDialogViewModel.Action.ShowSheet(listOf(url)))
+                val forceRedownload = intent.getBooleanExtra("force_redownload", false)
+                if (forceRedownload) intent.removeExtra("force_redownload")
+                dialogViewModel.postAction(
+                    DownloadDialogViewModel.Action.ShowSheet(
+                        urlList = listOf(url),
+                        forceRedownload = forceRedownload,
+                    )
+                )
             }
         }
         setContent {
@@ -59,9 +70,20 @@ class MainActivity : AppCompatActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        intent.getStringExtra("open_playlist_sync_url")?.let { syncUrl ->
+            intent.removeExtra("open_playlist_sync_url")
+            dialogViewModel.openPlaylistSync(syncUrl)
+        }
         val url = intent.getSharedURL()
         if (url != null) {
-            dialogViewModel.postAction(DownloadDialogViewModel.Action.ShowSheet(listOf(url)))
+            val forceRedownload = intent.getBooleanExtra("force_redownload", false)
+            if (forceRedownload) intent.removeExtra("force_redownload")
+            dialogViewModel.postAction(
+                DownloadDialogViewModel.Action.ShowSheet(
+                    urlList = listOf(url),
+                    forceRedownload = forceRedownload,
+                )
+            )
         }
     }
 

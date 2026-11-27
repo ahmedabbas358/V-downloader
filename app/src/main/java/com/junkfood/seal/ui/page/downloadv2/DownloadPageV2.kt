@@ -259,6 +259,8 @@ sealed interface UiAction {
 
     data object Resume : UiAction
 
+    data object Redownload : UiAction
+
     data class CopyErrorReport(val throwable: Throwable) : UiAction
 
     data class AdjustSubtitle(val filePath: String) : UiAction
@@ -283,6 +285,7 @@ fun DownloadPageV2(
     val scope = rememberCoroutineScope()
     val clipboardManager = LocalClipboardManager.current
     val uriHandler = LocalUriHandler.current
+    val pendingSyncUrl by dialogViewModel.pendingPlaylistSyncUrl.collectAsStateWithLifecycle()
 
     DownloadPageImplV2(
         modifier = modifier,
@@ -291,6 +294,8 @@ fun DownloadPageV2(
             view.slightHapticFeedback()
             dialogViewModel.postAction(Action.ShowSheet())
         },
+        externalPlaylistSyncUrl = pendingSyncUrl,
+        onConsumeExternalPlaylistSyncUrl = { dialogViewModel.consumePlaylistSyncUrl() },
         onQuickDownloadUrl = { url ->
             view.slightHapticFeedback()
             dialogViewModel.postAction(
@@ -325,6 +330,7 @@ fun DownloadPageV2(
             UiAction.Pause -> downloader.pause(task)
             UiAction.Delete -> downloader.remove(task)
             UiAction.Resume -> downloader.restart(task)
+            UiAction.Redownload -> downloader.redownload(task)
             UiAction.Prioritize -> {
                 downloader.prioritize(task)
                 context.makeToast(context.getString(R.string.priority_moved_to_top))
@@ -391,6 +397,8 @@ fun DownloadPageImplV2(
     modifier: Modifier = Modifier,
     taskDownloadStateMap: SnapshotStateMap<Task, Task.State>,
     downloadCallback: () -> Unit = {},
+    externalPlaylistSyncUrl: String? = null,
+    onConsumeExternalPlaylistSyncUrl: () -> Unit = {},
     onQuickDownloadUrl: ((String) -> Unit)? = null,
     onConfigureUrl: ((String) -> Unit)? = null,
     onAllowCellularNow: (() -> Unit)? = null,
@@ -402,6 +410,14 @@ fun DownloadPageImplV2(
     var viewOptions by remember { mutableStateOf(ViewOptionsState()) }
     var isMenuSheetOpen by remember { mutableStateOf(false) }
     var showPlaylistSyncDialog by remember { mutableStateOf(false) }
+    var playlistSyncInitialUrl by remember { mutableStateOf("") }
+    LaunchedEffect(externalPlaylistSyncUrl) {
+        if (!externalPlaylistSyncUrl.isNullOrBlank()) {
+            playlistSyncInitialUrl = externalPlaylistSyncUrl
+            showPlaylistSyncDialog = true
+            onConsumeExternalPlaylistSyncUrl()
+        }
+    }
     var selectedTasks by remember { mutableStateOf<Set<Task>>(emptySet()) }
     var searchQuery by remember { mutableStateOf("") }
     var isSearching by remember { mutableStateOf(false) }
@@ -600,7 +616,10 @@ fun DownloadPageImplV2(
                 FABs(
                     modifier = Modifier,
                     downloadCallback = downloadCallback,
-                    syncCallback = { showPlaylistSyncDialog = true },
+                    syncCallback = {
+                        playlistSyncInitialUrl = ""
+                        showPlaylistSyncDialog = true
+                    },
                 )
             }
         },
@@ -1016,7 +1035,10 @@ fun DownloadPageImplV2(
                     closeMenu()
                 },
                 onRedownloadAll = {
-                    filteredMap.filter { it.second.downloadState is Task.DownloadState.Restartable }.forEach { onActionPost(it.first, UiAction.Resume) }
+                    filteredMap.filter {
+                        val ds = it.second.downloadState
+                        ds is Completed || ds is Task.DownloadState.Restartable
+                    }.forEach { onActionPost(it.first, UiAction.Redownload) }
                     closeMenu()
                 },
                 onDeleteHistory = {
@@ -1044,9 +1066,12 @@ fun DownloadPageImplV2(
 
     if (showPlaylistSyncDialog) {
         PlaylistSyncDialog(
-            initialUrl = "",
+            initialUrl = playlistSyncInitialUrl,
             preferences = DownloadUtil.DownloadPreferences.createFromPreferences(),
-            onDismissRequest = { showPlaylistSyncDialog = false }
+            onDismissRequest = {
+                showPlaylistSyncDialog = false
+                playlistSyncInitialUrl = ""
+            }
         )
     }
 

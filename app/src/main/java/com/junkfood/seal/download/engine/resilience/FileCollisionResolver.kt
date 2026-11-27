@@ -25,9 +25,11 @@ object FileCollisionResolver {
     /** Minimum length for a Video ID to be considered reliable for matching */
     private const val MIN_VIDEO_ID_LENGTH = 5
 
-    /** Regex patterns for subtitle and thumbnail files */
+    /** Regex patterns for subtitle, thumbnail, video, and audio files */
     private val SUBTITLE_REGEX = Regex("(?i)\\.(srt|vtt|ass|ssa|sub|lrc|json3|srv\\d?|ttml)$")
     private val THUMBNAIL_REGEX = Regex("(?i)\\.(jpe?g|png|webp|bmp)$")
+    private val VIDEO_REGEX = Regex("(?i)\\.(mp4|mkv|webm|avi|mov|flv|ts|m4v|3gp)$")
+    private val AUDIO_REGEX = Regex("(?i)\\.(mp3|m4a|opus|flac|wav|aac|ogg|mka|m4b)$")
 
     /**
      * Title prefixes that are considered generic/ambiguous and should NOT be used
@@ -133,10 +135,20 @@ object FileCollisionResolver {
             // Facebook
             cleanUrl.contains("facebook.com/reel/") ->
                 cleanUrl.substringAfter("facebook.com/reel/").substringBefore("/").substringBefore("?")
+            cleanUrl.contains("facebook.com/share/r/") ->
+                cleanUrl.substringAfter("facebook.com/share/r/").substringBefore("/").substringBefore("?")
+            cleanUrl.contains("facebook.com/share/v/") ->
+                cleanUrl.substringAfter("facebook.com/share/v/").substringBefore("/").substringBefore("?")
             cleanUrl.contains("facebook.com/watch/?v=") ->
                 cleanUrl.substringAfter("facebook.com/watch/?v=").substringBefore("&").substringBefore("?")
             cleanUrl.contains("fb.watch/") ->
                 cleanUrl.substringAfter("fb.watch/").substringBefore("/").substringBefore("?")
+
+            // Threads & Reddit
+            cleanUrl.contains("threads.net/") && cleanUrl.contains("/post/") ->
+                cleanUrl.substringAfter("/post/").substringBefore("/").substringBefore("?")
+            cleanUrl.contains("reddit.com/") && cleanUrl.contains("/comments/") ->
+                cleanUrl.substringAfter("/comments/").substringBefore("/").substringBefore("?")
 
             else -> ""
         }
@@ -216,10 +228,12 @@ object FileCollisionResolver {
                 val fileName = file.name
                 val isSubFile = SUBTITLE_REGEX.containsMatchIn(fileName)
 
-                // Type filtering
+                // Type filtering — never let a video match an audio download or vice versa
                 if (isSubtitleOnly && !isSubFile) continue
                 if (!isSubtitleOnly && isSubFile) continue
                 if (!isSubtitleOnly && THUMBNAIL_REGEX.containsMatchIn(fileName)) continue
+                if (!isSubtitleOnly && isAudioDownload && VIDEO_REGEX.containsMatchIn(fileName)) continue
+                if (!isSubtitleOnly && !isAudioDownload && AUDIO_REGEX.containsMatchIn(fileName)) continue
 
                 // Match ONLY by unique Video ID (highest confidence)
                 if (resolvedId.length >= MIN_VIDEO_ID_LENGTH && fileName.contains(resolvedId)) {

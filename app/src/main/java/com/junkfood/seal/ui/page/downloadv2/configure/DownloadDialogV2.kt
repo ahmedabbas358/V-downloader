@@ -57,6 +57,7 @@ import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.NewLabel
+import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material.icons.outlined.SettingsSuggest
 import androidx.compose.material.icons.outlined.Subtitles
 import androidx.compose.material.icons.outlined.VideoFile
@@ -98,6 +99,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -131,6 +133,7 @@ import com.junkfood.seal.ui.page.settings.format.SubtitleQuickSettingsDialog
 import com.junkfood.seal.ui.page.settings.format.VideoQuickSettingsDialog
 import com.junkfood.seal.ui.page.settings.network.CookiesQuickSettingsDialog
 import com.junkfood.seal.ui.theme.SealTheme
+import com.junkfood.seal.util.ALLOW_REDOWNLOAD
 import com.junkfood.seal.util.AUDIO_CONVERSION_FORMAT
 import com.junkfood.seal.util.AUDIO_CONVERT
 import com.junkfood.seal.util.AUDIO_FORMAT
@@ -155,6 +158,7 @@ import com.junkfood.seal.util.DownloadUtil
 import com.junkfood.seal.util.EMBED_SUBTITLE
 import com.junkfood.seal.util.EXTRACT_AUDIO
 import com.junkfood.seal.util.FORMAT_SELECTION
+import com.junkfood.seal.util.KEEP_SUBTITLE_FILES
 import com.junkfood.seal.util.PLAYLIST_NUMBERING
 import com.junkfood.seal.util.PreferenceStrings
 import com.junkfood.seal.util.PreferenceUtil
@@ -174,7 +178,9 @@ import com.junkfood.seal.util.VIDEO_FORMAT
 import com.junkfood.seal.util.VIDEO_QUALITY
 import com.junkfood.seal.util.VideoInfo
 import com.junkfood.seal.download.TaskFactory
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 private fun DownloadType.label(): String =
@@ -444,8 +450,8 @@ private fun DownloadDialogContent(
                                     extractAudio = selectedDownloadType == Audio,
                                     skipDownload = selectedDownloadType == DownloadType.Subtitle,
                                     downloadSubtitle = if (selectedDownloadType == DownloadType.Subtitle) true else preferences.downloadSubtitle,
-                                    autoSubtitle = if (selectedDownloadType == DownloadType.Subtitle) true else preferences.autoSubtitle,
-                                    autoTranslatedSubtitles = if (selectedDownloadType == DownloadType.Subtitle) true else preferences.autoTranslatedSubtitles,
+                                    autoSubtitle = preferences.autoSubtitle,
+                                    autoTranslatedSubtitles = preferences.autoTranslatedSubtitles,
                                 )
                                 val listId = state.urlList.firstNotNullOfOrNull { u ->
                                     Regex("""[?&]list=([a-zA-Z0-9_-]+)""").find(u)?.groupValues?.get(1)
@@ -501,8 +507,8 @@ private fun DownloadDialogContent(
                                         extractAudio = selectedDownloadType == Audio,
                                         skipDownload = selectedDownloadType == DownloadType.Subtitle,
                                         downloadSubtitle = if (selectedDownloadType == DownloadType.Subtitle) true else preferences.downloadSubtitle,
-                                        autoSubtitle = if (selectedDownloadType == DownloadType.Subtitle) true else preferences.autoSubtitle,
-                                        autoTranslatedSubtitles = if (selectedDownloadType == DownloadType.Subtitle) true else preferences.autoTranslatedSubtitles,
+                                        autoSubtitle = preferences.autoSubtitle,
+                                        autoTranslatedSubtitles = preferences.autoTranslatedSubtitles,
                                     ),
                                 )
                             )
@@ -663,6 +669,15 @@ private fun ConfigurePage(
             mutableStateOf(PreferenceUtil.getTemplate())
         }
 
+    var isAlreadyDownloaded by remember(url) { mutableStateOf(false) }
+    LaunchedEffect(url) {
+        isAlreadyDownloaded = if (url.isNotBlank()) {
+            withContext(Dispatchers.IO) { DatabaseUtil.isUrlDownloaded(url) }
+        } else {
+            false
+        }
+    }
+
     // Fix: ترتيب المعدلات الصحيح + fillMaxWidth لتجنب تمدد غير متوقع
     Column(
         modifier = modifier
@@ -681,6 +696,55 @@ private fun ConfigurePage(
                     title = stringResource(R.string.settings_before_download),
                     icon = Icons.Outlined.DoneAll,
                 )
+                if (isAlreadyDownloaded) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (preferences.forceRedownload) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.secondaryContainer
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                ALLOW_REDOWNLOAD.updateBoolean(!preferences.forceRedownload)
+                                onPreferencesUpdate(DownloadUtil.DownloadPreferences.createFromPreferences())
+                            },
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.RestartAlt,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = if (preferences.forceRedownload) {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.onSecondaryContainer
+                                },
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(
+                                    if (preferences.forceRedownload) {
+                                        R.string.already_downloaded_toggle_on
+                                    } else {
+                                        R.string.already_downloaded_hint
+                                    }
+                                ),
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
+                                color = if (preferences.forceRedownload) {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.onSecondaryContainer
+                                },
+                            )
+                        }
+                    }
+                }
                 DrawerSheetSubtitle(text = stringResource(id = R.string.download_type))
                 DownloadTypeSelectionGroup(
                     typeEntries = config.typeEntries,
@@ -757,7 +821,9 @@ private fun ConfigurePage(
                     }
                 }
             }
-            val isPlaylistUrl = selectedType == Playlist || (url.contains("list=", ignoreCase = true) && !url.contains("watch?v=", ignoreCase = true))
+            val isPlaylistUrl = selectedType == Playlist ||
+                url.contains("/playlist", ignoreCase = true) ||
+                url.contains("list=", ignoreCase = true)
             var expanded by remember { mutableStateOf(false) }
             ExpandableTitle(expanded = expanded, onClick = { expanded = !expanded }) {
                 AdditionalSettings(
@@ -799,8 +865,8 @@ private fun ConfigurePage(
                             extractAudio = selectedType == Audio,
                             skipDownload = selectedType == DownloadType.Subtitle,
                             downloadSubtitle = if (selectedType == DownloadType.Subtitle) true else preferences.downloadSubtitle,
-                            autoSubtitle = if (selectedType == DownloadType.Subtitle) true else preferences.autoSubtitle,
-                            autoTranslatedSubtitles = if (selectedType == DownloadType.Subtitle) true else preferences.autoTranslatedSubtitles,
+                            autoSubtitle = preferences.autoSubtitle,
+                            autoTranslatedSubtitles = preferences.autoTranslatedSubtitles,
                         ),
                     )
                 )
@@ -818,8 +884,8 @@ private fun ConfigurePage(
                     extractAudio = selectedType == Audio,
                     skipDownload = selectedType == DownloadType.Subtitle,
                     downloadSubtitle = if (selectedType == DownloadType.Subtitle) true else preferences.downloadSubtitle,
-                    autoSubtitle = if (selectedType == DownloadType.Subtitle) true else preferences.autoSubtitle,
-                    autoTranslatedSubtitles = if (selectedType == DownloadType.Subtitle) true else preferences.autoTranslatedSubtitles,
+                    autoSubtitle = preferences.autoSubtitle,
+                    autoTranslatedSubtitles = preferences.autoTranslatedSubtitles,
                 )
                 if (isPlaylist) {
                     onActionPost(Action.FetchPlaylist(url = url, preferences = updatedPrefs))
@@ -984,6 +1050,17 @@ private fun AdditionalSettings(
                     )
                 }
 
+                // Allow re-downloading an already downloaded URL (bypass archive / collision check and force overwrite)
+                VideoFilterChip(
+                    selected = forceRedownload,
+                    enabled = true,
+                    onClick = {
+                        ALLOW_REDOWNLOAD.updateBoolean(!forceRedownload)
+                        onPreferenceUpdate()
+                    },
+                    label = stringResource(id = R.string.allow_redownload),
+                )
+
                 // Show "Download Subtitles" chip ONLY for Video / Playlist (never for Subtitle or Audio)
                 if (selectedType == Video || selectedType == Playlist) {
                     VideoFilterChip(
@@ -1005,6 +1082,17 @@ private fun AdditionalSettings(
                             },
                             label = stringResource(id = R.string.embed_subtitles),
                         )
+                        if (embedSubtitle) {
+                            VideoFilterChip(
+                                selected = keepSubtitle,
+                                enabled = true,
+                                onClick = {
+                                    KEEP_SUBTITLE_FILES.updateBoolean(!keepSubtitle)
+                                    onPreferenceUpdate()
+                                },
+                                label = stringResource(id = R.string.keep_subtitle_files),
+                            )
+                        }
                     }
                 }
 
@@ -1035,9 +1123,8 @@ private fun AdditionalSettings(
                     )
                 }
 
-                // Playlist numbering & folder options — ONLY for actual playlists
-                // Hidden for single video downloads to avoid confusing the user
-                if (isPlaylist && selectedType == Playlist) {
+                // Playlist numbering & folder options — shown for playlists across Video, Audio, and Subtitle modes
+                if (isPlaylist || selectedType == Playlist) {
                     VideoFilterChip(
                         selected = playlistNumbering,
                         enabled = true,

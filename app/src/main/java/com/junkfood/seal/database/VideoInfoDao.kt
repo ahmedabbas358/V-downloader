@@ -37,6 +37,9 @@ interface VideoInfoDao {
     @Query("select * from DownloadedVideoInfo where videoPath = :path")
     suspend fun getInfoByPath(path: String): DownloadedVideoInfo?
 
+    @Query("SELECT COUNT(*) FROM DownloadedVideoInfo WHERE videoUrl = :url OR videoUrl = :normalizedUrl")
+    suspend fun countByUrl(url: String, normalizedUrl: String = url): Int
+
     @Transaction
     suspend fun insertInfoDistinctByPath(
         videoInfo: DownloadedVideoInfo,

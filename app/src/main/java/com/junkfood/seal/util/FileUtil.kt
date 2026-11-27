@@ -365,9 +365,13 @@ object FileUtil {
             }
 
     @CheckResult
-    fun moveFilesToSdcard(tempPath: File, sdcardUri: String): Result<List<String>> {
+    fun moveFilesToSdcard(
+        tempPath: File,
+        sdcardUri: String,
+        forceOverwrite: Boolean = false,
+    ): Result<List<String>> {
         val uriList = mutableListOf<String>()
-        val destDir = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, Uri.parse(sdcardUri)) 
+        val destDir = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, Uri.parse(sdcardUri))
             ?: return Result.failure(Exception("Invalid SD Card URI"))
 
         val dirCache = mutableMapOf<String, androidx.documentfile.provider.DocumentFile>(tempPath.absolutePath to destDir)
@@ -392,6 +396,9 @@ object FileUtil {
                     val mimeType =
                         MimeTypeMap.getSingleton().getMimeTypeFromExtension(file.extension) ?: "*/*"
 
+                    if (forceOverwrite) {
+                        parentDoc.findFile(file.name)?.delete()
+                    }
                     val newFile = parentDoc.createFile(mimeType, file.name) ?: return@forEach
 
                     file.inputStream().use { inputStream ->
@@ -405,6 +412,37 @@ object FileUtil {
             }
         tempPath.deleteRecursively()
         return res
+    }
+
+    @CheckResult
+    fun copyFilesToSdcard(
+        files: List<File>,
+        sdcardUri: String,
+        forceOverwrite: Boolean = false,
+        deleteOriginals: Boolean = true,
+    ): Result<List<String>> = runCatching {
+        val destDir = DocumentFile.fromTreeUri(context, Uri.parse(sdcardUri))
+            ?: error("Invalid SD Card URI")
+        val uriList = mutableListOf<String>()
+        files.filter { it.exists() && it.isFile }.forEach { file ->
+            val mimeType =
+                MimeTypeMap.getSingleton().getMimeTypeFromExtension(file.extension.lowercase(Locale.US))
+                    ?: if (isSubtitleFile(file)) "text/plain" else "*/*"
+            if (forceOverwrite) {
+                destDir.findFile(file.name)?.delete()
+            }
+            val newFile = destDir.createFile(mimeType, file.name) ?: return@forEach
+            file.inputStream().use { input ->
+                context.contentResolver.openOutputStream(newFile.uri)?.use { output ->
+                    input.copyTo(output)
+                } ?: return@forEach
+            }
+            uriList.add(newFile.uri.toString())
+            if (deleteOriginals) {
+                file.delete()
+            }
+        }
+        uriList
     }
 
     fun clearTempFiles(downloadDir: File): Int {
@@ -458,7 +496,7 @@ object FileUtil {
 
     fun writeContentToFile(content: String, file: File): File = file.apply { writeText(content) }
 
-    fun getRealPath(treeUri: Uri): String {
+    fun resolveDirectPathOrNull(treeUri: Uri): String? {
         try {
             if (DocumentsContract.isTreeUri(treeUri)) {
                 val docId = DocumentsContract.getTreeDocumentId(treeUri)
@@ -484,8 +522,11 @@ object FileUtil {
         } catch (e: Exception) {
             Log.e(TAG, "Error resolving real path from uri: $treeUri", e)
         }
-        return getExternalDownloadDirectory().absolutePath
+        return null
     }
+
+    fun getRealPath(treeUri: Uri): String =
+        resolveDirectPathOrNull(treeUri) ?: getExternalDownloadDirectory().absolutePath
 
     fun cleanFileName(fileName: String): String =
         fileName.replace(Regex("[/\\\\:*?\"<>|]"), "_").replace(Regex("\\s+"), " ").trim()

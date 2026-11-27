@@ -82,6 +82,7 @@ fun VideoDetailDrawer(
                         setPackage(context.packageName)
                         type = "text/plain"
                         putExtra(Intent.EXTRA_TEXT, info.videoUrl)
+                        putExtra("force_redownload", true)
                     }
                 )
             }

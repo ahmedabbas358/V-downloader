@@ -59,8 +59,8 @@ class SubtitleOrchestrator(
                 requestedLangs = rawLang,
                 availableTracks = inventory.allTracks,
                 policy = SubtitleTypePolicy.ANY,
-                allowAutoCaptions = true,
-                allowTranslatedSubtitles = true
+                allowAutoCaptions = preferences.autoSubtitle || preferences.autoTranslatedSubtitles,
+                allowTranslatedSubtitles = preferences.autoTranslatedSubtitles
             )
             if (matchedTracks.isNotEmpty()) {
                 val providerRes = youtubeProvider.downloadTracks(
@@ -100,20 +100,22 @@ class SubtitleOrchestrator(
             )
         }
 
-        // 3. Check if subtitle files already exist in destination
-        val targetFormat = com.junkfood.seal.download.engine.subtitle.model.SubtitleOutputFormat.fromExtension(
-            SubtitleOptionBuilder.getConvertSubsValue(preferences.convertSubtitle)
-        )
-        val existingFiles = com.junkfood.seal.download.engine.subtitle.download.SubtitleDownloader.findExistingSubtitleFiles(
-            destinationDir, resolvedTitle, videoId, targetFormat
-        )
-        if (existingFiles.isNotEmpty()) {
-            onProgress(SubtitleProgress.Completed(existingFiles.size))
-            return SubtitleDownloadResult.Success(
-                downloadedFiles = existingFiles,
-                tracks = emptyList(),
-                executionTimeMs = System.currentTimeMillis() - startTime
+        // 3. Check if subtitle files already exist in destination (unless forced re-download)
+        if (!preferences.forceRedownload) {
+            val targetFormat = com.junkfood.seal.download.engine.subtitle.model.SubtitleOutputFormat.fromExtension(
+                SubtitleOptionBuilder.getConvertSubsValue(preferences.convertSubtitle)
             )
+            val existingFiles = com.junkfood.seal.download.engine.subtitle.download.SubtitleDownloader.findExistingSubtitleFiles(
+                destinationDir, resolvedTitle, videoId, targetFormat
+            )
+            if (existingFiles.isNotEmpty()) {
+                onProgress(SubtitleProgress.Completed(existingFiles.size))
+                return SubtitleDownloadResult.Success(
+                    downloadedFiles = existingFiles,
+                    tracks = emptyList(),
+                    executionTimeMs = System.currentTimeMillis() - startTime
+                )
+            }
         }
 
         val err = directRes.exceptionOrNull()

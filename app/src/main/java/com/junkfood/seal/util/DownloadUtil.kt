@@ -247,6 +247,7 @@ object DownloadUtil {
         val forceIpv4: Boolean,
         val mergeAudioStream: Boolean,
         val mergeToMkv: Boolean,
+        val forceRedownload: Boolean = false,
     ) {
         companion object {
             val EMPTY =
@@ -304,6 +305,7 @@ object DownloadUtil {
                     mergeAudioStream = false,
                     mergeToMkv = false,
                     useCustomAudioPreset = false,
+                    forceRedownload = false,
                 )
 
             fun createFromPreferences(): DownloadPreferences {
@@ -363,8 +365,8 @@ object DownloadUtil {
                     supportAv1HardwareDecoding = checkIfAv1HardwareAccelerated(),
                     forceIpv4 = FORCE_IPV4.getBoolean(),
                     mergeAudioStream = false,
-                    mergeToMkv =
-                        (downloadSubtitle && embedSubtitle) || MERGE_OUTPUT_MKV.getBoolean(),
+                    mergeToMkv = embedSubtitle || MERGE_OUTPUT_MKV.getBoolean(),
+                    forceRedownload = ALLOW_REDOWNLOAD.getBoolean(),
                 )
             }
         }

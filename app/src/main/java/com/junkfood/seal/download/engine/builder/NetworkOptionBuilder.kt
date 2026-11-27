@@ -56,19 +56,41 @@ object NetworkOptionBuilder {
         url: String,
         userAgentString: String = "",
         appContext: Context = context,
+        acceptLanguage: String = "",
+        skipTranslatedSubs: Boolean = false,
     ): YoutubeDLRequest = request.apply {
         val ua = userAgentString.ifBlank { MODERN_BROWSER_USER_AGENT }
         addOption("--user-agent", ua)
-        addOption("--add-header", "Accept-Language: en-US,en;q=0.9,ar;q=0.8")
-        addOption("--add-header", "Sec-Fetch-Mode: navigate")
+        addOption(
+            "--add-header",
+            "Accept-Language: ${SubtitleOptionBuilder.buildAcceptLanguageHeader(acceptLanguage)}"
+        )
 
         val lowerUrl = url.lowercase()
         when {
             lowerUrl.contains("x.com") || lowerUrl.contains("twitter.com") -> {
                 addOption("--extractor-args", "twitter:api=syndication")
+                addOption("--add-header", "Referer: https://x.com/")
+            }
+            lowerUrl.contains("tiktok.com") -> {
+                addOption("--add-header", "Referer: https://www.tiktok.com/")
+            }
+            lowerUrl.contains("instagram.com") || lowerUrl.contains("instagr.am") -> {
+                addOption("--add-header", "Referer: https://www.instagram.com/")
+            }
+            lowerUrl.contains("facebook.com") || lowerUrl.contains("fb.watch") || lowerUrl.contains("fb.com") -> {
+                addOption("--add-header", "Referer: https://www.facebook.com/")
+            }
+            lowerUrl.contains("reddit.com") || lowerUrl.contains("v.redd.it") -> {
+                addOption("--add-header", "Referer: https://www.reddit.com/")
             }
             lowerUrl.contains("youtube.com") || lowerUrl.contains("youtu.be") -> {
-                addOption("--extractor-args", com.junkfood.seal.download.engine.subtitle.youtube.YoutubeClientStrategy.buildExtractorArgs())
+                addOption(
+                    "--extractor-args",
+                    com.junkfood.seal.download.engine.subtitle.youtube.YoutubeClientStrategy.buildExtractorArgs(
+                        skipTranslatedSubs = skipTranslatedSubs
+                    )
+                )
             }
         }
 

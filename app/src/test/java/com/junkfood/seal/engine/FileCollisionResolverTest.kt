@@ -50,5 +50,32 @@ class FileCollisionResolverTest {
 
         // Facebook URLs
         assertEquals("123456789012345", FileCollisionResolver.extractVideoId("https://www.facebook.com/reel/123456789012345"))
+        assertEquals("1AbCdEfGhI", FileCollisionResolver.extractVideoId("https://www.facebook.com/share/r/1AbCdEfGhI/?sfnsn=mo"))
+        assertEquals("1ZyXwVuTsR", FileCollisionResolver.extractVideoId("https://www.facebook.com/share/v/1ZyXwVuTsR/"))
+
+        // Threads & Reddit URLs
+        assertEquals("C9xYz12345", FileCollisionResolver.extractVideoId("https://www.threads.net/@user/post/C9xYz12345"))
+        assertEquals("1abcde9", FileCollisionResolver.extractVideoId("https://www.reddit.com/r/kotlin/comments/1abcde9/sample_post/"))
+    }
+
+    @Test
+    fun testSocialUrlNormalizationStripsTrackingAndNormalizesMirrors() {
+        val tiktok = com.junkfood.seal.util.SocialMediaUrlNormalizer.normalizeUrl(
+            "https://www.tiktok.com/@user/video/7123456789012345678?_r=1&_t=8abc&sec_uid=xyz&lang=en"
+        )
+        assertEquals(
+            "https://www.tiktok.com/@user/video/7123456789012345678?lang=en",
+            tiktok
+        )
+
+        val vxTwitter = com.junkfood.seal.util.SocialMediaUrlNormalizer.normalizeUrl(
+            "https://fxtwitter.com/user/status/1823456789012345678?s=20&t=foo"
+        )
+        assertEquals("https://x.com/user/status/1823456789012345678", vxTwitter)
+
+        val threads = com.junkfood.seal.util.SocialMediaUrlNormalizer.normalizeUrl(
+            "https://threads.com/@user/post/C9xYz12345?xmt=AQGz"
+        )
+        assertEquals("https://www.threads.net/@user/post/C9xYz12345", threads)
     }
 }

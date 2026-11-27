@@ -107,4 +107,39 @@ class PlaylistVerifierTest {
         val normFile = PlaylistVerifier.normalizeText(PlaylistVerifier.cleanFileNameForMatching(fileName))
         assertTrue(normFile.contains(normEntry))
     }
+
+    @Test
+    fun testIndexedTitleMatchRejectsUnrelatedTitles() {
+        val unrelatedRecord = PlaylistVerifier.LocalFileRecord(
+            name = "005 - Cooking Recipe Pasta.mp4",
+            absolutePath = "/tmp/005 - Cooking Recipe Pasta.mp4",
+            length = 4096L,
+            isPartial = false,
+            uri = null,
+            file = null,
+        )
+        val matchingRecord = PlaylistVerifier.LocalFileRecord(
+            name = "006 - Kotlin Flow Internals Part 2.mp4",
+            absolutePath = "/tmp/006 - Kotlin Flow Internals Part 2.mp4",
+            length = 4096L,
+            isPartial = false,
+            uri = null,
+            file = null,
+        )
+        val index = PlaylistVerifier.LocalFileIndex(listOf(unrelatedRecord, matchingRecord))
+
+        val falseHit = index.findByIndexedTitle(
+            index = 5,
+            normalizedTitle = PlaylistVerifier.normalizeText("Advanced Memory Management"),
+            exts = setOf("mp4")
+        )
+        assertEquals("Unrelated title with colliding index must not false-match", null, falseHit)
+
+        val validHit = index.findByIndexedTitle(
+            index = 6,
+            normalizedTitle = PlaylistVerifier.normalizeText("Kotlin Flow Internals"),
+            exts = setOf("mp4")
+        )
+        assertEquals(matchingRecord, validHit)
+    }
 }

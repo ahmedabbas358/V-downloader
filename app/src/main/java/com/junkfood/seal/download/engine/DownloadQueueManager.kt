@@ -76,6 +76,7 @@ class DownloadQueueManager(
     private val retryCountMap = mutableMapOf<String, Int>()
     private val priorityTaskIds = mutableSetOf<String>()
     private val pausedForWifiTaskIds = mutableSetOf<String>()
+    private val forceRedownloadTaskIds = mutableSetOf<String>()
 
     private fun isBlockedByMeteredNetwork(): Boolean {
         if (CELLULAR_DOWNLOAD.getBoolean()) return false
@@ -162,6 +163,8 @@ class DownloadQueueManager(
         if (removed) {
             retryCountMap.remove(task.id)
             priorityTaskIds.remove(task.id)
+            pausedForWifiTaskIds.remove(task.id)
+            forceRedownloadTaskIds.remove(task.id)
             if (!taskStateMap.hasActiveTasks()) {
                 App.stopServiceIfIdle()
             }
@@ -231,6 +234,20 @@ class DownloadQueueManager(
             taskStateMap[task] = state.copy(downloadState = nextState)
             processQueue()
         }
+    }
+
+    fun redownload(task: Task) {
+        val state = taskStateMap[task] ?: return
+        val currentDownloadState = state.downloadState
+        if (currentDownloadState is DownloadState.Cancelable) {
+            YoutubeDL.destroyProcessById(currentDownloadState.taskId)
+            currentDownloadState.job.cancel()
+        }
+        NotificationUtil.cancelNotification(task.id.hashCode())
+        retryCountMap.remove(task.id)
+        forceRedownloadTaskIds.add(task.id)
+        taskStateMap[task] = state.copy(info = null, downloadState = Idle)
+        processQueue()
     }
 
     fun processQueue() {
@@ -337,7 +354,9 @@ class DownloadQueueManager(
         val state = taskStateMap[task] ?: return
         if (state.downloadState != Idle) return
 
-        val existingPath = checkExistingFile(task)
+        val shouldBypassExistingCheck = task.preferences.forceRedownload || forceRedownloadTaskIds.contains(task.id)
+        val shouldCheckExisting = !shouldBypassExistingCheck && (task.type is TypeInfo.Playlist || task.preferences.useDownloadArchive)
+        val existingPath = if (shouldCheckExisting) checkExistingFile(task) else null
         if (existingPath != null) {
             Log.d(TAG, "File already exists on disk, completing task ${task.id}: $existingPath")
             taskStateMap[task] = state.copy(downloadState = Completed(existingPath))
@@ -440,7 +459,9 @@ class DownloadQueueManager(
         val state = taskStateMap[task] ?: return
         if (state.downloadState != ReadyWithInfo || state.videoInfo == null) return
 
-        val existingPath = checkExistingFile(task)
+        val isForcedRedownload = task.preferences.forceRedownload || forceRedownloadTaskIds.contains(task.id)
+        val shouldCheckExisting = !isForcedRedownload && (task.type is TypeInfo.Playlist || task.preferences.useDownloadArchive)
+        val existingPath = if (shouldCheckExisting) checkExistingFile(task) else null
         if (existingPath != null) {
             Log.d(TAG, "File already exists on disk, completing task ${task.id}: $existingPath")
             taskStateMap[task] = state.copy(downloadState = Completed(existingPath))
@@ -448,10 +469,16 @@ class DownloadQueueManager(
             return
         }
 
+        val effectiveTask = if (isForcedRedownload && !task.preferences.forceRedownload) {
+            task.copy(preferences = task.preferences.copy(forceRedownload = true))
+        } else {
+            task
+        }
+
         val job = scope.launch(Dispatchers.Default, start = kotlinx.coroutines.CoroutineStart.LAZY) {
             com.junkfood.seal.util.UpgradeManager.ensureInitialized(appContext)
             val result = DownloadTaskExecutor.executeDownload(
-                task = task,
+                task = effectiveTask,
                 videoInfo = state.videoInfo!!, // guarded: null check is on line 351
                 onProgressUpdate = { progress, progressText ->
                     val current = taskStateMap[task] ?: return@executeDownload
@@ -475,6 +502,7 @@ class DownloadQueueManager(
             )
 
             result.onSuccess { pathList ->
+                forceRedownloadTaskIds.remove(task.id)
                 val primaryPath = pathList.firstOrNull()
                 if (primaryPath != null) {
                     val actualLen = java.io.File(primaryPath).length().toDouble()
@@ -554,6 +582,7 @@ class DownloadQueueManager(
                         }
                     }
                     Log.w(TAG, "No subtitles available for task ${task.id} after retry, marking as skipped.")
+                    forceRedownloadTaskIds.remove(task.id)
                     val current = taskStateMap[task]
                     if (current != null) {
                         taskStateMap[task] = current.copy(
@@ -587,10 +616,15 @@ class DownloadQueueManager(
                     val fallbackTask = task.copy(
                         url = fallbackUrl,
                         type = playlistType.copy(isFallback = true),
-                        preferences = task.preferences.copy(downloadPlaylist = false)
+                        preferences = task.preferences.copy(
+                            downloadPlaylist = false,
+                            forceRedownload = isForcedRedownload
+                        )
                     )
                     val oldState = taskStateMap.remove(task)
                     if (oldState != null && oldState.videoInfo != null) {
+                        if (isForcedRedownload) forceRedownloadTaskIds.add(fallbackTask.id)
+                        forceRedownloadTaskIds.remove(task.id)
                         taskStateMap[fallbackTask] = oldState.copy(downloadState = ReadyWithInfo)
                         processQueue()
                         return@onFailure
@@ -598,6 +632,7 @@ class DownloadQueueManager(
                 }
 
                 // Permanent failure for this item: Mark as Error and gracefully advance to the next item
+                forceRedownloadTaskIds.remove(task.id)
                 val current = taskStateMap[task] ?: return@onFailure
                 taskStateMap[task] = current.copy(
                     downloadState = Error(throwable = throwable, action = Download)
@@ -642,11 +677,17 @@ class DownloadQueueManager(
     private fun executeCustomCommandTask(task: Task) {
         val template = (task.type as? TypeInfo.CustomCommand)?.template ?: return
         val state = taskStateMap[task] ?: return
+        val isForcedRedownload = task.preferences.forceRedownload || forceRedownloadTaskIds.contains(task.id)
+        val effectiveTask = if (isForcedRedownload && !task.preferences.forceRedownload) {
+            task.copy(preferences = task.preferences.copy(forceRedownload = true))
+        } else {
+            task
+        }
 
         val job = scope.launch(Dispatchers.Default, start = kotlinx.coroutines.CoroutineStart.LAZY) {
             com.junkfood.seal.util.UpgradeManager.ensureInitialized(appContext)
             val result = DownloadTaskExecutor.executeCustomCommand(
-                task = task,
+                task = effectiveTask,
                 template = template,
                 onProgressUpdate = { progress, progressText ->
                     val current = taskStateMap[task] ?: return@executeCustomCommand
@@ -671,6 +712,7 @@ class DownloadQueueManager(
             )
 
             result.onSuccess {
+                forceRedownloadTaskIds.remove(task.id)
                 val current = taskStateMap[task] ?: return@onSuccess
                 taskStateMap[task] = current.copy(downloadState = Completed(null))
                 NotificationUtil.finishNotification(
@@ -682,6 +724,7 @@ class DownloadQueueManager(
                 processQueue()
             }.onFailure { throwable ->
                 if (throwable is YoutubeDL.CanceledException) return@onFailure
+                forceRedownloadTaskIds.remove(task.id)
                 val current = taskStateMap[task] ?: return@onFailure
                 taskStateMap[task] = current.copy(
                     downloadState = Error(throwable = throwable, action = Download)
@@ -868,13 +911,32 @@ class DownloadQueueManager(
 
             for (file in files) {
                 val fileName = file.name
-                val isSubFile = fileName.endsWith(".srt", ignoreCase = true) ||
-                        fileName.endsWith(".vtt", ignoreCase = true) ||
-                        fileName.endsWith(".ass", ignoreCase = true) ||
-                        fileName.endsWith(".lrc", ignoreCase = true)
+                val lowerName = fileName.lowercase(Locale.ROOT)
+                val isSubFile = lowerName.endsWith(".srt") ||
+                        lowerName.endsWith(".vtt") ||
+                        lowerName.endsWith(".ass") ||
+                        lowerName.endsWith(".lrc")
+                val isAudioExt = lowerName.endsWith(".mp3") ||
+                        lowerName.endsWith(".m4a") ||
+                        lowerName.endsWith(".opus") ||
+                        lowerName.endsWith(".ogg") ||
+                        lowerName.endsWith(".flac") ||
+                        lowerName.endsWith(".wav") ||
+                        lowerName.endsWith(".aac")
+                val isVideoExt = lowerName.endsWith(".mp4") ||
+                        lowerName.endsWith(".mkv") ||
+                        lowerName.endsWith(".webm") ||
+                        lowerName.endsWith(".mov") ||
+                        lowerName.endsWith(".avi") ||
+                        lowerName.endsWith(".flv") ||
+                        lowerName.endsWith(".3gp") ||
+                        lowerName.endsWith(".ts")
+                val isAudioTask = !isSubtitleOnly && preferences.extractAudio
 
                 if (isSubtitleOnly && !isSubFile) continue
                 if (!isSubtitleOnly && isSubFile) continue
+                if (isAudioTask && !isAudioExt) continue
+                if (!isSubtitleOnly && !isAudioTask && !isVideoExt) continue
 
                 // 1. Exact Video ID match (minimum 6 chars, non-generic)
                 if (!isGenericId && (fileName.contains("[$extractedId]") || fileName.contains("-$extractedId") || fileName.contains("_$extractedId"))) {

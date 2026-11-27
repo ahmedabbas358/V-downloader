@@ -9,6 +9,7 @@ import com.junkfood.seal.util.LOW
 import com.junkfood.seal.util.M4A
 import com.junkfood.seal.util.MEDIUM
 import com.junkfood.seal.util.OPUS
+import com.junkfood.seal.util.ULTRA_LOW
 import com.junkfood.seal.util.connectWithDelimiter
 
 /**
@@ -141,6 +142,7 @@ object FormatSelectorBuilder {
                     HIGH -> "abr~192"
                     MEDIUM -> "abr~128"
                     LOW -> "abr~64"
+                    ULTRA_LOW -> "abr~32"
                     else -> ""
                 }
             return@run connectWithDelimiter(format, quality, delimiter = ",")

@@ -153,11 +153,11 @@ object SubtitleOptionBuilder {
     fun buildForMediaWithSubtitles(
         subtitleLanguage: String,
         convertSubtitle: Int,
-        autoSubtitle: Boolean = true,
-        autoTranslatedSubtitles: Boolean = true,
+        autoSubtitle: Boolean = false,
+        autoTranslatedSubtitles: Boolean = false,
         embedSubtitle: Boolean = false,
     ): SubtitleOptions {
-        val shouldWriteAutoSubs = autoSubtitle || autoTranslatedSubtitles || embedSubtitle
+        val shouldWriteAutoSubs = autoSubtitle || autoTranslatedSubtitles
         val subFormat = if (embedSubtitle) "srt" else getConvertSubsValue(convertSubtitle)
         return SubtitleOptions(
             writeSubs = true,

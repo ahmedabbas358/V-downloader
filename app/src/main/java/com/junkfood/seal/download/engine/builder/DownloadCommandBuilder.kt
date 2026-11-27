@@ -69,7 +69,13 @@ object DownloadCommandBuilder {
             }
 
             // Apply platform-specific resilience, browser headers & extractor args
-            NetworkOptionBuilder.applySocialMediaOptions(this, normalizedUrl, preferences.userAgentString)
+            NetworkOptionBuilder.applySocialMediaOptions(
+                request = this,
+                url = normalizedUrl,
+                userAgentString = preferences.userAgentString,
+                acceptLanguage = preferences.subtitleLanguage,
+                skipTranslatedSubs = !preferences.autoTranslatedSubtitles,
+            )
 
             if (preferences.cookies) {
                 NetworkOptionBuilder.applyCookies(this, preferences.userAgentString)
@@ -115,7 +121,14 @@ object DownloadCommandBuilder {
             }
 
             // Platform-specific options, browser headers & extractor args
-            NetworkOptionBuilder.applySocialMediaOptions(this, normalizedUrl, preferences.userAgentString, appContext)
+            NetworkOptionBuilder.applySocialMediaOptions(
+                request = this,
+                url = normalizedUrl,
+                userAgentString = preferences.userAgentString,
+                appContext = appContext,
+                acceptLanguage = preferences.subtitleLanguage,
+                skipTranslatedSubs = !preferences.autoTranslatedSubtitles,
+            )
 
             // Network & Cookies
             if (preferences.cookies) {
@@ -131,7 +144,9 @@ object DownloadCommandBuilder {
                 addOption("--restrict-filenames")
             }
 
-            if (preferences.useDownloadArchive) {
+            if (preferences.forceRedownload) {
+                addOption("--force-overwrites")
+            } else if (preferences.useDownloadArchive) {
                 addOption("--download-archive", appContext.getArchiveFile().absolutePath)
             }
 
@@ -255,6 +270,8 @@ object DownloadCommandBuilder {
             val sorter = FormatSelectorBuilder.toFormatSorter(preferences)
             applyFormatSorter(request, preferences, sorter)
 
+            val effectiveMkv = mergeToMkv || embedSubtitle
+
             // Subtitle options
             if (downloadSubtitle || embedSubtitle) {
                 val subOpts = SubtitleOptionBuilder.buildForMediaWithSubtitles(
@@ -264,11 +281,16 @@ object DownloadCommandBuilder {
                     autoTranslatedSubtitles = autoTranslatedSubtitles,
                     embedSubtitle = embedSubtitle,
                 )
-                applySubtitleOptions(this@apply, subOpts, isMkv = mergeToMkv)
+                applySubtitleOptions(
+                    request = this@apply,
+                    options = subOpts,
+                    isMkv = effectiveMkv,
+                    keepSubtitle = keepSubtitle,
+                )
             }
 
-            // Container format
-            if (mergeToMkv) {
+            // Container format (remux to MKV when embedding soft-subs to avoid mov_text codec failures)
+            if (effectiveMkv) {
                 addOption("--remux-video", "mkv")
                 addOption("--merge-output-format", "mkv")
             } else {
@@ -326,15 +348,18 @@ object DownloadCommandBuilder {
                 if (mergeAudioStream) {
                     addOption("--audio-multistreams")
                 }
-            } else if (convertAudio) {
+            } else {
+                addOption("-f", "bestaudio/best")
+                val audioSorter = FormatSelectorBuilder.toAudioFormatSorter(preferences)
+                applyFormatSorter(this@apply, preferences, audioSorter)
+            }
+
+            if (convertAudio) {
                 when (audioConvertFormat) {
                     CONVERT_MP3 -> addOption("--audio-format", "mp3")
                     CONVERT_M4A -> addOption("--audio-format", "m4a")
                     CONVERT_OPUS -> addOption("--audio-format", "opus")
                 }
-            } else {
-                val audioSorter = FormatSelectorBuilder.toAudioFormatSorter(preferences)
-                applyFormatSorter(this@apply, preferences, audioSorter)
             }
 
             if (embedMetadata) {
@@ -375,7 +400,9 @@ object DownloadCommandBuilder {
             if (preferences.aria2c) {
                 NetworkOptionBuilder.applyDownloaderAcceleration(this, true, preferences.concurrentFragments)
             }
-            if (preferences.useDownloadArchive) {
+            if (preferences.forceRedownload) {
+                addOption("--force-overwrites")
+            } else if (preferences.useDownloadArchive) {
                 addOption("--download-archive", appContext.getArchiveFile().absolutePath)
             }
             if (preferences.restrictFilenames) {
@@ -399,21 +426,25 @@ object DownloadCommandBuilder {
         request: YoutubeDLRequest,
         options: SubtitleOptionBuilder.SubtitleOptions,
         isMkv: Boolean = true,
+        keepSubtitle: Boolean = false,
     ) {
         if (options.writeSubs) request.addOption("--write-subs")
-        if (options.writeAutoSubs || options.embedSubs) request.addOption("--write-auto-subs")
+        if (options.writeAutoSubs) request.addOption("--write-auto-subs")
         if (options.subLangs.isNotEmpty()) request.addOption("--sub-langs", options.subLangs)
         if (options.subFormat.isNotEmpty()) request.addOption("--sub-format", options.subFormat)
-        if (options.embedSubs) {
+        // If user wants to keep external subtitle files alongside embedded subtitles,
+        // skip yt-dlp --embed-subs (which deletes external files) and let PostDownloadCoordinator mux cleanly via FFmpeg.
+        if (options.embedSubs && !keepSubtitle) {
             request.addOption("--embed-subs")
             val fmt = if (isMkv) {
                 if (options.convertSubs.equals("lrc", ignoreCase = true)) "srt" else options.convertSubs.ifEmpty { "srt" }
             } else {
-                "srt" // MP4 container requires mov_text compatible srt/vtt
+                "srt"
             }
             request.addOption("--convert-subs", fmt)
         } else if (options.convertSubs.isNotEmpty()) {
-            request.addOption("--convert-subs", options.convertSubs)
+            val fmt = if (options.embedSubs && options.convertSubs.equals("lrc", ignoreCase = true)) "srt" else options.convertSubs
+            request.addOption("--convert-subs", fmt)
         }
         request.addOption("--no-abort-on-error")
         request.addOption("--ignore-errors")

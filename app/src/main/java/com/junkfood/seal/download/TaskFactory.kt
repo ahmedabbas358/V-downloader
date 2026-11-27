@@ -31,6 +31,11 @@ object TaskFactory {
         skipDownload: Boolean = false,
         subtitleFormat: Int = com.junkfood.seal.util.CONVERT_SUBTITLE.getInt(),
         embedSubtitle: Boolean = com.junkfood.seal.util.EMBED_SUBTITLE.getBoolean(),
+        downloadSubtitleOverride: Boolean? = null,
+        keepSubtitle: Boolean? = null,
+        autoSubtitle: Boolean? = null,
+        autoTranslatedSubtitles: Boolean? = null,
+        forceRedownload: Boolean? = null,
     ): TaskWithState {
         val fileSize = if (skipDownload) 0.0 else {
             formatList.fold(.0) { acc, format ->
@@ -68,10 +73,15 @@ object TaskFactory {
         val chosenSubs = (selectedSubtitles + selectedAutoCaptions).distinct().filter { it.isNotBlank() }
         val subtitleLanguage = chosenSubs.joinToString(separator = ",")
         val hasSelectedSubs = subtitleLanguage.isNotEmpty()
+        val hasSelectedAutoSubs = selectedAutoCaptions.any { it.isNotBlank() }
 
         val preferences =
             DownloadPreferences.createFromPreferences()
                 .run {
+                    val effectiveEmbedSubtitle = if (skipDownload || isAudioOnlySelected) false else embedSubtitle
+                    val effectiveDownloadSubtitle = (downloadSubtitleOverride ?: (downloadSubtitle || skipDownload)) || hasSelectedSubs || effectiveEmbedSubtitle
+                    val effectiveAutoSubtitle = if (hasSelectedAutoSubs) true else (autoSubtitle ?: this.autoSubtitle)
+                    val effectiveAutoTranslated = autoTranslatedSubtitles ?: this.autoTranslatedSubtitles
                     copy(
                         formatIdString = if (skipDownload) "" else formatId,
                         videoClips = if (skipDownload) emptyList() else videoClips.filter { it.end > it.start },
@@ -80,12 +90,15 @@ object TaskFactory {
                         mergeAudioStream = if (skipDownload) false else mergeAudioStream,
                         extractAudio = if (skipDownload || videoFormats.isNotEmpty()) false else (extractAudio || isAudioOnlySelected),
                         skipDownload = skipDownload,
-                        downloadSubtitle = downloadSubtitle || skipDownload || hasSelectedSubs || embedSubtitle,
+                        downloadSubtitle = effectiveDownloadSubtitle,
                         convertSubtitle = subtitleFormat,
-                        embedSubtitle = if (skipDownload || isAudioOnlySelected) false else (embedSubtitle || this.embedSubtitle),
-                        autoSubtitle = if (hasSelectedSubs) true else (autoSubtitle || skipDownload || embedSubtitle),
-                        autoTranslatedSubtitles = if (hasSelectedSubs) true else autoTranslatedSubtitles,
-                        subtitleLanguage = if (hasSelectedSubs) subtitleLanguage else this.subtitleLanguage.ifEmpty { 
+                        embedSubtitle = effectiveEmbedSubtitle,
+                        keepSubtitle = keepSubtitle ?: this.keepSubtitle,
+                        autoSubtitle = effectiveAutoSubtitle,
+                        autoTranslatedSubtitles = effectiveAutoTranslated,
+                        forceRedownload = forceRedownload ?: this.forceRedownload,
+                        mergeToMkv = mergeToMkv || effectiveEmbedSubtitle,
+                        subtitleLanguage = if (hasSelectedSubs) subtitleLanguage else this.subtitleLanguage.ifEmpty {
                             com.junkfood.seal.util.SUBTITLE_LANGUAGE.getString().ifEmpty { java.util.Locale.getDefault().language.ifBlank { "ar" } }
                         },
                     )
@@ -123,15 +136,17 @@ object TaskFactory {
                 splitByChapter = false,
                 videoClips = emptyList(),
                 downloadSubtitle = true,
-                autoSubtitle = true,
+                autoSubtitle = preferences.autoSubtitle,
                 subtitleLanguage = preferences.subtitleLanguage,
-                autoTranslatedSubtitles = true,
+                autoTranslatedSubtitles = preferences.autoTranslatedSubtitles,
                 convertSubtitle = preferences.convertSubtitle,
                 playlistNumbering = preferences.playlistNumbering,
             )
         } else {
             preferences.copy(
                 extractAudio = preferences.extractAudio,
+                downloadSubtitle = preferences.downloadSubtitle || preferences.embedSubtitle,
+                mergeToMkv = preferences.mergeToMkv || preferences.embedSubtitle,
                 formatIdString = if (preferences.extractAudio) "" else (if (preferences.formatIdString.isNotEmpty()) com.junkfood.seal.download.engine.builder.FormatSelectorBuilder.ensureAudioMerged(preferences.formatIdString) else ""),
             )
         }

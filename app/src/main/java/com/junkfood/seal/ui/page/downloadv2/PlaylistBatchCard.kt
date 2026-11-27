@@ -317,6 +317,16 @@ fun PlaylistBatchCard(
                                     }
                                 )
                             }
+                            if (!isRunning && completedCount > 0) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.redownload_playlist_items)) },
+                                    leadingIcon = { Icon(Icons.Rounded.Refresh, contentDescription = null) },
+                                    onClick = {
+                                        tasks.forEach { (task, _) -> onActionPost(task, UiAction.Redownload) }
+                                        showMenu = false
+                                    }
+                                )
+                            }
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.open_playlist_folder)) },
                                 leadingIcon = { Icon(Icons.Outlined.FolderOpen, contentDescription = null) },

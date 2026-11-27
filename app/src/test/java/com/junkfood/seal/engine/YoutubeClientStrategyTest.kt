@@ -47,4 +47,20 @@ class YoutubeClientStrategyTest {
         assertNotNull(nextChain)
         assertTrue(nextChain!!.contains(YoutubeClient.TV_EMBED))
     }
+
+    @Test
+    fun testSkipTranslatedSubsArg() {
+        val chain = listOf(YoutubeClient.WEB, YoutubeClient.DEFAULT)
+        val argsWithSkip = YoutubeClientStrategy.buildExtractorArgs(
+            clientChain = chain,
+            skipTranslatedSubs = true
+        )
+        assertEquals("youtube:player_client=web,default;skip=translated_subs", argsWithSkip)
+
+        val argsWithoutSkip = YoutubeClientStrategy.buildExtractorArgs(
+            clientChain = chain,
+            skipTranslatedSubs = false
+        )
+        assertEquals("youtube:player_client=web,default", argsWithoutSkip)
+    }
 }

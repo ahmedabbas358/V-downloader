@@ -126,6 +126,13 @@ object DatabaseUtil {
 
     suspend fun getInfoById(id: Int): DownloadedVideoInfo = dao.getInfoById(id)
 
+    suspend fun isUrlDownloaded(url: String): Boolean {
+        val trimmed = url.trim()
+        if (trimmed.isBlank()) return false
+        val normalized = SocialMediaUrlNormalizer.normalizeUrl(trimmed)
+        return dao.countByUrl(trimmed, normalized) > 0
+    }
+
     suspend fun deleteInfoById(id: Int) = dao.deleteInfoById(id)
 
     suspend fun insertTemplate(commandTemplate: CommandTemplate) =
