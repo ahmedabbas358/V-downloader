@@ -18,10 +18,13 @@ import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.ModalBottomSheetState
 import androidx.compose.material.ModalBottomSheetValue
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.OpenInNew
+import androidx.compose.material.icons.outlined.ContentCut
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.outlined.Subtitles
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -29,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -60,6 +64,8 @@ fun VideoDetailDrawer(
     isFileAvailable: Boolean = true,
     onDismissRequest: () -> Unit = {},
     onDelete: () -> Unit = {},
+    onTrimMedia: ((java.io.File) -> Unit)? = null,
+    onAdjustSubtitle: ((java.io.File) -> Unit)? = null,
 ) {
     val uriHandler = LocalUriHandler.current
     val view = LocalView.current
@@ -81,6 +87,17 @@ fun VideoDetailDrawer(
             }
         }
 
+    val localFile = remember(info.videoPath) {
+        if (info.videoPath.startsWith("content://", ignoreCase = true)) null
+        else java.io.File(info.videoPath).takeIf { it.exists() }
+    }
+    val canTrim = remember(localFile) {
+        localFile != null && (FileUtil.isVideoFile(localFile) || FileUtil.isAudioFile(localFile))
+    }
+    val canAdjustSub = remember(localFile) {
+        localFile != null && FileUtil.isSubtitleFile(localFile)
+    }
+
     val shareTitle = stringResource(id = R.string.share)
     with(info) {
         VideoDetailDrawerImpl(
@@ -101,12 +118,33 @@ fun VideoDetailDrawer(
                 onDismissRequest()
                 uriHandler.openUri(videoUrl)
             },
+            onOpenExternal = {
+                view.slightHapticFeedback()
+                onDismissRequest()
+                FileUtil.openFile(path = videoPath) {
+                    ToastUtil.makeToastSuspend(context.getString(R.string.file_unavailable))
+                }
+            },
             onShareFile = {
                 view.slightHapticFeedback()
                 FileUtil.createIntentForSharingFile(videoPath)?.runCatching {
                     context.startActivity(Intent.createChooser(this, shareTitle))
                 }
             },
+            onTrimMedia = if (canTrim && onTrimMedia != null && localFile != null) {
+                {
+                    view.slightHapticFeedback()
+                    onDismissRequest()
+                    onTrimMedia(localFile)
+                }
+            } else null,
+            onAdjustSubtitle = if (canAdjustSub && onAdjustSubtitle != null && localFile != null) {
+                {
+                    view.slightHapticFeedback()
+                    onDismissRequest()
+                    onAdjustSubtitle(localFile)
+                }
+            } else null,
         )
     }
 }
@@ -139,7 +177,10 @@ fun VideoDetailDrawerImpl(
     onReDownload: (() -> Unit) = {},
     onDelete: () -> Unit = {},
     onOpenLink: () -> Unit = {},
+    onOpenExternal: (() -> Unit)? = null,
     onShareFile: () -> Unit = {},
+    onTrimMedia: (() -> Unit)? = null,
+    onAdjustSubtitle: (() -> Unit)? = null,
 ) {
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
@@ -191,15 +232,35 @@ fun VideoDetailDrawerImpl(
                         .horizontalScroll(rememberScrollState())
                         .padding(top = 24.dp)
                         .padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
             ) {
                 OutlinedButtonWithIcon(
-                    modifier = Modifier.padding(horizontal = 12.dp),
                     onClick = onDelete,
                     icon = Icons.Outlined.Delete,
                     text = stringResource(R.string.remove),
                 )
                 if (isFileAvailable) {
+                    if (onTrimMedia != null) {
+                        OutlinedButtonWithIcon(
+                            onClick = onTrimMedia,
+                            icon = Icons.Outlined.ContentCut,
+                            text = stringResource(R.string.trim_media),
+                        )
+                    }
+                    if (onAdjustSubtitle != null) {
+                        OutlinedButtonWithIcon(
+                            onClick = onAdjustSubtitle,
+                            icon = Icons.Outlined.Subtitles,
+                            text = stringResource(R.string.subtitle_adjust_title),
+                        )
+                    }
+                    if (onOpenExternal != null) {
+                        OutlinedButtonWithIcon(
+                            onClick = onOpenExternal,
+                            icon = Icons.AutoMirrored.Outlined.OpenInNew,
+                            text = stringResource(R.string.open_with),
+                        )
+                    }
                     FilledTonalButtonWithIcon(
                         onClick = onShareFile,
                         icon = Icons.Outlined.Share,

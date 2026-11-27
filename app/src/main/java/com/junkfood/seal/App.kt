@@ -44,8 +44,16 @@ import com.junkfood.seal.util.VIDEO_DIRECTORY
 import com.junkfood.seal.util.YT_DLP_VERSION
 import com.junkfood.seal.util.YT_DLP_UPDATE_TIME
 import com.junkfood.seal.util.PreferenceUtil.getLong
+import com.junkfood.seal.util.AUTO_PLAYLIST_SYNC
+import com.junkfood.seal.util.PreferenceUtil.getBoolean
+import com.junkfood.seal.worker.PlaylistSyncWorker
 import com.junkfood.seal.worker.YtDlpUpdateWorker
+import androidx.core.content.pm.ShortcutInfoCompat
+import androidx.core.content.pm.ShortcutManagerCompat
+import androidx.core.graphics.drawable.IconCompat
+import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import java.util.concurrent.TimeUnit
@@ -131,6 +139,7 @@ class App : Application() {
         Thread.setDefaultUncaughtExceptionHandler { _, e -> startCrashReportActivity(e) }
         
         setupWorkManager()
+        refreshAppShortcuts(this)
     }
 
     private fun setupWorkManager() {
@@ -141,6 +150,7 @@ class App : Application() {
             ExistingPeriodicWorkPolicy.KEEP,
             updateRequest
         )
+        updatePlaylistSyncSchedule(AUTO_PLAYLIST_SYNC.getBoolean())
     }
 
     private fun startCrashReportActivity(th: Throwable) {
@@ -330,6 +340,59 @@ class App : Application() {
         fun isFDroidBuild(): Boolean = BuildConfig.FLAVOR == "fdroid"
 
         fun isDebugBuild(): Boolean = BuildConfig.DEBUG
+
+        /**
+         * Enables or cancels periodic background playlist monitoring on unmetered Wi-Fi.
+         */
+        fun updatePlaylistSyncSchedule(enabled: Boolean = AUTO_PLAYLIST_SYNC.getBoolean()) {
+            val wm = WorkManager.getInstance(context.applicationContext)
+            if (enabled) {
+                val constraints = Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.UNMETERED)
+                    .setRequiresBatteryNotLow(true)
+                    .build()
+                val syncRequest = PeriodicWorkRequestBuilder<PlaylistSyncWorker>(12, TimeUnit.HOURS)
+                    .setConstraints(constraints)
+                    .build()
+                wm.enqueueUniquePeriodicWork(
+                    PlaylistSyncWorker.WORK_NAME,
+                    ExistingPeriodicWorkPolicy.UPDATE,
+                    syncRequest,
+                )
+            } else {
+                wm.cancelUniqueWork(PlaylistSyncWorker.WORK_NAME)
+            }
+        }
+
+        /**
+         * Publishes localized dynamic launcher shortcuts on supported Android launchers.
+         */
+        fun refreshAppShortcuts(appContext: Context = context) {
+            runCatching {
+                val quickDownloadIntent = Intent(appContext, QuickDownloadActivity::class.java).apply {
+                    action = "com.junkfood.seal.action.QUICK_DOWNLOAD"
+                }
+                val openAppIntent = Intent(appContext, MainActivity::class.java).apply {
+                    action = Intent.ACTION_MAIN
+                }
+                val quickShortcut = ShortcutInfoCompat.Builder(appContext, "dynamic_quick_download")
+                    .setShortLabel(appContext.getString(R.string.quick_download_short_label))
+                    .setLongLabel(appContext.getString(R.string.quick_download_long_label))
+                    .setIcon(IconCompat.createWithResource(appContext, R.drawable.ic_download))
+                    .setIntent(quickDownloadIntent)
+                    .build()
+                val mainShortcut = ShortcutInfoCompat.Builder(appContext, "dynamic_open_queue")
+                    .setShortLabel(appContext.getString(R.string.download_queue))
+                    .setLongLabel(appContext.getString(R.string.download_queue))
+                    .setIcon(IconCompat.createWithResource(appContext, R.drawable.ic_download))
+                    .setIntent(openAppIntent)
+                    .build()
+                ShortcutManagerCompat.setDynamicShortcuts(
+                    appContext,
+                    listOf(quickShortcut, mainShortcut),
+                )
+            }
+        }
 
         @SuppressLint("StaticFieldLeak") lateinit var context: Context
     }

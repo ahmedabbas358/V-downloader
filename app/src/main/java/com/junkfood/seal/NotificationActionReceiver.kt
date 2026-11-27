@@ -27,6 +27,7 @@ class NotificationActionReceiver : BroadcastReceiver(), KoinComponent {
         const val ACTION_RETRY_TASK = 3
         const val ACTION_OPEN_FILE = 4
         const val ACTION_SHARE_FILE = 5
+        const val ACTION_PAUSE_TASK = 6
 
         const val ACTION_KEY = PACKAGE_NAME_PREFIX + "action"
         const val TASK_ID_KEY = PACKAGE_NAME_PREFIX + "taskId"
@@ -63,9 +64,31 @@ class NotificationActionReceiver : BroadcastReceiver(), KoinComponent {
                 if (!taskId.isNullOrEmpty()) {
                     val task = downloader.getTaskStateMap().keys.find { it.id == taskId }
                     if (task != null) {
-                        downloader.restart(task)
                         NotificationUtil.cancelNotification(notificationId)
+                        downloader.restart(task)
                         ToastUtil.makeToastSuspend(context?.getString(R.string.resume) ?: "Retrying…")
+                    } else {
+                        context?.packageManager?.getLaunchIntentForPackage(context.packageName)?.let { launchIntent ->
+                            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                            context.startActivity(launchIntent)
+                        }
+                    }
+                }
+            }
+
+            ACTION_PAUSE_TASK -> {
+                val taskId = intent.getStringExtra(TASK_ID_KEY)
+                if (!taskId.isNullOrEmpty()) {
+                    val entry = downloader.getTaskStateMap().entries.find { it.key.id == taskId }
+                    if (entry != null) {
+                        downloader.pause(entry.key)
+                        NotificationUtil.notifyPaused(
+                            title = entry.value.viewState.title,
+                            notificationId = notificationId,
+                            taskId = taskId,
+                        )
+                    } else {
+                        cancelTask(taskId, notificationId)
                     }
                 }
             }

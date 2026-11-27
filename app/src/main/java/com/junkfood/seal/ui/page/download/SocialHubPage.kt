@@ -159,7 +159,10 @@ fun SocialHubPage(
                 },
                 navigationIcon = {
                     IconButton(onClick = onMenuOpen) {
-                        Icon(Icons.Outlined.Menu, contentDescription = "Menu")
+                        Icon(
+                            Icons.Outlined.Menu,
+                            contentDescription = stringResource(R.string.show_navigation_drawer),
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)

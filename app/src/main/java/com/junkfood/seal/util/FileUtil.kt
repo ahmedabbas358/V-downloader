@@ -287,18 +287,46 @@ object FileUtil {
     fun Context.getFileProvider() = "$packageName.provider"
 
     fun String.getFileSize(): Long =
-        this.run {
+        if (startsWith("content://", ignoreCase = true)) {
+            DocumentFile.fromSingleUri(context, Uri.parse(this))?.length() ?: 0L
+        } else {
             val length = File(this).length()
             if (length == 0L) DocumentFile.fromSingleUri(context, Uri.parse(this))?.length() ?: 0L
             else length
         }
 
     fun String.getFileName(): String =
-        this.run {
+        if (startsWith("content://", ignoreCase = true)) {
+            DocumentFile.fromSingleUri(context, Uri.parse(this))
+                ?.name
+                ?.substringBeforeLast('.')
+                ?.ifBlank { "video" }
+                ?: "video"
+        } else {
             File(this).nameWithoutExtension.ifEmpty {
                 DocumentFile.fromSingleUri(context, Uri.parse(this))?.name ?: "video"
             }
         }
+
+    /**
+     * Discovers matching sidecar subtitle files (.srt, .vtt, .ass) adjacent to a local media file.
+     */
+    fun findSiblingSubtitles(mediaFile: File): List<File> {
+        val parent = mediaFile.parentFile ?: return emptyList()
+        if (!parent.exists() || !parent.isDirectory) return emptyList()
+        val stem = mediaFile.nameWithoutExtension
+        val subtitleExtensions = setOf("srt", "vtt", "ass")
+        return parent.listFiles()
+            ?.filter { candidate ->
+                candidate.isFile &&
+                    candidate.length() > 0L &&
+                    candidate.extension.lowercase() in subtitleExtensions &&
+                    (candidate.nameWithoutExtension.equals(stem, ignoreCase = true) ||
+                        candidate.nameWithoutExtension.startsWith("$stem.", ignoreCase = true))
+            }
+            ?.sortedBy { it.name.lowercase() }
+            ?: emptyList()
+    }
 
     fun deleteFile(path: String) =
         path.runCatching {

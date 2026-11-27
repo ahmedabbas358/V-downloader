@@ -13,15 +13,23 @@ class PlaylistVerifierTest {
     fun testSubtitleLanguageStripping() {
         val fileName1 = "035 - #34 Event-Driven Programming Part-2 [l69ghMpsp6w].ar-en-US.srt"
         val cleaned1 = PlaylistVerifier.cleanFileNameForMatching(fileName1)
-        assertEquals("035 - #34 Event-Driven Programming Part-2 [l69ghMpsp6w]", cleaned1)
+        assertEquals("#34 Event-Driven Programming Part-2", cleaned1)
 
         val fileName2 = "035 - #34 Event-Driven Programming Part-2 [l69ghMpsp6w].ar.srt"
         val cleaned2 = PlaylistVerifier.cleanFileNameForMatching(fileName2)
-        assertEquals("035 - #34 Event-Driven Programming Part-2 [l69ghMpsp6w]", cleaned2)
+        assertEquals("#34 Event-Driven Programming Part-2", cleaned2)
 
         val fileName3 = "001 - Introduction to Algorithms [1080p].synced.vtt"
         val cleaned3 = PlaylistVerifier.cleanFileNameForMatching(fileName3)
-        assertEquals("001 - Introduction to Algorithms", cleaned3)
+        assertEquals("Introduction to Algorithms", cleaned3)
+    }
+
+    @Test
+    fun testTimestampParsingForMediaTrimmer() {
+        assertEquals(65.0, com.junkfood.seal.util.MediaProcessingEngine.parseTimestampSeconds("00:01:05")!!, 0.001)
+        assertEquals(3661.5, com.junkfood.seal.util.MediaProcessingEngine.parseTimestampSeconds("01:01:01.5")!!, 0.001)
+        assertEquals(12.25, com.junkfood.seal.util.MediaProcessingEngine.parseTimestampSeconds("12.25")!!, 0.001)
+        assertEquals(null, com.junkfood.seal.util.MediaProcessingEngine.parseTimestampSeconds("invalid"))
     }
 
     @Test

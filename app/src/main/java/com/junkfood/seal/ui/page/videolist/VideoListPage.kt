@@ -10,6 +10,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,10 +21,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridItemSpanScope
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.ModalBottomSheetValue
@@ -181,8 +183,10 @@ fun VideoListPage(
 
     var showExportDialog by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
+    var trimmingMediaFile by remember { mutableStateOf<java.io.File?>(null) }
+    var adjustingSubtitleFile by remember { mutableStateOf<java.io.File?>(null) }
 
-    val lazyListState = rememberLazyListState()
+    val lazyGridState = rememberLazyGridState()
 
     @Composable
     fun FilterChips(modifier: Modifier = Modifier) {
@@ -311,7 +315,7 @@ fun VideoListPage(
                                     if (it) {
                                         scope.launch {
                                             delay(50)
-                                            lazyListState.animateScrollToItem(0)
+                                            lazyGridState.animateScrollToItem(0)
                                         }
                                     }
                                 },
@@ -458,9 +462,15 @@ fun VideoListPage(
                 else -> 1
             }
         val span: (LazyGridItemSpanScope) -> GridItemSpan = { GridItemSpan(cellCount) }
-        LazyColumn(modifier = Modifier, state = lazyListState, contentPadding = innerPadding) {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(cellCount),
+            modifier = Modifier,
+            state = lazyGridState,
+            contentPadding = innerPadding,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             if (fullVideoList.isNotEmpty()) {
-                item {
+                item(span = span) {
                     Column {
                         AnimatedVisibility(visible = viewState.isSearching) {
                             SealSearchBar(
@@ -541,6 +551,22 @@ fun VideoListPage(
                 scope.launch { sheetState.hide() }.invokeOnCompletion { showBottomSheet = false }
             },
             onDelete = { showRemoveDialog = true },
+            onTrimMedia = { trimmingMediaFile = it },
+            onAdjustSubtitle = { adjustingSubtitleFile = it },
+        )
+    }
+
+    trimmingMediaFile?.let { file ->
+        com.junkfood.seal.ui.component.MediaTrimmerDialog(
+            file = file,
+            onDismissRequest = { trimmingMediaFile = null },
+        )
+    }
+
+    adjustingSubtitleFile?.let { file ->
+        com.junkfood.seal.ui.component.SubtitleAdjustDialog(
+            file = file,
+            onDismissRequest = { adjustingSubtitleFile = null },
         )
     }
 

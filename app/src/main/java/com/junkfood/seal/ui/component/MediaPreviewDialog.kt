@@ -84,7 +84,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
@@ -129,12 +132,40 @@ fun MediaPreviewDialog(
     var playerKey by remember { mutableStateOf(0) }
 
     val exoPlayer = remember(file, playerKey) {
-        ExoPlayer.Builder(context).build().apply {
+        val audioAttributes = AudioAttributes.Builder()
+            .setUsage(C.USAGE_MEDIA)
+            .setContentType(if (isVideo) C.AUDIO_CONTENT_TYPE_MOVIE else C.AUDIO_CONTENT_TYPE_MUSIC)
+            .build()
+
+        ExoPlayer.Builder(context)
+            .setAudioAttributes(audioAttributes, true)
+            .setHandleAudioBecomingNoisy(true)
+            .build()
+            .apply {
             playbackError = null
             try {
                 if (file.exists()) {
                     val mediaUri = FileUtil.createUriForFile(file) ?: Uri.fromFile(file)
-                    val mediaItem = MediaItem.fromUri(mediaUri)
+                    val siblingSubs = if (isVideo) {
+                        FileUtil.findSiblingSubtitles(file).mapIndexed { index, subFile ->
+                            val mimeType = when (subFile.extension.lowercase()) {
+                                "vtt" -> MimeTypes.TEXT_VTT
+                                "ass", "ssa" -> MimeTypes.TEXT_SSA
+                                else -> MimeTypes.APPLICATION_SUBRIP
+                            }
+                            val subUri = FileUtil.createUriForFile(subFile) ?: Uri.fromFile(subFile)
+                            MediaItem.SubtitleConfiguration.Builder(subUri)
+                                .setMimeType(mimeType)
+                                .setLabel(subFile.name)
+                                .setSelectionFlags(if (index == 0) C.SELECTION_FLAG_DEFAULT else 0)
+                                .build()
+                        }
+                    } else emptyList()
+
+                    val mediaItem = MediaItem.Builder()
+                        .setUri(mediaUri)
+                        .setSubtitleConfigurations(siblingSubs)
+                        .build()
                     setMediaItem(mediaItem)
                     setPlaybackSpeed(playbackSpeed)
                     prepare()
@@ -195,6 +226,12 @@ fun MediaPreviewDialog(
             }
             delay(200)
         }
+    }
+
+    val view = androidx.compose.ui.platform.LocalView.current
+    DisposableEffect(view, isPlaying) {
+        view.keepScreenOn = isPlaying
+        onDispose { view.keepScreenOn = false }
     }
 
     DisposableEffect(exoPlayer) {

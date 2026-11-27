@@ -8,6 +8,16 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.os.StatFs
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material.icons.outlined.CleaningServices
+import androidx.compose.runtime.LaunchedEffect
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
@@ -184,6 +194,28 @@ fun DownloadDirectoryPreferences(onNavigateBack: () -> Unit) {
 
     var showOutputTemplateDialog by remember { mutableStateOf(false) }
 
+    var freeSpaceBytes by remember { mutableStateOf<Long?>(null) }
+    var orphanCount by remember { mutableIntStateOf(0) }
+    var orphanBytes by remember { mutableStateOf(0L) }
+    var isScanningStorage by remember { mutableStateOf(true) }
+    var storageScanTrigger by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(storageScanTrigger, videoDirectoryText) {
+        isScanningStorage = true
+        val (freeBytes, report) = withContext(Dispatchers.IO) {
+            val targetPath = videoDirectoryText.ifBlank {
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).path
+            }
+            val free = runCatching { StatFs(targetPath).availableBytes }.getOrNull()
+            val orphanReport = com.junkfood.seal.util.StorageCleanerUtil.scanOrphanFiles()
+            free to orphanReport
+        }
+        freeSpaceBytes = freeBytes
+        orphanCount = report.orphanFilesCount
+        orphanBytes = report.totalReclaimableBytes
+        isScanningStorage = false
+    }
+
     val storagePermission =
         rememberPermissionState(permission = Manifest.permission.WRITE_EXTERNAL_STORAGE)
     val showDirectoryAlert =
@@ -263,6 +295,88 @@ fun DownloadDirectoryPreferences(onNavigateBack: () -> Unit) {
         },
     ) {
         LazyColumn(modifier = Modifier, contentPadding = it) {
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    ),
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.CleaningServices,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                text = stringResource(R.string.storage_overview_title),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        freeSpaceBytes?.let { free ->
+                            Text(
+                                text = stringResource(R.string.storage_free_space, FileUtil.formatFileSize(free)),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = if (orphanCount > 0) {
+                                stringResource(
+                                    R.string.storage_orphan_found,
+                                    FileUtil.formatFileSize(orphanBytes),
+                                    orphanCount,
+                                )
+                            } else {
+                                stringResource(R.string.storage_no_orphans)
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (orphanCount > 0) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (orphanCount > 0 && !isScanningStorage) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            FilledTonalButton(
+                                onClick = {
+                                    scope.launch(Dispatchers.IO) {
+                                        val report = com.junkfood.seal.util.StorageCleanerUtil.scanOrphanFiles()
+                                        val reclaimed = com.junkfood.seal.util.StorageCleanerUtil.cleanOrphanFiles(report.orphanFiles)
+                                        val cleaned = FileUtil.run {
+                                            clearTempFiles(getExternalTempDir()) +
+                                                clearTempFiles(context.getSdcardTempDir(null)) +
+                                                clearTempFiles(context.getInternalTempDir()) +
+                                                report.orphanFilesCount
+                                        }
+                                        storageScanTrigger++
+                                        withContext(Dispatchers.Main) {
+                                            val msg = if (reclaimed > 0) {
+                                                context.getString(R.string.clear_temp_files_count).format(cleaned) +
+                                                    " (${FileUtil.formatFileSize(reclaimed)})"
+                                            } else {
+                                                context.getString(R.string.clear_temp_files_count).format(cleaned)
+                                            }
+                                            snackbarHostState.showSnackbar(msg)
+                                        }
+                                    }
+                                },
+                            ) {
+                                Icon(Icons.Outlined.FolderDelete, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.size(6.dp))
+                                Text(stringResource(R.string.storage_clean_now))
+                            }
+                        }
+                    }
+                }
+            }
             if (isCustomCommandEnabled)
                 item {
                     PreferenceInfo(text = stringResource(id = R.string.custom_command_enabled_hint))
@@ -605,7 +719,7 @@ fun OutputTemplateDialog(
                                 isError = error != 0,
                                 supportingText = {
                                     Text(
-                                        "Required: ${DownloadUtil.BASENAME}, ${DownloadUtil.EXTENSION}",
+                                        stringResource(R.string.required_tokens_hint, DownloadUtil.BASENAME, DownloadUtil.EXTENSION),
                                         fontFamily = FontFamily.Monospace,
                                     )
                                 },

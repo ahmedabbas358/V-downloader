@@ -51,6 +51,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -71,6 +72,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.junkfood.seal.R
+import com.junkfood.seal.App
+import com.junkfood.seal.util.AUTO_PLAYLIST_SYNC
+import com.junkfood.seal.util.PreferenceUtil
+import com.junkfood.seal.util.PreferenceUtil.getBoolean
 import com.junkfood.seal.download.DownloaderV2
 import com.junkfood.seal.download.PlaylistVerifier
 import com.junkfood.seal.ui.component.SealModalBottomSheet
@@ -346,6 +351,43 @@ fun PlaylistSyncDialog(
                 Spacer(modifier = Modifier.height(10.dp))
             }
 
+            // Auto background Wi-Fi playlist sync toggle
+            var autoSyncEnabled by remember { mutableStateOf(AUTO_PLAYLIST_SYNC.getBoolean()) }
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.playlist_auto_sync_toggle),
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                        Text(
+                            text = stringResource(R.string.playlist_auto_sync_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Switch(
+                        checked = autoSyncEnabled,
+                        onCheckedChange = { enabled ->
+                            autoSyncEnabled = enabled
+                            AUTO_PLAYLIST_SYNC.updateBoolean(enabled)
+                            App.updatePlaylistSyncSchedule(enabled)
+                        }
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+
             // Scan button
             val effectivePrefs = remember(selectedType, currentPrefs) {
                 currentPrefs.copy(
@@ -372,6 +414,7 @@ fun PlaylistSyncDialog(
                         )
                         isScanning = false
                         res.onSuccess {
+                            PreferenceUtil.saveLink(url.trim())
                             scanResult = it
                             selectedMissingIndices.clear()
                             val autoSelectItems = it.items.filter { item -> 

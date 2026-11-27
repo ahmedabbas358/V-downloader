@@ -30,6 +30,7 @@ import com.junkfood.seal.download.Task.TypeInfo
 import com.junkfood.seal.download.engine.builder.OutputTemplateBuilder
 import com.junkfood.seal.download.engine.resilience.FileCollisionResolver
 import com.junkfood.seal.download.engine.subtitle.SubtitleManager
+import com.junkfood.seal.util.CELLULAR_DOWNLOAD
 import com.junkfood.seal.util.DatabaseUtil
 import com.junkfood.seal.util.DownloadUtil
 import com.junkfood.seal.util.FileUtil
@@ -74,19 +75,36 @@ class DownloadQueueManager(
     private val queueMutex = Mutex()
     private val retryCountMap = mutableMapOf<String, Int>()
     private val priorityTaskIds = mutableSetOf<String>()
+    private val pausedForWifiTaskIds = mutableSetOf<String>()
+
+    private fun isBlockedByMeteredNetwork(): Boolean {
+        if (CELLULAR_DOWNLOAD.getBoolean()) return false
+        return try {
+            App.connectivityManager.isActiveNetworkMetered
+        } catch (_: Exception) {
+            false
+        }
+    }
 
     private val snapshotFlow =
         snapshotFlow { taskStateMap.toMap() }
             .sample(500)
 
     init {
-        // 1. Network Connectivity Listener
+        // 1. Network Connectivity Listener (handles both availability & Wi-Fi / Metered transitions)
         try {
             App.connectivityManager.registerDefaultNetworkCallback(
                 object : ConnectivityManager.NetworkCallback() {
                     override fun onAvailable(network: Network) {
-                        Log.d(TAG, "Network connection restored. Processing pending download queue...")
-                        scope.launch(Dispatchers.Default) { processQueue() }
+                        Log.d(TAG, "Network connection restored. Checking queue...")
+                        handleNetworkStateChange()
+                    }
+
+                    override fun onCapabilitiesChanged(
+                        network: Network,
+                        networkCapabilities: android.net.NetworkCapabilities,
+                    ) {
+                        handleNetworkStateChange()
                     }
                 }
             )
@@ -224,9 +242,57 @@ class DownloadQueueManager(
     }
 
     /**
+     * Responds to network availability / metered-status transitions.
+     * Auto-resumes Wi-Fi-paused tasks when an unmetered connection returns, and pauses active
+     * tasks if switching onto metered data while cellular downloads are disabled.
+     */
+    private fun handleNetworkStateChange() {
+        scope.launch(Dispatchers.Default) {
+            if (isBlockedByMeteredNetwork()) {
+                val activeTasks = taskStateMap.entries
+                    .filter { (_, state) ->
+                        state.downloadState is Running || state.downloadState is FetchingInfo
+                    }
+                    .map { it.key }
+                if (activeTasks.isNotEmpty()) {
+                    Log.w(TAG, "Switched to metered network with cellular disabled; pausing ${activeTasks.size} task(s) until Wi-Fi")
+                    activeTasks.forEach { task ->
+                        pausedForWifiTaskIds.add(task.id)
+                        cancel(task, isPaused = true)
+                    }
+                    NotificationUtil.notifyWaitingForWifi()
+                }
+            } else {
+                val toResumeIds = pausedForWifiTaskIds.toList()
+                pausedForWifiTaskIds.clear()
+                if (toResumeIds.isNotEmpty()) {
+                    Log.i(TAG, "Unmetered network available; auto-resuming ${toResumeIds.size} Wi-Fi-paused task(s)")
+                    NotificationUtil.cancelNotification(NotificationUtil.SUMMARY_NOTIFICATION_ID + 1)
+                    toResumeIds.forEach { taskId ->
+                        taskStateMap.keys.find { it.id == taskId }?.let { restart(it) }
+                    }
+                }
+                processQueue()
+            }
+        }
+    }
+
+    /**
      * Processes pending tasks, observing concurrency limits, priorities, and playlist sequence.
      */
     private suspend fun processQueueInternal() {
+        if (isBlockedByMeteredNetwork()) {
+            val hasPending = taskStateMap.values.any {
+                it.downloadState == Idle || it.downloadState == ReadyWithInfo
+            }
+            if (hasPending) {
+                Log.d(TAG, "Pending downloads deferred: cellular downloads disabled on metered network")
+                NotificationUtil.notifyWaitingForWifi()
+            }
+            return
+        }
+        NotificationUtil.cancelNotification(NotificationUtil.SUMMARY_NOTIFICATION_ID + 1)
+
         val maxConcurrent = PreferenceUtil.getMaxConcurrentDownloads().coerceAtLeast(1)
 
         while (taskStateMap.countRunning() < maxConcurrent) {
@@ -624,7 +690,8 @@ class DownloadQueueManager(
                     title = current.viewState.title,
                     textId = R.string.download_error_professional,
                     notificationId = task.id.hashCode(),
-                    report = throwable.stackTraceToString()
+                    report = throwable.stackTraceToString(),
+                    taskId = task.id
                 )
                 processQueue()
             }

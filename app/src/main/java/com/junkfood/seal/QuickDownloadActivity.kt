@@ -40,6 +40,17 @@ private const val TAG = "QuickDownloadActivity"
 
 class QuickDownloadActivity : ComponentActivity() {
     private var sharedUrlCached: String = ""
+    private var pendingClipboardRead: Boolean = false
+    private var clipboardAttempted: Boolean = false
+
+    private fun readClipboardUrl(): String? {
+        val clipboardManager =
+            getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                as? android.content.ClipboardManager ?: return null
+        if (!clipboardManager.hasPrimaryClip()) return null
+        val text = clipboardManager.primaryClip?.getItemAt(0)?.text?.toString().orEmpty()
+        return matchUrlFromSharedText(text).takeIf { it.isNotBlank() }
+    }
 
     private fun Intent.getSharedURL(): String? {
         val intent = this
@@ -57,11 +68,8 @@ class QuickDownloadActivity : ComponentActivity() {
             }
 
             "com.junkfood.seal.action.QUICK_DOWNLOAD" -> {
-                val clipboardManager = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                if (clipboardManager.hasPrimaryClip()) {
-                    val text = clipboardManager.primaryClip?.getItemAt(0)?.text?.toString() ?: ""
-                    matchUrlFromSharedText(text)
-                } else null
+                pendingClipboardRead = true
+                readClipboardUrl()
             }
 
             else -> {
@@ -77,7 +85,8 @@ class QuickDownloadActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         intent.getSharedURL()?.let { sharedUrlCached = it }
 
-        if (sharedUrlCached.isEmpty()) {
+        val launchedFromQuickTile = intent?.action == "com.junkfood.seal.action.QUICK_DOWNLOAD"
+        if (sharedUrlCached.isEmpty() && !launchedFromQuickTile) {
             android.widget.Toast.makeText(
                 this,
                 getString(R.string.paste_fail_msg),
@@ -103,7 +112,12 @@ class QuickDownloadActivity : ComponentActivity() {
 
         val viewModel: DownloadDialogViewModel = getViewModel()
         quickDownloadViewModel = viewModel
-        viewModel.postAction(Action.ShowSheet(listOf(sharedUrlCached)))
+        if (sharedUrlCached.isNotEmpty()) {
+            viewModel.postAction(Action.ShowSheet(listOf(sharedUrlCached)))
+        } else {
+            // Allow Android 10+ window-focus clipboard read and manual paste fallback
+            viewModel.postAction(Action.ShowSheet(null))
+        }
 
         setContent {
             SettingsProvider(calculateWindowSizeClass(this).widthSizeClass) {
@@ -178,13 +192,33 @@ class QuickDownloadActivity : ComponentActivity() {
         }
     }
 
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        // On Android 10+ (API 29+), primary clipboard content only becomes readable after window focus
+        if (hasFocus && pendingClipboardRead && !clipboardAttempted) {
+            clipboardAttempted = true
+            pendingClipboardRead = false
+            if (sharedUrlCached.isEmpty()) {
+                val focusedUrl = readClipboardUrl()
+                if (!focusedUrl.isNullOrBlank()) {
+                    sharedUrlCached = focusedUrl
+                    quickDownloadViewModel?.postAction(Action.ShowSheet(listOf(focusedUrl)))
+                }
+            }
+        }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        clipboardAttempted = false
         val newUrl = intent.getSharedURL()
         if (!newUrl.isNullOrEmpty()) {
             sharedUrlCached = newUrl
             quickDownloadViewModel?.postAction(Action.ShowSheet(listOf(newUrl)))
+        } else if (intent.action == "com.junkfood.seal.action.QUICK_DOWNLOAD") {
+            sharedUrlCached = ""
+            quickDownloadViewModel?.postAction(Action.ShowSheet(null))
         }
     }
 }

@@ -45,6 +45,7 @@ import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.outlined.AudioFile
 import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.GridView
@@ -58,8 +59,12 @@ import androidx.compose.material.icons.outlined.Subtitles
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.VideoFile
+import androidx.compose.material.icons.outlined.WifiOff
+import androidx.compose.material3.Button
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -71,6 +76,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
@@ -106,12 +112,17 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.constraintlayout.compose.ConstraintLayout
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.junkfood.seal.App
 import com.junkfood.seal.R
 import com.junkfood.seal.download.DownloaderV2
 import com.junkfood.seal.download.Task
@@ -144,10 +155,14 @@ import com.junkfood.seal.ui.page.downloadv2.menu.ViewOptionsState
 import com.junkfood.seal.ui.svg.DynamicColorImageVectors
 import com.junkfood.seal.ui.svg.drawablevectors.download
 import com.junkfood.seal.ui.theme.SealTheme
+import com.junkfood.seal.util.CELLULAR_DOWNLOAD
 import com.junkfood.seal.util.DownloadUtil
 import com.junkfood.seal.util.FileUtil
+import com.junkfood.seal.util.PreferenceUtil
+import com.junkfood.seal.util.PreferenceUtil.getBoolean
 import com.junkfood.seal.util.getErrorReport
 import com.junkfood.seal.util.makeToast
+import com.junkfood.seal.util.matchUrlFromSharedText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -276,6 +291,32 @@ fun DownloadPageV2(
             view.slightHapticFeedback()
             dialogViewModel.postAction(Action.ShowSheet())
         },
+        onQuickDownloadUrl = { url ->
+            view.slightHapticFeedback()
+            dialogViewModel.postAction(
+                Action.DownloadWithPreset(
+                    urlList = listOf(url),
+                    preferences = DownloadUtil.DownloadPreferences.createFromPreferences(),
+                )
+            )
+        },
+        onConfigureUrl = { url ->
+            view.slightHapticFeedback()
+            dialogViewModel.postAction(Action.ShowSheet(listOf(url)))
+        },
+        onAllowCellularNow = {
+            PreferenceUtil.updateValue(CELLULAR_DOWNLOAD, true)
+            downloader.getTaskStateMap().entries
+                .filter { (_, st) ->
+                    st.downloadState is Idle ||
+                        st.downloadState is ReadyWithInfo ||
+                        (st.downloadState as? Canceled)?.isPaused == true
+                }
+                .forEach { (task, st) ->
+                    if (st.downloadState is Canceled) downloader.restart(task)
+                    else downloader.enqueue(task, st)
+                }
+        },
         onMenuOpen = onMenuOpen,
     ) { task, action ->
         view.slightHapticFeedback()
@@ -350,6 +391,9 @@ fun DownloadPageImplV2(
     modifier: Modifier = Modifier,
     taskDownloadStateMap: SnapshotStateMap<Task, Task.State>,
     downloadCallback: () -> Unit = {},
+    onQuickDownloadUrl: ((String) -> Unit)? = null,
+    onConfigureUrl: ((String) -> Unit)? = null,
+    onAllowCellularNow: (() -> Unit)? = null,
     onMenuOpen: (() -> Unit) = {},
     onActionPost: (Task, UiAction) -> Unit,
 ) {
@@ -367,7 +411,37 @@ fun DownloadPageImplV2(
     val isSelectionMode = selectedTasks.isNotEmpty()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val menuSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+
+    var detectedClipboardUrl by remember { mutableStateOf<String?>(null) }
+    var dismissedClipboardUrl by remember { mutableStateOf<String?>(null) }
+    var isMeteredBlocked by remember { mutableStateOf(false) }
+
+    fun refreshSmartBanners() {
+        isMeteredBlocked = !CELLULAR_DOWNLOAD.getBoolean() && runCatching {
+            App.connectivityManager.isActiveNetworkMetered
+        }.getOrDefault(false)
+
+        val clipText = clipboardManager.getText()?.text.orEmpty()
+        val matched = matchUrlFromSharedText(clipText)
+        val alreadyQueued = taskDownloadStateMap.keys.any { it.url == matched }
+        detectedClipboardUrl =
+            if (matched.isNotBlank() && matched != dismissedClipboardUrl && !alreadyQueued && (onQuickDownloadUrl != null || onConfigureUrl != null)) {
+                matched
+            } else null
+    }
+
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                refreshSmartBanners()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     val filteredMap by
         remember(activeFilter, sortOption, taskDownloadStateMap, searchQuery) {
@@ -631,6 +705,121 @@ fun DownloadPageImplV2(
                     Spacer(Modifier.height(8.dp))
                     if (headerOffset <= 0.1f && spacerHeight > 0f) {
                         HorizontalDivider(thickness = Dp.Hairline)
+                    }
+                }
+
+                // Smart OS Integration Banners: Waiting for Wi-Fi + Clipboard Link Quick Action
+                val hasWaitingTasks = filteredMap.any { (_, st) ->
+                    st.downloadState == Idle ||
+                        st.downloadState == ReadyWithInfo ||
+                        (st.downloadState as? Canceled)?.isPaused == true
+                }
+                if (isMeteredBlocked && hasWaitingTasks && onAllowCellularNow != null) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 4.dp),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.WifiOff,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                text = stringResource(R.string.waiting_for_wifi_hint),
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.weight(1f),
+                            )
+                            TextButton(
+                                onClick = {
+                                    isMeteredBlocked = false
+                                    onAllowCellularNow()
+                                },
+                            ) {
+                                Text(stringResource(R.string.allow_cellular_once))
+                            }
+                        }
+                    }
+                }
+
+                detectedClipboardUrl?.let { clipUrl ->
+                    ElevatedCard(
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 4.dp),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 14.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.ContentPaste,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.clipboard_link_detected),
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                Text(
+                                    text = clipUrl,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            if (onConfigureUrl != null) {
+                                TextButton(
+                                    onClick = {
+                                        dismissedClipboardUrl = clipUrl
+                                        detectedClipboardUrl = null
+                                        onConfigureUrl(clipUrl)
+                                    },
+                                ) {
+                                    Text(stringResource(R.string.clipboard_configure))
+                                }
+                            }
+                            if (onQuickDownloadUrl != null) {
+                                FilledTonalButton(
+                                    onClick = {
+                                        dismissedClipboardUrl = clipUrl
+                                        detectedClipboardUrl = null
+                                        onQuickDownloadUrl(clipUrl)
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                ) {
+                                    Text(stringResource(R.string.clipboard_quick_download))
+                                }
+                            }
+                            IconButton(
+                                onClick = {
+                                    dismissedClipboardUrl = clipUrl
+                                    detectedClipboardUrl = null
+                                },
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Close,
+                                    contentDescription = stringResource(R.string.dismiss),
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                        }
                     }
                 }
 
@@ -1242,7 +1431,7 @@ private fun HeaderExpanded(
                 )
             )
             IconButton(onClick = { onToggleSearch(false); onSearchQueryChange("") }) {
-                Icon(Icons.Outlined.Close, contentDescription = "Close search")
+                Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.close))
             }
         } else {
             IconButton(onClick = { onToggleSearch(true) }) {

@@ -35,8 +35,12 @@ import androidx.compose.material.icons.rounded.Cookie
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.SettingsApplications
+import androidx.compose.material3.Badge
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DrawerValue
+import com.junkfood.seal.download.DownloaderV2
+import com.junkfood.seal.download.Task
+import org.koin.core.context.GlobalContext
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -218,7 +222,7 @@ fun NavigationDrawerSheetContent(
                     )
                 }
                 Text(
-                    text = "Smart Media Engine",
+                    text = stringResource(R.string.smart_media_engine),
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontSize = 12.sp,
                         fontWeight = androidx.compose.ui.text.font.FontWeight.Normal
@@ -233,10 +237,29 @@ fun NavigationDrawerSheetContent(
             )
         }
 
+        val activeDownloadCount = remember {
+            GlobalContext.getOrNull()?.getOrNull<DownloaderV2>()
+        }?.getTaskStateMap()?.values?.count {
+            it.downloadState is Task.DownloadState.Running ||
+                it.downloadState is Task.DownloadState.FetchingInfo ||
+                it.downloadState is Task.DownloadState.Idle ||
+                it.downloadState is Task.DownloadState.ReadyWithInfo
+        } ?: 0
+
         ProvideTextStyle(MaterialTheme.typography.labelLarge) {
             NavigationDrawerItem(
                 label = { Text(stringResource(R.string.download_queue), fontWeight = androidx.compose.ui.text.font.FontWeight.Medium) },
                 icon = { Icon(Icons.Filled.Download, null) },
+                badge = if (activeDownloadCount > 0) {
+                    {
+                        Badge(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                        ) {
+                            Text(activeDownloadCount.toString())
+                        }
+                    }
+                } else null,
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
                 onClick = {
                     scope
@@ -255,7 +278,7 @@ fun NavigationDrawerSheetContent(
             Spacer(Modifier.height(4.dp))
 
             NavigationDrawerItem(
-                label = { Text("Social Hub", fontWeight = androidx.compose.ui.text.font.FontWeight.Medium) },
+                label = { Text(stringResource(R.string.social_hub_nav), fontWeight = androidx.compose.ui.text.font.FontWeight.Medium) },
                 icon = { Icon(Icons.Outlined.Explore, null) },
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
                 onClick = {
@@ -494,7 +517,7 @@ fun NavigationRailContent(
                 Icon(
                     if (currentTopDestination == Route.SOCIAL_HUB) Icons.Filled.Explore
                     else Icons.Outlined.Explore,
-                    "Social Hub",
+                    stringResource(R.string.social_hub_nav),
                 )
             },
             modifier = Modifier,

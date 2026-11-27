@@ -19,6 +19,7 @@ import com.junkfood.seal.NotificationActionReceiver.Companion.ACTION_CANCEL_TASK
 import com.junkfood.seal.NotificationActionReceiver.Companion.ACTION_ERROR_REPORT
 import com.junkfood.seal.NotificationActionReceiver.Companion.ACTION_KEY
 import com.junkfood.seal.NotificationActionReceiver.Companion.ACTION_OPEN_FILE
+import com.junkfood.seal.NotificationActionReceiver.Companion.ACTION_PAUSE_TASK
 import com.junkfood.seal.NotificationActionReceiver.Companion.ACTION_RETRY_TASK
 import com.junkfood.seal.NotificationActionReceiver.Companion.ACTION_SHARE_FILE
 import com.junkfood.seal.NotificationActionReceiver.Companion.ERROR_REPORT_KEY
@@ -87,6 +88,30 @@ object NotificationUtil {
         )
     }
 
+    private fun buildActionPendingIntent(
+        requestCodeSalt: Int,
+        notificationId: Int,
+        action: Int,
+        taskId: String? = null,
+        filePath: String? = null,
+        report: String? = null,
+    ): PendingIntent {
+        val intent = Intent(context.applicationContext, NotificationActionReceiver::class.java).apply {
+            putExtra(ACTION_KEY, action)
+            putExtra(NOTIFICATION_ID_KEY, notificationId)
+            taskId?.let { putExtra(TASK_ID_KEY, it) }
+            filePath?.let { putExtra(FILE_PATH_KEY, it) }
+            report?.let { putExtra(ERROR_REPORT_KEY, it) }
+        }
+        val requestCode = (notificationId * 31) + requestCodeSalt
+        return PendingIntent.getBroadcast(
+            context.applicationContext,
+            requestCode,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
     fun notifyProgress(
         title: String,
         notificationId: Int = DEFAULT_NOTIFICATION_ID,
@@ -97,18 +122,21 @@ object NotificationUtil {
         if (!NOTIFICATION.getBoolean()) return
         val cancelPendingIntent =
             taskId?.let {
-                Intent(context.applicationContext, NotificationActionReceiver::class.java)
-                    .putExtra(TASK_ID_KEY, taskId)
-                    .putExtra(NOTIFICATION_ID_KEY, notificationId)
-                    .putExtra(ACTION_KEY, ACTION_CANCEL_TASK)
-                    .run {
-                        PendingIntent.getBroadcast(
-                            context.applicationContext,
-                            notificationId,
-                            this,
-                            PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE,
-                        )
-                    }
+                buildActionPendingIntent(
+                    requestCodeSalt = 1,
+                    notificationId = notificationId,
+                    action = ACTION_CANCEL_TASK,
+                    taskId = it,
+                )
+            }
+        val pausePendingIntent =
+            taskId?.let {
+                buildActionPendingIntent(
+                    requestCodeSalt = 2,
+                    notificationId = notificationId,
+                    action = ACTION_PAUSE_TASK,
+                    taskId = it,
+                )
             }
 
         NotificationCompat.Builder(context, CHANNEL_ID)
@@ -126,6 +154,9 @@ object NotificationUtil {
             .setGroup("DOWNLOADS_GROUP")
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .run {
+                pausePendingIntent?.let {
+                    addAction(android.R.drawable.ic_media_pause, context.getString(R.string.pause), it)
+                }
                 cancelPendingIntent?.let {
                     addAction(R.drawable.outline_cancel_24, context.getString(R.string.cancel), it)
                 }
@@ -133,6 +164,62 @@ object NotificationUtil {
                 notificationManager.notify(notificationId, notification)
                 postGroupSummaryNotification()
             }
+    }
+
+    fun notifyPaused(
+        title: String,
+        notificationId: Int,
+        taskId: String,
+        statusText: String = context.getString(R.string.notif_paused_text),
+    ) {
+        if (!NOTIFICATION.getBoolean()) return
+        val resumePendingIntent =
+            buildActionPendingIntent(
+                requestCodeSalt = 3,
+                notificationId = notificationId,
+                action = ACTION_RETRY_TASK,
+                taskId = taskId,
+            )
+        val cancelPendingIntent =
+            buildActionPendingIntent(
+                requestCodeSalt = 1,
+                notificationId = notificationId,
+                action = ACTION_CANCEL_TASK,
+                taskId = taskId,
+            )
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_seal)
+            .setColor(COLOR_PROGRESS)
+            .setSubText(context.getString(R.string.app_name))
+            .setContentTitle(title)
+            .setContentText(statusText)
+            .setContentIntent(mainActivityPendingIntent)
+            .setOngoing(false)
+            .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setGroup("DOWNLOADS_GROUP")
+            .addAction(R.drawable.outline_restart_alt_24, context.getString(R.string.notif_action_resume), resumePendingIntent)
+            .addAction(R.drawable.outline_cancel_24, context.getString(R.string.cancel), cancelPendingIntent)
+            .build()
+        notificationManager.notify(notificationId, notification)
+    }
+
+    fun notifyWaitingForWifi() {
+        if (!NOTIFICATION.getBoolean()) return
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_seal)
+            .setColor(COLOR_PROGRESS)
+            .setContentTitle(context.getString(R.string.notif_waiting_wifi))
+            .setContentText(context.getString(R.string.notif_waiting_wifi_desc))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(context.getString(R.string.notif_waiting_wifi_desc)))
+            .setContentIntent(mainActivityPendingIntent)
+            .setOnlyAlertOnce(true)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setGroup("DOWNLOADS_GROUP")
+            .build()
+        notificationManager.notify(SUMMARY_NOTIFICATION_ID + 1, notification)
     }
 
     fun finishNotification(
@@ -162,28 +249,17 @@ object NotificationUtil {
         builder.setGroup("DOWNLOADS_GROUP")
 
         if (!filePath.isNullOrBlank()) {
-            val openIntent = Intent(context, NotificationActionReceiver::class.java).apply {
-                putExtra(ACTION_KEY, ACTION_OPEN_FILE)
-                putExtra(FILE_PATH_KEY, filePath)
-                putExtra(NOTIFICATION_ID_KEY, notificationId)
-            }
-            val openPendingIntent = PendingIntent.getBroadcast(
-                context,
-                notificationId + 1000,
-                openIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            val openPendingIntent = buildActionPendingIntent(
+                requestCodeSalt = 4,
+                notificationId = notificationId,
+                action = ACTION_OPEN_FILE,
+                filePath = filePath,
             )
-
-            val shareIntent = Intent(context, NotificationActionReceiver::class.java).apply {
-                putExtra(ACTION_KEY, ACTION_SHARE_FILE)
-                putExtra(FILE_PATH_KEY, filePath)
-                putExtra(NOTIFICATION_ID_KEY, notificationId)
-            }
-            val sharePendingIntent = PendingIntent.getBroadcast(
-                context,
-                notificationId + 2000,
-                shareIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            val sharePendingIntent = buildActionPendingIntent(
+                requestCodeSalt = 5,
+                notificationId = notificationId,
+                action = ACTION_SHARE_FILE,
+                filePath = filePath,
             )
 
             builder.addAction(R.drawable.outline_open_in_new_24, context.getString(R.string.notif_action_open), openPendingIntent)
@@ -202,6 +278,7 @@ object NotificationUtil {
                 .setColor(COLOR_PROGRESS)
                 .setGroup("DOWNLOADS_GROUP")
                 .setGroupSummary(true)
+                .setAutoCancel(true)
                 .build()
             notificationManager.notify(SUMMARY_NOTIFICATION_ID, summaryNotification)
         }
@@ -305,28 +382,23 @@ object NotificationUtil {
     ) {
         if (!NOTIFICATION.getBoolean()) return
 
-        val reportIntent =
-            Intent()
-                .setClass(context, NotificationActionReceiver::class.java)
-                .putExtra(NOTIFICATION_ID_KEY, notificationId)
-                .putExtra(ERROR_REPORT_KEY, report)
-                .putExtra(ACTION_KEY, ACTION_ERROR_REPORT)
-
-        val reportPendingIntent =
-            PendingIntent.getBroadcast(
-                context,
-                notificationId,
-                reportIntent,
-                PendingIntent.FLAG_ONE_SHOT or
-                    PendingIntent.FLAG_IMMUTABLE or
-                    PendingIntent.FLAG_UPDATE_CURRENT,
-            )
+        val reportPendingIntent = buildActionPendingIntent(
+            requestCodeSalt = 6,
+            notificationId = notificationId,
+            action = ACTION_ERROR_REPORT,
+            report = report,
+        )
 
         val appIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
         val appPendingIntent = appIntent?.let {
-            PendingIntent.getActivity(context, notificationId, it, PendingIntent.FLAG_IMMUTABLE)
+            PendingIntent.getActivity(
+                context,
+                (notificationId * 31) + 7,
+                it,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
         }
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
@@ -342,16 +414,11 @@ object NotificationUtil {
             .setGroup("DOWNLOADS_GROUP")
 
         if (!taskId.isNullOrBlank()) {
-            val retryIntent = Intent(context, NotificationActionReceiver::class.java).apply {
-                putExtra(ACTION_KEY, ACTION_RETRY_TASK)
-                putExtra(TASK_ID_KEY, taskId)
-                putExtra(NOTIFICATION_ID_KEY, notificationId)
-            }
-            val retryPendingIntent = PendingIntent.getBroadcast(
-                context,
-                notificationId + 3000,
-                retryIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            val retryPendingIntent = buildActionPendingIntent(
+                requestCodeSalt = 3,
+                notificationId = notificationId,
+                action = ACTION_RETRY_TASK,
+                taskId = taskId,
             )
             builder.addAction(
                 R.drawable.outline_restart_alt_24,
@@ -380,19 +447,12 @@ object NotificationUtil {
     ) {
         if (!NOTIFICATION.getBoolean()) return
 
-        val intent =
-            Intent(context.applicationContext, NotificationActionReceiver::class.java)
-                .putExtra(TASK_ID_KEY, taskId)
-                .putExtra(NOTIFICATION_ID_KEY, notificationId)
-                .putExtra(ACTION_KEY, ACTION_CANCEL_TASK)
-
-        val pendingIntent =
-            PendingIntent.getBroadcast(
-                context,
-                notificationId,
-                intent,
-                PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE,
-            )
+        val pendingIntent = buildActionPendingIntent(
+            requestCodeSalt = 1,
+            notificationId = notificationId,
+            action = ACTION_CANCEL_TASK,
+            taskId = taskId,
+        )
 
         NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_seal)

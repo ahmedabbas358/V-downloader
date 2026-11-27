@@ -63,6 +63,7 @@ const val SUBDIRECTORY_EXTRACTOR = "sub-directory"
 const val SUBDIRECTORY_PLAYLIST_TITLE = "subdirectory_playlist_title"
 const val PLAYLIST = "playlist"
 const val PLAYLIST_NUMBERING = "playlist_numbering"
+const val AUTO_PLAYLIST_SYNC = "auto_playlist_sync"
 private const val LANGUAGE = "language"
 const val NOTIFICATION = "notification"
 private const val THEME_COLOR = "theme_color"
@@ -456,6 +457,7 @@ private val BooleanPreferenceDefaults =
         EMBED_METADATA to true,
         USE_CUSTOM_AUDIO_PRESET to false,
         ENABLE_EXPERIMENTAL_FEATURES to false,
+        AUTO_PLAYLIST_SYNC to false,
     )
 
 private val IntPreferenceDefaults =
